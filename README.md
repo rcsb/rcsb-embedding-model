@@ -26,8 +26,8 @@ The aggregator consists of six transformer encoder layers, with 3,072 neurons fe
 Following the encoders, a summation pooling operation and 12 fully connected residual layers aggregate the resulting embeddings into a single 1,536-dimensional vector.
 
 ### How to use the model
-This repository contains the Residue Embedding Aggregator. First, you will need to calculate ESM3 embeddings for the 3D structures.
-The script `examples/esm_embeddings.py` contains an example using [biotite](https://www.biotite-python.org/)
+This repository contains the Residue Embedding Aggregator model. First, you will need to calculate ESM3 embeddings for the 3D structures.
+The script `examples/esm_embeddings.py` shows how to do this using [biotite](https://www.biotite-python.org/).
 
 You can download the Residue Embedding Aggregator model from [zenodo]() and loaded as a pytorch model as shown in the code above 
 
