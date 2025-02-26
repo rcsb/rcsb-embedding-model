@@ -2,7 +2,7 @@
 RCSB Embedding Model
 ---
 
-RCSB Embedding Model is a pytorch to transform macromolecule 3D structures into vectors.
+RCSB Embedding Model is a pytorch model that transforms macromolecule 3D structures into vectors.
 
 A web application implementing this method is available at [rcsb-embedding-search](http://embedding-search.rcsb.org).
 
