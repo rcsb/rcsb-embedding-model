@@ -29,7 +29,7 @@ Following the encoders, a summation pooling operation and 12 fully connected res
 This repository contains the Residue Embedding Aggregator model. First, you will need to calculate ESM3 embeddings for the 3D structures.
 The script `examples/esm_embeddings.py` shows how to do this using [biotite](https://www.biotite-python.org/).
 
-You can download a pretrained Residue Embedding Aggregator model from [huggingface](https://huggingface.co/jseguramora/rcsb-embedding-model/resolve/main/rcsb-embedding-model.pt) and loaded as a pytorch model as shown in the code above 
+You can download a pretrained Residue Embedding Aggregator model from [huggingface](https://huggingface.co/jseguramora/rcsb-embedding-model/resolve/main/rcsb-embedding-model.pt) and loaded as a pytorch model as shown in the code above.
 
 ```python
     if torch.cuda.is_available():
