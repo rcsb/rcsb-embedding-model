@@ -6,8 +6,8 @@ RCSB Embedding Model is a pytorch model that transforms macromolecule 3D structu
 
 A web application implementing this method is available at [rcsb-embedding-search](http://embedding-search.rcsb.org).
 
-If you are interested in training the model with a new dataset [rcsb-embedding-search](https://github.com/bioinsilico/rcsb-embedding-search)
-provides different scripts and documentation for that task.
+If you are interested in training the model with a new dataset the repo [rcsb-embedding-search](https://github.com/bioinsilico/rcsb-embedding-search)
+provides different scripts and documentation for this task.
 
 ### Embedding Model
 The embedding model was trained to predict structure similarity approximating TM-scores with embedding cosine distance.
