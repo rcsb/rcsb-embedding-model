@@ -33,9 +33,9 @@ You can download a pretrained Residue Embedding Aggregator model from [huggingfa
 
 ```python
     if torch.cuda.is_available():
-        weights = torch.load(modelfile, weights_only=True)
+        weights = torch.load(aggregator_modelfile, weights_only=True)
     else:
-        weights = torch.load(modelfile, weights_only=True, map_location='cpu')
+        weights = torch.load(aggregator_modelfile, weights_only=True, map_location='cpu')
 
     aggregator_model = ResidueEmbeddingAggregator()
     aggregator_model.load_state_dict(weights)
