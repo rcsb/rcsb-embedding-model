@@ -42,7 +42,7 @@ You can download a pretrained Residue Embedding Aggregator model from [Hugging F
 
 ```python
 import torch
-from model import ResidueEmbeddingAggregator  # Ensure correct model import
+from residue_embedding_aggregator import ResidueEmbeddingAggregator  # Ensure correct model import
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 weights = torch.load("rcsb-embedding-model.pt", weights_only=True, map_location=device)
