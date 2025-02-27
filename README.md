@@ -31,8 +31,6 @@ This repository provides the Residue Embedding Aggregator model, which processes
 ### **Requirements**
 Ensure you have the following dependencies installed:
 - `torch`
-- `biotite`
-- `transformers`
 
 ### **Generating Embeddings**
 First, compute ESM3 embeddings for the 3D structures using the script `examples/esm_embeddings.py` with [Biotite](https://www.biotite-python.org/).
