@@ -1,79 +1,80 @@
+# RCSB Embedding Model: A Deep Learning Approach for 3D Structure Embeddings
 
-RCSB Embedding Model
+## Overview
+RCSB Embedding Model is a PyTorch-based neural network that transforms macromolecular 3D structures into vector embeddings.
+
+A web-based implementation of this method is available at [rcsb-embedding-search](http://embedding-search.rcsb.org).
+
+If you are interested in training the model with a new dataset, visit the [rcsb-embedding-search repository](https://github.com/bioinsilico/rcsb-embedding-search), which provides scripts and documentation for training.
+
 ---
 
-RCSB Embedding Model is a pytorch model that transforms macromolecule 3D structures into vectors.
+## Embedding Model
+The embedding model is trained to predict structural similarity by approximating TM-scores using cosine distances between embeddings. It consists of two main components:
 
-A web application implementing this method is available at [rcsb-embedding-search](http://embedding-search.rcsb.org).
-
-If you are interested in training the model with a new dataset the repo [rcsb-embedding-search](https://github.com/bioinsilico/rcsb-embedding-search)
-provides different scripts and documentation for the task.
-
-### Embedding Model
-The embedding model was trained to predict structure similarity approximating TM-scores with embedding cosine distance.
-The model consists of two components:
-- A protein language model PLM that computes residue-level embeddings a given 3D structure
-- A transformer-based neural network that aggregates these residue-level embeddings into a single vector
+- **Protein Language Model (PLM)**: Computes residue-level embeddings from a given 3D structure.
+- **Residue Embedding Aggregator**: A transformer-based neural network that aggregates these residue-level embeddings into a single vector.
 
 ![Embedding model architecture](assets/embedding-model-architecture.png)
 
-#### PLM
-Protein residue-level embeddings are computed with the [ESM](https://www.evolutionaryscale.ai/) generative protein language model.
+### **Protein Language Model (PLM)**
+Residue-wise embeddings of protein structures are computed using the [ESM3](https://www.evolutionaryscale.ai/) generative protein language model.
 
-#### Residue Embedding Aggregator
+### **Residue Embedding Aggregator**
+The aggregation component consists of six transformer encoder layers, each with a 3,072-neuron feedforward layer and ReLU activations. After processing through these layers, a summation pooling operation is applied, followed by 12 fully connected residual layers that refine the embeddings into a single 1,536-dimensional vector.
 
-The aggregator consists of six transformer encoder layers, with 3,072 neurons feedforward layer and ReLU activations.
-Following the encoders, a summation pooling operation and 12 fully connected residual layers aggregate the resulting embeddings into a single 1,536-dimensional vector.
+---
 
-### How to use the model
-This repository contains the Residue Embedding Aggregator model. First, you will need to calculate ESM3 embeddings for the 3D structures.
-The script `examples/esm_embeddings.py` shows how to do this using [biotite](https://www.biotite-python.org/).
+## How to Use the Model
+This repository provides the Residue Embedding Aggregator model, which processes ESM3 embeddings into a fixed-dimensional vector representation.
 
-You can download a pretrained Residue Embedding Aggregator model from [huggingface](https://huggingface.co/jseguramora/rcsb-embedding-model/resolve/main/rcsb-embedding-model.pt) and loaded as a pytorch model as shown in the code above.
+### **Requirements**
+Ensure you have the following dependencies installed:
+- `torch`
+- `biotite`
+- `transformers`
+
+### **Generating Embeddings**
+First, compute ESM3 embeddings for the 3D structures using the script `examples/esm_embeddings.py` with [Biotite](https://www.biotite-python.org/).
+
+### **Loading the Pretrained Model**
+You can download a pretrained Residue Embedding Aggregator model from [Hugging Face](https://huggingface.co/jseguramora/rcsb-embedding-model/resolve/main/rcsb-embedding-model.pt) and load it as shown below:
 
 ```python
-    if torch.cuda.is_available():
-        weights = torch.load(aggregator_modelfile, weights_only=True)
-    else:
-        weights = torch.load(aggregator_modelfile, weights_only=True, map_location='cpu')
+import torch
+from model import ResidueEmbeddingAggregator  # Ensure correct model import
 
-    aggregator_model = ResidueEmbeddingAggregator()
-    aggregator_model.load_state_dict(weights)
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+weights = torch.load("rcsb-embedding-model.pt", weights_only=True, map_location=device)
 
-    structure_vect = aggregator_model(esm3_embeddigns)
+aggregator_model = ResidueEmbeddingAggregator()
+aggregator_model.load_state_dict(weights)
+aggregator_model.to(device)
+aggregator_model.eval()
+
+# Example input (precomputed ESM3 embeddings)
+structure_vect = aggregator_model(esm3_embeddings)
 ```
 
-Questions
 ---
-Please, open an issue for questions or comments.
 
-License
+## Questions & Issues
+For any questions or comments, please open an issue on this repository.
+
 ---
-BSD 3-Clause License
+
+## License
+This software is released under the BSD 3-Clause License. See the full license text below.
+
+### BSD 3-Clause License
 
 Copyright (c) 2024, RCSB Protein Data Bank, UC San Diego
 
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are met:
+Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
 
-1. Redistributions of source code must retain the above copyright notice, this
-   list of conditions and the following disclaimer.
+1. Redistributions of source code must retain the above copyright notice, this list of conditions, and the following disclaimer.
+2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions, and the following disclaimer in the documentation and/or other materials provided with the distribution.
+3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
 
-2. Redistributions in binary form must reproduce the above copyright notice,
-   this list of conditions and the following disclaimer in the documentation
-   and/or other materials provided with the distribution.
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-3. Neither the name of the copyright holder nor the names of its
-   contributors may be used to endorse or promote products derived from
-   this software without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
