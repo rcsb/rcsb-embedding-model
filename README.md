@@ -3,6 +3,8 @@
 ## Overview
 RCSB Embedding Model is a PyTorch-based neural network that transforms macromolecular 3D structures into vector embeddings.
 
+Preprint: [Multi-scale structural similarity embedding search across entire proteomes](https://www.biorxiv.org/content/10.1101/2025.02.28.640875v1).
+
 A web-based implementation using this model for structure similarity search is available at [rcsb-embedding-search](http://embedding-search.rcsb.org).
 
 If you are interested in training the model with a new dataset, visit the [rcsb-embedding-search repository](https://github.com/bioinsilico/rcsb-embedding-search), which provides scripts and documentation for training.
