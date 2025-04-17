@@ -4,7 +4,7 @@ import torch
 from biotite.structure import chain_iter, get_residues, filter_amino_acids
 from biotite.structure.io.pdb import PDBFile
 from biotite.structure.io.pdbx import CIFFile, get_structure, BinaryCIFFile
-from esm.models.esm3 import ESM3, ESM3_OPEN_SMALL, ESM3InferenceClient
+from esm.models.esm3 import ESM3, ESM3_OPEN_SMALL
 from esm.sdk.api import ESMProtein, SamplingConfig
 from esm.utils.structure.protein_chain import ProteinChain
 
@@ -35,6 +35,9 @@ def get_structure_from_file(file_name, format="pdb", chain_id=None):
         return structure
     except:
         return None
+
+
+esm3_model = ESM3.from_pretrained(ESM3_OPEN_SMALL)
 
 
 def compute_embeddings(structure):

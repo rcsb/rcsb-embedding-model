@@ -2,7 +2,7 @@
 import torch.nn as nn
 from collections import OrderedDict
 
-from layers import ResBlock
+from rcsb_embedding_model.model.layers import ResBlock
 
 
 class ResidueEmbeddingAggregator(nn.Module):

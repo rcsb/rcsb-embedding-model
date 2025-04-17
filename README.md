@@ -28,33 +28,52 @@ The aggregation component consists of six transformer encoder layers, each with 
 ---
 
 ## How to Use the Model
-This repository provides the Residue Embedding Aggregator model, which processes ESM3 embeddings into a fixed-dimensional vector representation.
+This repository provides the tools to compute embeddings for 3D macromolecular structure data.
+
+### **Installation**
+`pip install rcsb-embedding-model`
 
 ### **Requirements**
 Ensure you have the following dependencies installed:
+- `python >= 3.10`
+- `esm`
 - `torch`
 
-### **Generating Embeddings**
-First, compute ESM3 embeddings for the 3D structures using the script `examples/esm_embeddings.py` with [Biotite](https://www.biotite-python.org/).
-
-### **Loading the Pretrained Model**
-You can download a pretrained Residue Embedding Aggregator model from [Hugging Face](https://huggingface.co/jseguramora/rcsb-embedding-model/resolve/main/rcsb-embedding-model.pt) and load it as shown below:
+### **Generating Residue Embeddings**
+ESM3 embeddings for the 3D structures can be calculated as:
 
 ```python
-import torch
-from residue_embedding_aggregator import ResidueEmbeddingAggregator
+from rcsb_embedding_model import RcsbStructureEmbedding
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-weights = torch.load("rcsb-embedding-model.pt", weights_only=True, map_location=device)
-
-aggregator_model = ResidueEmbeddingAggregator()
-aggregator_model.load_state_dict(weights)
-aggregator_model.to(device)
-aggregator_model.eval()
-
-# Example input (precomputed ESM3 embeddings)
-structure_vect = aggregator_model(esm3_embeddings)
+mmcif_file = "<path_to_file>/<name>.cif"
+model = RcsbStructureEmbedding()
+res_embedding = model.residue_embedding(
+    structure_src=mmcif_file,
+    format="mmcif",
+    chain_id='A'
+)
 ```
+
+### **Generating Protein Structure**
+Protein 3D structure embedding can be calculated as:
+
+```python
+from rcsb_embedding_model import RcsbStructureEmbedding
+
+mmcif_file = "<path_to_file>/<name>.cif"
+model = RcsbStructureEmbedding()
+res_embedding = model.residue_embedding(
+    structure_src=mmcif_file,
+    format="mmcif",
+    chain_id='A'
+)
+structure_embedding = model.aggregator_embedding(
+    res_embedding
+)
+```
+
+### **Pretrained Model**
+You can download a pretrained Residue Embedding Aggregator model from [Hugging Face](https://huggingface.co/jseguramora/rcsb-embedding-model/resolve/main/rcsb-embedding-model.pt).
 
 ---
 

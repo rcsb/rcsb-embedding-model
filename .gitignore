@@ -1,2 +1,4 @@
 /.idea
 /rcsb-embedding-model.iml
+/dist/
+/.pypi.rc
