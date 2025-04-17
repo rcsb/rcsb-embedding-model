@@ -54,7 +54,7 @@ res_embedding = model.residue_embedding(
 )
 ```
 
-### **Generating Protein Structure**
+### **Generating Protein Structure Embeddings**
 Protein 3D structure embedding can be calculated as:
 
 ```python
