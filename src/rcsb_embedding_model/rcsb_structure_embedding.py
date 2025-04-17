@@ -29,10 +29,7 @@ class RcsbStructureEmbedding:
     def load_residue_embedding(self, device=None):
         if not device:
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.__residue_embedding = ESM3.from_pretrained(
-            ESM3_OPEN_SMALL,
-            device
-        )
+        self.__residue_embedding = _load_res_model(device)
 
     def load_aggregator_embedding(self, device=None):
         if not device:
@@ -146,3 +143,10 @@ def _load_model(model_path, device=None):
     aggregator_model.to(device)
     aggregator_model.eval()
     return aggregator_model
+
+
+def _load_res_model(device=None):
+    return ESM3.from_pretrained(
+        ESM3_OPEN_SMALL,
+        device
+    )
