@@ -66,6 +66,25 @@ class RcsbStructureEmbedding:
             dim=0
         )
 
+    def sequence_embedding(self, sequence):
+        self.__check_residue_embedding()
+
+        if sequence.startswith(">"):
+            sequence = "".join(line.strip() for line in sequence.splitlines() if not line.startswith(">"))
+
+        if len(sequence) < RcsbStructureEmbedding.MIN_RES:
+            raise ValueError(f"Sequence too short for embedding (min {RcsbStructureEmbedding.MIN_RES} residues)")
+
+        protein = ESMProtein.from_sequence(sequence)
+        protein_tensor = self.__residue_embedding.encode(protein)
+
+        result = self.__residue_embedding.forward_and_sample(
+            protein_tensor,
+            SamplingConfig(return_per_residue_embeddings=True)
+        )
+
+        return result.per_residue_embedding
+
     def aggregator_embedding(self, residue_embedding):
         self.__check_aggregator_embedding()
         return self.__aggregator_embedding(residue_embedding)
