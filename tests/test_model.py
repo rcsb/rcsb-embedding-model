@@ -13,7 +13,7 @@ class TestEmbeddingModel(unittest.TestCase):
         model = RcsbStructureEmbedding()
         res_embedding = model.residue_embedding(
             f"{self.__test_path}/resources/1acb.cif",
-            format="mmcif",
+            src_format="mmcif",
             chain_id='A'
         )
         self.assertEqual(list(res_embedding.shape), [243, 1536])
@@ -23,7 +23,7 @@ class TestEmbeddingModel(unittest.TestCase):
         model = RcsbStructureEmbedding()
         res_embedding = model.residue_embedding(
             f"{self.__test_path}/resources/1acb.cif",
-            format="mmcif",
+            src_format="mmcif",
             chain_id='A'
         )
         structure_embedding = model.aggregator_embedding(
