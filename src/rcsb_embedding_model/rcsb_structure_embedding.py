@@ -75,7 +75,7 @@ class RcsbStructureEmbedding:
         if len(sequence) < RcsbStructureEmbedding.MIN_RES:
             raise ValueError(f"Sequence too short for embedding (min {RcsbStructureEmbedding.MIN_RES} residues)")
 
-        protein = ESMProtein.from_sequence(sequence)
+        protein = ESMProtein(sequence=sequence)
         protein_tensor = self.__residue_embedding.encode(protein)
 
         result = self.__residue_embedding.forward_and_sample(

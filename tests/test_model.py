@@ -18,6 +18,16 @@ class TestEmbeddingModel(unittest.TestCase):
         )
         self.assertEqual(list(res_embedding.shape), [243, 1536])
 
+    def test_sequence_embedding(self):
+
+        model = RcsbStructureEmbedding()
+        res_embedding = model.sequence_embedding(
+            sequence="CGVPAIQPVLSGLSRIVNGEEAVPGSWPWQVSLQDKTGFHFCGGSLINENWVVTAAHCGVTTSDVVVAGEFDQGSSSEKIQKLKIAKVFKNSK"
+                     "YNSLTINNDITLLKLSTAASFSQTVSAVCLPSASDDFAAGTTCVTTGWGLTRYTNANTPDRLQQASLPLLSNTNCKKYWGTKIKDAMICAGAS"
+                     "GVSSCMGDSGGPLVCKKNGAWTLVGIVSWGSSTCSTSTPGVYARVTALVNWVQQTLAAN"
+        )
+        self.assertEqual(list(res_embedding.shape), [247, 1536])
+
     def test_aggregator_embedding(self):
 
         model = RcsbStructureEmbedding()
