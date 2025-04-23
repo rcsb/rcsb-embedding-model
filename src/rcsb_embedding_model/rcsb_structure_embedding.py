@@ -5,7 +5,6 @@ from esm.sdk.api import ESMProtein, SamplingConfig
 from esm.utils.constants.models import ESM3_OPEN_SMALL
 from esm.utils.structure.protein_chain import ProteinChain
 from huggingface_hub import hf_hub_download
-from torch._prims_common import DeviceLikeType
 
 from rcsb_embedding_model.types.api_types import StreamSrc, SrcFormat
 from rcsb_embedding_model.utils.structure_parser import get_structure_from_src
@@ -25,14 +24,14 @@ class RcsbStructureEmbedding:
 
     def load_models(
             self,
-            device: DeviceLikeType = None
+            device: torch.device = None
     ):
         self.load_residue_embedding(device)
         self.load_aggregator_embedding(device)
 
     def load_residue_embedding(
             self,
-            device: DeviceLikeType = None
+            device: torch.device = None
     ):
         if not device:
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -40,7 +39,7 @@ class RcsbStructureEmbedding:
 
     def load_aggregator_embedding(
             self,
-            device: DeviceLikeType = None
+            device: torch.device = None
     ):
         if not device:
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
