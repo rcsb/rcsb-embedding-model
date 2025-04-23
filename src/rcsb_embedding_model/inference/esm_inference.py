@@ -1,16 +1,17 @@
 import argparse
-
 from torch.utils.data import DataLoader
 from lightning import Trainer
+from typer import FileText
 
-from rcsb_embedding_model.dataset.esm_prot_from_stream_list import EsmProtFromStreamList
+from rcsb_embedding_model.dataset.esm_prot_from_csv import EsmProtFromCsv
 from rcsb_embedding_model.modules.esm_module import EsmModule
-from rcsb_embedding_model.types.api_types import StreamList, SrcFormat, Accelerator, Devices, OptionalPath
+from rcsb_embedding_model.types.api_types import SrcFormat, Accelerator, Devices, OptionalPath, SrcLocation
 from rcsb_embedding_model.writer.batch_writer import TensorBatchWriter
 
 
 def predict(
-        stream_list: StreamList,
+        csv_file: FileText,
+        src_location: SrcLocation = SrcLocation.local,
         src_format: SrcFormat = SrcFormat.mmcif,
         batch_size: int = 1,
         num_workers: int = 0,
@@ -20,8 +21,9 @@ def predict(
         out_path: OptionalPath = None
 ):
 
-    inference_set = EsmProtFromStreamList(
-        stream_list,
+    inference_set = EsmProtFromCsv(
+        csv_file=csv_file,
+        src_location=src_location,
         src_format=src_format
     )
 
@@ -56,8 +58,8 @@ if __name__ == '__main__':
     parser.add_argument('--out_path', type=str, required=True)
     args = parser.parse_args()
 
-    preds = predict(
-        stream_list=args.file_list,
+    predict(
+        csv_file=args.file_list,
         batch_size=2,
         out_path=args.out_path,
         accelerator=Accelerator.cpu

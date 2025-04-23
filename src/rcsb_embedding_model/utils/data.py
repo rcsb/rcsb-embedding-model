@@ -1,3 +1,6 @@
+from io import StringIO
+
+import requests
 import torch
 
 
@@ -30,4 +33,15 @@ def collate_seq_embeddings(batch_list):
         mask_batch[i, :seq_len] = False  # Set mask positions for the actual data to False
 
     return padded_batch, mask_batch
+
+
+def stringio_from_url(url):
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        return StringIO(response.text)
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching URL: {e}")
+        return None
+
 

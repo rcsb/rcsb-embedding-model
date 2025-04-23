@@ -29,3 +29,6 @@ requires = [
 ]
 
 build-backend = "hatchling.build"
+
+[project.scripts]
+esm-inference = "rcsb_embedding_model.cli.esm_inference:app"
