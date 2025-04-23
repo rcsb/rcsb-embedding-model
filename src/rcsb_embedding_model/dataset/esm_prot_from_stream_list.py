@@ -32,14 +32,14 @@ class EsmProtFromStreamList(Dataset):
         self.__load_stream(stream_list)
 
     def __load_stream(self, stream_list):
-        self.data = pd.read_csv(
+        self.data = pd.DataFrame(
+            data=stream_list,
+            columns=EsmProtFromStreamList.COLUMNS
+        ) if isinstance(stream_list, list) else pd.read_csv(
             stream_list,
             header=None,
             index_col=None,
             names=EsmProtFromStreamList.COLUMNS
-        ) if isinstance(stream_list, str) else pd.DataFrame(
-            data=stream_list,
-            columns=EsmProtFromStreamList.COLUMNS
         )
 
     def __len__(self):
@@ -62,7 +62,7 @@ class EsmProtFromStreamList(Dataset):
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--file_list', type=str, required=True)
+    parser.add_argument('--file_list', type=argparse.FileType('r'), required=True)
     args = parser.parse_args()
 
     dataset = EsmProtFromStreamList(

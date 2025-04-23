@@ -1,20 +1,23 @@
+import argparse
+
 from torch.utils.data import DataLoader
 from lightning import Trainer
 
 from rcsb_embedding_model.dataset.esm_prot_from_stream_list import EsmProtFromStreamList
 from rcsb_embedding_model.modules.esm_module import EsmModule
+from rcsb_embedding_model.types.api_types import StreamList, SrcFormat, Accelerator, Devices, OptionalPath
 from rcsb_embedding_model.writer.batch_writer import TensorBatchWriter
 
 
 def predict(
-        stream_list,
-        src_format="mmcif",
-        batch_size=1,
-        num_workers=0,
-        num_nodes=1,
-        accelerator='cpu',
-        devices='auto',
-        out_path=None
+        stream_list: StreamList,
+        src_format: SrcFormat = SrcFormat.mmcif,
+        batch_size: int = 1,
+        num_workers: int = 0,
+        num_nodes: int = 1,
+        accelerator: Accelerator = Accelerator.auto,
+        devices: Devices = 'auto',
+        out_path: OptionalPath = None
 ):
 
     inference_set = EsmProtFromStreamList(
@@ -47,11 +50,15 @@ def predict(
 
 
 if __name__ == '__main__':
-    predict(
-        stream_list=[
-            ("/Users/joan/tmp/8GYM.cif", "A", "8GYM.A"),
-            ("/Users/joan/tmp/2YBB.cif", "A", "2YBB.A")
-        ],
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--file_list', type=argparse.FileType('r'), required=True)
+    parser.add_argument('--out_path', type=str, required=True)
+    args = parser.parse_args()
+
+    preds = predict(
+        stream_list=args.file_list,
         batch_size=2,
-        out_path="/Users/joan/tmp"
+        out_path=args.out_path,
+        accelerator=Accelerator.cpu
     )

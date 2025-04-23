@@ -5,7 +5,9 @@ from esm.sdk.api import ESMProtein, SamplingConfig
 from esm.utils.constants.models import ESM3_OPEN_SMALL
 from esm.utils.structure.protein_chain import ProteinChain
 from huggingface_hub import hf_hub_download
+from torch._prims_common import DeviceLikeType
 
+from rcsb_embedding_model.types.api_types import StreamSrc, SrcFormat
 from rcsb_embedding_model.utils.structure_parser import get_structure_from_src
 from rcsb_embedding_model.model.residue_embedding_aggregator import ResidueEmbeddingAggregator
 
@@ -21,16 +23,25 @@ class RcsbStructureEmbedding:
         self.__residue_embedding = None
         self.__aggregator_embedding = None
 
-    def load_models(self, device=None):
+    def load_models(
+            self,
+            device: DeviceLikeType = None
+    ):
         self.load_residue_embedding(device)
         self.load_aggregator_embedding(device)
 
-    def load_residue_embedding(self, device=None):
+    def load_residue_embedding(
+            self,
+            device: DeviceLikeType = None
+    ):
         if not device:
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.__residue_embedding = _load_res_model(device)
 
-    def load_aggregator_embedding(self, device=None):
+    def load_aggregator_embedding(
+            self,
+            device: DeviceLikeType = None
+    ):
         if not device:
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.__aggregator_embedding = _load_model(
@@ -42,11 +53,23 @@ class RcsbStructureEmbedding:
             device
         )
 
-    def structure_embedding(self, structure_src, src_format="pdb", chain_id=None, assembly_id=None):
+    def structure_embedding(
+            self,
+            structure_src: StreamSrc,
+            src_format: SrcFormat = SrcFormat.mmcif,
+            chain_id: str = None,
+            assembly_id: str = None
+    ):
         res_embedding = self.residue_embedding(structure_src, src_format, chain_id, assembly_id)
         return self.aggregator_embedding(res_embedding)
 
-    def residue_embedding(self, structure_src, src_format="pdb", chain_id=None, assembly_id=None):
+    def residue_embedding(
+            self,
+            structure_src: StreamSrc,
+            src_format: SrcFormat = SrcFormat.mmcif,
+            chain_id: str = None,
+            assembly_id: str = None
+    ):
         self.__check_residue_embedding()
         structure = get_structure_from_src(structure_src, src_format, chain_id, assembly_id)
         embedding_ch = []
@@ -65,7 +88,10 @@ class RcsbStructureEmbedding:
             dim=0
         )
 
-    def sequence_embedding(self, sequence):
+    def sequence_embedding(
+            self,
+            sequence: str
+    ):
         self.__check_residue_embedding()
 
         if sequence.startswith(">"):
@@ -84,7 +110,10 @@ class RcsbStructureEmbedding:
 
         return result.per_residue_embedding
 
-    def aggregator_embedding(self, residue_embedding):
+    def aggregator_embedding(
+            self,
+            residue_embedding: torch.Tensor
+    ):
         self.__check_aggregator_embedding()
         return self.__aggregator_embedding(residue_embedding)
 
