@@ -16,7 +16,7 @@ class RcsbStructureEmbedding:
     MIN_RES = 10
     REPO_ID = "rcsb/rcsb-embedding-model"
     FILE_NAME = "rcsb-embedding-model.pt"
-    VERSION = "2d71cf6"
+    VERSION = "410606e40b1bb7968ce318c41009355c3ac32503"
 
     def __init__(self):
         self.__residue_embedding = None
