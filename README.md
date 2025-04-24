@@ -99,7 +99,7 @@ The aggregation component consists of six transformer encoder layers, each with 
 
 ## Citation
 
-Segura, J., Bittrich, S., et al. (2024). *Multi-scale structural similarity embedding search across entire proteomes*. bioRxiv. (Preprint: https://www.biorxiv.org/content/10.1101/2024.03.07.XXXXX)
+Segura, J., Bittrich, S., et al. (2024). *Multi-scale structural similarity embedding search across entire proteomes*. bioRxiv. (Preprint: https://www.biorxiv.org/content/10.1101/2025.02.28.640875v1)
 
 ---
 
