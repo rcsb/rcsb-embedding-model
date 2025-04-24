@@ -1,4 +1,3 @@
-import argparse
 from torch.utils.data import DataLoader
 from lightning import Trainer
 from typer import FileText
