@@ -59,8 +59,8 @@ If you are interested in training the model with a new dataset, visit the [rcsb-
 
     # Compute per-residue embeddings
     res_emb = model.residue_embedding(
-        structure_src="examples/1abc.cif",
-        format="mmcif",
+        src_structure="examples/1abc.cif",
+        src_format="mmcif",
         chain_id="A"
     )
 

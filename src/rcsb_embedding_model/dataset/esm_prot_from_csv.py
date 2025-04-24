@@ -47,11 +47,11 @@ class EsmProtFromCsv(Dataset):
         return len(self.data)
 
     def __getitem__(self, idx):
-        structure_src = self.data.loc[idx, EsmProtFromCsv.STREAM_ATTR]
+        src_structure = self.data.loc[idx, EsmProtFromCsv.STREAM_ATTR]
         chain_id = self.data.loc[idx, EsmProtFromCsv.CH_ATTR]
         name = self.data.loc[idx, EsmProtFromCsv.NAME_ATTR]
         structure = get_structure_from_src(
-            structure_src if self.src_location == SrcLocation.local else stringio_from_url(structure_src),
+            src_structure=src_structure if self.src_location == SrcLocation.local else stringio_from_url(src_structure),
             src_format=self.src_format,
             chain_id=chain_id
         )
