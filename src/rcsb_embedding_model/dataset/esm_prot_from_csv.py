@@ -1,5 +1,4 @@
 import argparse
-import os
 
 import torch
 from biotite.structure import chain_iter

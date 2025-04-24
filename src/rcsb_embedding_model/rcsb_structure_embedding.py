@@ -2,7 +2,6 @@ import torch
 from biotite.structure import get_residues, chain_iter, filter_amino_acids
 from esm.sdk.api import ESMProtein, SamplingConfig
 from esm.utils.structure.protein_chain import ProteinChain
-from huggingface_hub import hf_hub_download
 
 from rcsb_embedding_model.types.api_types import StreamSrc, SrcFormat
 from rcsb_embedding_model.utils.model import get_aggregator_model, get_residue_model

@@ -1,6 +1,4 @@
 
-from enum import Enum
-
 
 def arg_devices(devices):
     if len(devices) == 1:
