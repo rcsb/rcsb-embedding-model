@@ -1,22 +1,17 @@
 import torch
 from biotite.structure import get_residues, chain_iter, filter_amino_acids
-from esm.models.esm3 import ESM3
 from esm.sdk.api import ESMProtein, SamplingConfig
-from esm.utils.constants.models import ESM3_OPEN_SMALL
 from esm.utils.structure.protein_chain import ProteinChain
 from huggingface_hub import hf_hub_download
 
 from rcsb_embedding_model.types.api_types import StreamSrc, SrcFormat
+from rcsb_embedding_model.utils.model import get_aggregator_model, get_residue_model
 from rcsb_embedding_model.utils.structure_parser import get_structure_from_src
-from rcsb_embedding_model.model.residue_embedding_aggregator import ResidueEmbeddingAggregator
 
 
 class RcsbStructureEmbedding:
 
     MIN_RES = 10
-    REPO_ID = "rcsb/rcsb-embedding-model"
-    FILE_NAME = "rcsb-embedding-model.pt"
-    VERSION = "410606e40b1bb7968ce318c41009355c3ac32503"
 
     def __init__(self):
         self.__residue_embedding = None
@@ -43,14 +38,7 @@ class RcsbStructureEmbedding:
     ):
         if not device:
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.__aggregator_embedding = _load_model(
-            _download_model(
-                RcsbStructureEmbedding.REPO_ID,
-                RcsbStructureEmbedding.FILE_NAME,
-                RcsbStructureEmbedding.VERSION
-            ),
-            device
-        )
+        self.__aggregator_embedding = _load_model(device)
 
     def structure_embedding(
             self,
@@ -125,31 +113,16 @@ class RcsbStructureEmbedding:
             self.load_aggregator_embedding()
 
 
-def _download_model(
-        repo_id,
-        filename,
-        revision
-):
-    return hf_hub_download(
-        repo_id=repo_id,
-        filename=filename,
-        revision=revision
-    )
-
-
-def _load_model(model_path, device=None):
+def _load_model(device=None):
     if not device:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    weights = torch.load(model_path, weights_only=True, map_location=device)
-    aggregator_model = ResidueEmbeddingAggregator()
-    aggregator_model.load_state_dict(weights)
+    aggregator_model = get_aggregator_model(device=device)
     aggregator_model.to(device)
     aggregator_model.eval()
     return aggregator_model
 
 
 def _load_res_model(device=None):
-    return ESM3.from_pretrained(
-        ESM3_OPEN_SMALL,
-        device
-    )
+    if not device:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    return get_residue_model(device)

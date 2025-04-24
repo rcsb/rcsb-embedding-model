@@ -1,7 +1,7 @@
-from esm.models.esm3 import ESM3
 from esm.sdk.api import SamplingConfig
-from esm.utils.constants.models import ESM3_OPEN_SMALL
 from lightning import LightningModule
+
+from rcsb_embedding_model.utils.model import get_residue_model
 
 
 class EsmModule(LightningModule):
@@ -10,10 +10,7 @@ class EsmModule(LightningModule):
             self
     ):
         super().__init__()
-        self.esm3 = ESM3.from_pretrained(
-            ESM3_OPEN_SMALL,
-            self.device
-        )
+        self.esm3 = get_residue_model(self.device)
 
     def predict_step(self, prot_batch, batch_idx):
         prot_embeddings = []

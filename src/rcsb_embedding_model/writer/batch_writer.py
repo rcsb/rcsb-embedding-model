@@ -51,7 +51,7 @@ class CsvBatchWriter(CoreBatchWriter, ABC):
     def __init__(
             self,
             output_path,
-            postfix,
+            postfix="csv",
             write_interval="batch"
     ):
         super().__init__(output_path, postfix, write_interval)

@@ -1,15 +1,16 @@
 from lightning import LightningModule
 
+from rcsb_embedding_model.utils.model import get_aggregator_model
+
 
 class ChainModule(LightningModule):
 
     def __init__(
-            self,
-            nn_model
+            self
     ):
         super().__init__()
-        self.model = nn_model
+        self.model = get_aggregator_model(device=self.device)
 
     def predict_step(self, batch, batch_idx):
         (x, x_mask), dom_id = batch
-        return self.model.embedding_pooling(x, x_mask), dom_id
+        return self.model(x, x_mask), dom_id
