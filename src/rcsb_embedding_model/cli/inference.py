@@ -67,7 +67,7 @@ def residue_embedding(
 
 @app.command(
     name="structure-embedding",
-    help="Calculate single-chain protein embeddings from structural files. Predictions are stored in a single pandas data-frame file"
+    help="Calculate single-chain protein embeddings from structural files. Predictions are stored in a single pandas data-frame file."
 )
 def structure_embedding(
         src_file: Annotated[typer.FileText, typer.Option(
@@ -126,7 +126,7 @@ def structure_embedding(
 
 @app.command(
     name="chain-embedding",
-    help="Calculate single-chain protein embeddings from residue level embeddings."
+    help="Calculate single-chain protein embeddings from residue level embeddings stored as torch tensor files."
 )
 def chain_embedding(
         src_file: Annotated[typer.FileText, typer.Option(

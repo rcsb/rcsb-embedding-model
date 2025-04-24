@@ -13,7 +13,7 @@ class TestEmbeddingModel(unittest.TestCase):
 
         model = RcsbStructureEmbedding()
         res_embedding = model.residue_embedding(
-            f"{self.__test_path}/resources/1acb.cif",
+            src_structure=f"{self.__test_path}/resources/1acb.cif",
             src_format=SrcFormat.mmcif,
             chain_id='A'
         )
@@ -33,7 +33,7 @@ class TestEmbeddingModel(unittest.TestCase):
 
         model = RcsbStructureEmbedding()
         res_embedding = model.residue_embedding(
-            f"{self.__test_path}/resources/1acb.cif",
+            src_structure=f"{self.__test_path}/resources/1acb.cif",
             src_format=SrcFormat.mmcif,
             chain_id='A'
         )
