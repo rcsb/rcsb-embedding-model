@@ -5,10 +5,15 @@ import typer
 from rcsb_embedding_model.cli.args_utils import arg_devices
 from rcsb_embedding_model.types.api_types import SrcFormat, Accelerator, SrcLocation
 
-app = typer.Typer()
+app = typer.Typer(
+    add_completion=False
+)
 
 
-@app.command(name="residue-embedding")
+@app.command(
+    name="residue-embedding",
+    help="Calculate residue level embeddings of protein structures using ESM3."
+)
 def residue_embedding(
         src_file: Annotated[typer.FileText, typer.Option(
             exists=True,
@@ -60,7 +65,10 @@ def residue_embedding(
     )
 
 
-@app.command(name="structure-embedding")
+@app.command(
+    name="structure-embedding",
+    help="Calculate single-chain protein embeddings from structural files."
+)
 def structure_embedding(
         src_file: Annotated[typer.FileText, typer.Option(
             exists=True,
@@ -101,7 +109,10 @@ def structure_embedding(
     pass
 
 
-@app.command(name="chain-embedding")
+@app.command(
+    name="chain-embedding",
+    help="Calculate single-chain protein embeddings from residue level embeddings."
+)
 def chain_embedding(
         src_file: Annotated[typer.FileText, typer.Option(
             exists=True,
