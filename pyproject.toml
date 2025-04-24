@@ -1,6 +1,6 @@
 [project]
 name = "rcsb-embedding-model"
-version = "0.0.5"
+version = "0.0.6"
 authors = [
     { name="Joan Segura", email="joan.segura@rcsb.org" },
 ]
@@ -16,7 +16,8 @@ license-files = ["LICEN[CS]E*"]
 dependencies=[
     "esm >= 3.2.0",
     "torch >= 2.2.0",
-    "lightning >= 2.5.0"
+    "lightning >= 2.5.0",
+    "typer >= 0.15.0"
 ]
 
 [project.urls]
@@ -31,4 +32,4 @@ requires = [
 build-backend = "hatchling.build"
 
 [project.scripts]
-esm-inference = "rcsb_embedding_model.cli.esm_inference:app"
+inference = "rcsb_embedding_model.cli.inference:app"
