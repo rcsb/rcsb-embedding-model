@@ -1,4 +1,4 @@
-
+from biotite.structure import filter_amino_acids, chain_iter, get_chains
 from biotite.structure.io.pdb import PDBFile, get_structure as get_pdb_structure, get_assembly as get_pdb_assembly
 from biotite.structure.io.pdbx import CIFFile, get_structure, get_assembly, BinaryCIFFile
 
@@ -25,6 +25,15 @@ def get_structure_from_src(
         structure = structure[structure.chain_id == chain_id]
 
     return structure
+
+
+def get_protein_chains(structure):
+    chain_ids = []
+    for atom_ch in chain_iter(structure):
+        atom_res = atom_ch[filter_amino_acids(atom_ch)]
+        if len(get_chains(atom_res)) > 0:
+            chain_ids.extend(get_chains(atom_res))
+    return tuple(chain_ids)
 
 
 def __get_pdb_structure(pdb_file, assembly_id=None):

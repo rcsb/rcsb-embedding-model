@@ -16,7 +16,6 @@ from rcsb_embedding_model.utils.structure_parser import get_structure_from_src
 
 class EsmProtFromCsv(Dataset):
 
-    MIN_RES = 10
     STREAM_ATTR = 'stream'
     CH_ATTR = 'chain_id'
     NAME_ATTR = 'name'
