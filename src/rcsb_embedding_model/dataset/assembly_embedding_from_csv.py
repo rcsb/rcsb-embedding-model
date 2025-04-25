@@ -19,11 +19,13 @@ class AssemblyEmbeddingFromCsv(Dataset):
             res_embedding_location,
             src_location=SrcLocation.local,
             src_format=SrcFormat.mmcif,
+            min_res_n=0
     ):
         super().__init__()
         self.res_embedding_location = res_embedding_location
         self.src_location = src_location
         self.src_format = src_format
+        self.min_res_n = min_res_n
         self.data = pd.DataFrame()
         self.__load_stream(csv_file)
 
@@ -50,7 +52,7 @@ class AssemblyEmbeddingFromCsv(Dataset):
             assembly_id=assembly_id
         )
 
-        return name, get_protein_chains(structure)
+        return get_protein_chains(structure, self.min_res_n), name
 
 
 if __name__ == "__main__":
@@ -64,7 +66,7 @@ if __name__ == "__main__":
 
     dataloader = DataLoader(
         dataset,
-        batch_size=2,
+        batch_size=1,
         collate_fn=lambda _: _
     )
 
