@@ -3,7 +3,7 @@ from typing import Annotated, List
 import typer
 
 from rcsb_embedding_model.cli.args_utils import arg_devices
-from rcsb_embedding_model.types.api_types import SrcFormat, Accelerator, SrcLocation
+from rcsb_embedding_model.types.api_types import SrcFormat, Accelerator, SrcLocation, SrcFrom
 
 app = typer.Typer(
     add_completion=False
@@ -35,6 +35,12 @@ def residue_embedding(
         src_format: Annotated[SrcFormat, typer.Option(
             help='Structure file format.'
         )] = SrcFormat.mmcif,
+        src_from: Annotated[SrcFrom, typer.Option(
+            help='Use specific chains or all chains in a structure.'
+        )] = SrcFrom.chain,
+        min_res_n: Annotated[int, typer.Option(
+            help='When using all chains in a structure, consider only chains with more than <min_res_n> residues.'
+        )] = 0,
         batch_size: Annotated[int, typer.Option(
             help='Number of samples processed together in one iteration.'
         )] = 1,
@@ -56,6 +62,8 @@ def residue_embedding(
         csv_file=src_file,
         src_location=src_location,
         src_format=src_format,
+        src_from=src_from,
+        min_res_n=min_res_n,
         batch_size=batch_size,
         num_workers=num_workers,
         num_nodes=num_nodes,
@@ -93,6 +101,12 @@ def structure_embedding(
         src_format: Annotated[SrcFormat, typer.Option(
             help='Structure file format.'
         )] = SrcFormat.mmcif,
+        src_from: Annotated[SrcFrom, typer.Option(
+            help='Use specific chains or all chains in a structure.'
+        )] = SrcFrom.chain,
+        min_res_n: Annotated[int, typer.Option(
+            help='When using all chains in a structure, consider only chains with more than <min_res_n> residues.'
+        )] = 0,
         batch_size: Annotated[int, typer.Option(
             help='Number of samples processed together in one iteration.'
         )] = 1,
@@ -114,6 +128,8 @@ def structure_embedding(
         csv_file=src_file,
         src_location=src_location,
         src_format=src_format,
+        src_from=src_from,
+        min_res_n=min_res_n,
         batch_size=batch_size,
         num_workers=num_workers,
         num_nodes=num_nodes,

@@ -17,7 +17,7 @@ class TestEmbeddingModel(unittest.TestCase):
             src_format=SrcFormat.mmcif,
             chain_id='A'
         )
-        self.assertEqual(list(res_embedding.shape), [243, 1536])
+        self.assertEqual(tuple(res_embedding.shape), (243, 1536))
 
     def test_sequence_embedding(self):
 
@@ -27,7 +27,7 @@ class TestEmbeddingModel(unittest.TestCase):
                      "YNSLTINNDITLLKLSTAASFSQTVSAVCLPSASDDFAAGTTCVTTGWGLTRYTNANTPDRLQQASLPLLSNTNCKKYWGTKIKDAMICAGAS"
                      "GVSSCMGDSGGPLVCKKNGAWTLVGIVSWGSSTCSTSTPGVYARVTALVNWVQQTLAAN"
         )
-        self.assertEqual(list(res_embedding.shape), [247, 1536])
+        self.assertEqual(tuple(res_embedding.shape), (247, 1536))
 
     def test_aggregator_embedding(self):
 
@@ -40,4 +40,4 @@ class TestEmbeddingModel(unittest.TestCase):
         structure_embedding = model.aggregator_embedding(
             res_embedding
         )
-        self.assertEqual(list(structure_embedding.shape), [1536])
+        self.assertEqual(tuple(structure_embedding.shape), (1536,))

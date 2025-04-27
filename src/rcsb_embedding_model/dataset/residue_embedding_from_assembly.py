@@ -4,22 +4,26 @@ from torch.utils.data import Dataset, DataLoader
 from rcsb_embedding_model.types.api_types import SrcLocation, SrcFormat
 from rcsb_embedding_model.utils.data import stringio_from_url
 from rcsb_embedding_model.utils.structure_parser import get_structure_from_src, get_protein_chains
+from rcsb_embedding_model.utils.structure_provider import StructureProvider
 
 
-class AssemblyEmbeddingFromCsv(Dataset):
+class ResidueEmbeddingFromAssembly(Dataset):
+
+    STREAM_NAME_ATTR = 'stream_name'
     STREAM_ATTR = 'stream'
     ASSEMBLY_ATTR = 'assembly_id'
-    NAME_ATTR = 'name'
+    ITEM_NAME_ATTR = 'item_name'
 
-    COLUMNS = [STREAM_ATTR, ASSEMBLY_ATTR, NAME_ATTR]
+    COLUMNS = [STREAM_NAME_ATTR, STREAM_ATTR, ASSEMBLY_ATTR, ITEM_NAME_ATTR]
 
     def __init__(
             self,
-            csv_file,
+            src_stream,
             res_embedding_location,
             src_location=SrcLocation.local,
             src_format=SrcFormat.mmcif,
-            min_res_n=0
+            min_res_n=0,
+            structure_provider=StructureProvider()
     ):
         super().__init__()
         self.res_embedding_location = res_embedding_location
@@ -27,38 +31,41 @@ class AssemblyEmbeddingFromCsv(Dataset):
         self.src_format = src_format
         self.min_res_n = min_res_n
         self.data = pd.DataFrame()
-        self.__load_stream(csv_file)
+        self.__load_stream(src_stream)
+        self.__structure_provider = structure_provider
 
-    def __load_stream(self, stream_list):
+    def __load_stream(self, src_stream):
         self.data = pd.read_csv(
-            stream_list,
+            src_stream,
             header=None,
             index_col=None,
             dtype=str,
-            names=AssemblyEmbeddingFromCsv.COLUMNS
+            names=ResidueEmbeddingFromAssembly.COLUMNS
         )
 
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, idx):
-        src_structure = self.data.loc[idx, AssemblyEmbeddingFromCsv.STREAM_ATTR]
-        assembly_id = self.data.loc[idx, AssemblyEmbeddingFromCsv.ASSEMBLY_ATTR]
-        name = self.data.loc[idx, AssemblyEmbeddingFromCsv.NAME_ATTR]
+        src_name = self.data.loc[idx, ResidueEmbeddingFromAssembly.STREAM_NAME_ATTR]
+        src_structure = self.data.loc[idx, ResidueEmbeddingFromAssembly.STREAM_ATTR]
+        assembly_id = self.data.loc[idx, ResidueEmbeddingFromAssembly.ASSEMBLY_ATTR]
+        item_name = self.data.loc[idx, ResidueEmbeddingFromAssembly.ITEM_NAME_ATTR]
 
-        structure = get_structure_from_src(
+        structure = self.__structure_provider.get_structure(
+            src_name=src_name,
             src_structure=src_structure if self.src_location == SrcLocation.local else stringio_from_url(src_structure),
             src_format=self.src_format,
             assembly_id=assembly_id
         )
 
-        return get_protein_chains(structure, self.min_res_n), name
+        return get_protein_chains(structure, self.min_res_n), item_name
 
 
 if __name__ == "__main__":
 
-    dataset = AssemblyEmbeddingFromCsv(
-        csv_file="/Users/joan/tmp/assembly-test.csv",
+    dataset = ResidueEmbeddingFromAssembly(
+        src_stream="/Users/joan/tmp/assembly-test.csv",
         res_embedding_location="/Users/joan/tmp",
         src_location=SrcLocation.local,
         src_format=SrcFormat.mmcif

@@ -1,17 +1,19 @@
 from torch.utils.data import DataLoader
 from lightning import Trainer
-from typer import FileText
 
-from rcsb_embedding_model.dataset.esm_prot_from_csv import EsmProtFromCsv
+from rcsb_embedding_model.dataset.esm_prot_from_structure import EsmProtFromStructure
+from rcsb_embedding_model.dataset.esm_prot_from_chain import EsmProtFromChain
 from rcsb_embedding_model.modules.esm_module import EsmModule
-from rcsb_embedding_model.types.api_types import SrcFormat, Accelerator, Devices, OptionalPath, SrcLocation
+from rcsb_embedding_model.types.api_types import SrcFormat, Accelerator, Devices, OptionalPath, SrcLocation, SrcFrom, FileOrStreamTuple
 from rcsb_embedding_model.writer.batch_writer import TensorBatchWriter
 
 
 def predict(
-        csv_file: FileText,
+        src_stream: FileOrStreamTuple,
         src_location: SrcLocation = SrcLocation.local,
         src_format: SrcFormat = SrcFormat.mmcif,
+        src_from: SrcFrom = SrcFrom.chain,
+        min_res_n: int = 0,
         batch_size: int = 1,
         num_workers: int = 0,
         num_nodes: int = 1,
@@ -20,10 +22,15 @@ def predict(
         out_path: OptionalPath = None
 ):
 
-    inference_set = EsmProtFromCsv(
-        csv_file=csv_file,
+    inference_set = EsmProtFromChain(
+        src_stream=src_stream,
         src_location=src_location,
         src_format=src_format
+    ) if src_from == SrcFrom.chain else EsmProtFromStructure(
+        src_stream=src_stream,
+        src_location=src_location,
+        src_format=src_format,
+        min_res_n=min_res_n
     )
 
     inference_dataloader = DataLoader(

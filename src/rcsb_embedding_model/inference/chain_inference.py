@@ -1,16 +1,16 @@
 from torch.utils.data import DataLoader
 from lightning import Trainer
-from typer import FileText
 
-from rcsb_embedding_model.dataset.residue_embedding_from_csv import ResidueEmbeddingFromCSV
+from rcsb_embedding_model.dataset.residue_embedding_from_tensor_file import ResidueEmbeddingFromTensorFile
 from rcsb_embedding_model.modules.chain_module import ChainModule
-from rcsb_embedding_model.types.api_types import Accelerator, Devices, OptionalPath
+from rcsb_embedding_model.types.api_types import Accelerator, Devices, OptionalPath, FileOrStreamTuple, SrcLocation
 from rcsb_embedding_model.utils.data import collate_seq_embeddings
 from rcsb_embedding_model.writer.batch_writer import CsvBatchWriter
 
 
 def predict(
-        csv_file: FileText,
+        src_stream: FileOrStreamTuple,
+        src_location: SrcLocation = SrcLocation.local,
         batch_size: int = 1,
         num_workers: int = 0,
         num_nodes: int = 1,
@@ -18,8 +18,9 @@ def predict(
         devices: Devices = 'auto',
         out_path: OptionalPath = None
 ):
-    inference_set = ResidueEmbeddingFromCSV(
-        csv_file=csv_file
+    inference_set = ResidueEmbeddingFromTensorFile(
+        src_stream=src_stream,
+        src_location=src_location
     )
 
     inference_dataloader = DataLoader(

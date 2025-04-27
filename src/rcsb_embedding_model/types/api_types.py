@@ -2,8 +2,15 @@ from enum import Enum
 from os import PathLike
 from typing import NewType, Union, IO, Tuple, List, Optional
 
+from typer import FileText
+
 StreamSrc = NewType('StreamSrc', Union[PathLike, IO])
-StreamTuple = NewType('StreamTuple', Tuple[StreamSrc, str, str])
+StreamTuple = NewType('StreamTuple', Union[
+    Tuple[str, StreamSrc, str, str],
+    Tuple[str, StreamSrc, str],
+    Tuple[str, str]
+])
+FileOrStreamTuple = NewType('FileOrStreamTuple', Union[FileText, StreamTuple])
 
 Devices = NewType('Devices', Union[int, List[int], "auto"])
 
@@ -27,3 +34,9 @@ class Accelerator(str, Enum):
 class SrcLocation(str, Enum):
     local = "local"
     remote = "remote"
+    stream = "stream"
+
+
+class SrcFrom(str, Enum):
+    chain = "chain"
+    structure = "structure"

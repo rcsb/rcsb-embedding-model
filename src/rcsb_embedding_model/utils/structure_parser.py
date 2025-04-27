@@ -1,4 +1,4 @@
-from biotite.structure import filter_amino_acids, chain_iter, get_chains, get_residues
+from biotite.structure import filter_amino_acids, chain_iter, get_chains, get_residues, AtomArray
 from biotite.structure.io.pdb import PDBFile, get_structure as get_pdb_structure, get_assembly as get_pdb_assembly
 from biotite.structure.io.pdbx import CIFFile, get_structure, get_assembly, BinaryCIFFile
 
@@ -22,7 +22,7 @@ def get_structure_from_src(
         raise RuntimeError(f"Unknown file format {src_format}")
 
     if chain_id is not None:
-        structure = structure[structure.chain_id == chain_id]
+        return structure[structure.chain_id == chain_id]
 
     return structure
 
@@ -31,9 +31,19 @@ def get_protein_chains(structure, min_res_n=0):
     chain_ids = []
     for atom_ch in chain_iter(structure):
         atom_res = atom_ch[filter_amino_acids(atom_ch)]
-        if len(get_residues(atom_res)) > min_res_n:
-            chain_ids.extend(get_chains(atom_res))
+        if len(atom_res) > 0 and len(get_residues(atom_res)) > min_res_n:
+            chain_ids.append(str(get_chains(atom_res)[0]))
     return tuple(chain_ids)
+
+
+def rename_atom_ch(atom_ch, ch="A"):
+    renamed_atom_ch = AtomArray(len(atom_ch))
+    n = 0
+    for atom in atom_ch:
+        atom.chain_id = ch
+        renamed_atom_ch[n] = atom
+        n += 1
+    return renamed_atom_ch
 
 
 def __get_pdb_structure(pdb_file, assembly_id=None):
