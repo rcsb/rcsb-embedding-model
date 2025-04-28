@@ -1,9 +1,11 @@
+import sys
 from typing import Annotated, List
 
 import typer
 
 from rcsb_embedding_model.cli.args_utils import arg_devices
-from rcsb_embedding_model.types.api_types import StructureFormat, Accelerator, SrcLocation, SrcProteinFrom, StructureLocation
+from rcsb_embedding_model.types.api_types import StructureFormat, Accelerator, SrcLocation, SrcProteinFrom, \
+    StructureLocation, SrcAssemblyFrom
 
 app = typer.Typer(
     add_completion=False
@@ -215,12 +217,21 @@ def assembly_embedding(
             resolve_path=True,
             help='Output path to store predictions. Embeddings are stored as csv files.'
         )],
+        src_from: Annotated[SrcAssemblyFrom, typer.Option(
+            help='Use specific assembly or all assemblies in a structure.'
+        )] = SrcAssemblyFrom.assembly,
         structure_location: Annotated[StructureLocation, typer.Option(
             help='Source input location.'
         )] = StructureLocation.local,
         structure_format: Annotated[StructureFormat, typer.Option(
             help='Structure file format.'
         )] = StructureFormat.mmcif,
+        min_res_n: Annotated[int, typer.Option(
+            help='Consider only assembly chains with more than <min_res_n> residues.'
+        )] = 0,
+        max_res_n: Annotated[int, typer.Option(
+            help='Stop adding assembly chains when number of residues is greater than <max_res_n> residues.'
+        )] = sys.maxsize,
         batch_size: Annotated[int, typer.Option(
             help='Number of samples processed together in one iteration.'
         )] = 1,
@@ -242,8 +253,11 @@ def assembly_embedding(
         src_stream=src_file,
         res_embedding_location=res_embedding_location,
         src_location=SrcLocation.local,
+        src_from=src_from,
         structure_location=structure_location,
         structure_format=structure_format,
+        min_res_n=min_res_n,
+        max_res_n=max_res_n,
         batch_size=batch_size,
         num_workers=num_workers,
         num_nodes=num_nodes,

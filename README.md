@@ -70,7 +70,7 @@ If you are interested in training the model with a new dataset, visit the [rcsb-
     # Aggregate to structure-level embedding
     struct_emb = model.aggregator_embedding(res_emb)
 
-See the examples directory for complete scripts.
+See the examples and tests directories for more use cases.
 
 ---
 

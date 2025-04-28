@@ -1,7 +1,5 @@
-import argparse
 
 import pandas as pd
-from torch.utils.data import DataLoader
 
 from rcsb_embedding_model.dataset.esm_prot_from_chain import EsmProtFromChain
 from rcsb_embedding_model.types.api_types import StructureLocation, StructureFormat, SrcLocation
@@ -63,24 +61,3 @@ class EsmProtFromStructure(EsmProtFromChain):
             for ch in get_protein_chains(structure, self.min_res_n):
                 chains.append((src_name, src_structure, ch, f"{item_name}.{ch}"))
         return tuple(chains)
-
-
-if __name__ == '__main__':
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--file_list', type=argparse.FileType('r'), required=True)
-    args = parser.parse_args()
-
-    dataset = EsmProtFromStructure(
-        args.file_list
-    )
-
-    dataloader = DataLoader(
-        dataset,
-        batch_size=2,
-        collate_fn=lambda _: _
-    )
-
-    for _batch in dataloader:
-        for esm_prot, name in _batch:
-            print(name)
