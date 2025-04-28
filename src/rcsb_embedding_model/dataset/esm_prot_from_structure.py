@@ -33,8 +33,9 @@ class EsmProtFromStructure(EsmProtFromChain):
         super().__init__(
             src_stream=self.__get_chains(src_stream),
             src_location=SrcLocation.stream,
-            structure_location=StructureLocation.local,
-            structure_format=structure_format
+            structure_location=structure_location,
+            structure_format=structure_format,
+            structure_provider=structure_provider
         )
 
     def __get_chains(self, src_stream):
