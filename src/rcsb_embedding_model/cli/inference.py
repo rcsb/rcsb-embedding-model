@@ -3,7 +3,7 @@ from typing import Annotated, List
 import typer
 
 from rcsb_embedding_model.cli.args_utils import arg_devices
-from rcsb_embedding_model.types.api_types import SrcFormat, Accelerator, SrcLocation, SrcFrom
+from rcsb_embedding_model.types.api_types import StructureFormat, Accelerator, StructureLocation, SrcProteinFrom
 
 app = typer.Typer(
     add_completion=False
@@ -29,15 +29,15 @@ def residue_embedding(
             resolve_path=True,
             help='Output path to store predictions.'
         )],
-        src_location: Annotated[SrcLocation, typer.Option(
+        src_location: Annotated[StructureLocation, typer.Option(
             help='Source input location.'
-        )] = SrcLocation.local,
-        src_format: Annotated[SrcFormat, typer.Option(
+        )] = StructureLocation.local,
+        src_format: Annotated[StructureFormat, typer.Option(
             help='Structure file format.'
-        )] = SrcFormat.mmcif,
-        src_from: Annotated[SrcFrom, typer.Option(
+        )] = StructureFormat.mmcif,
+        src_from: Annotated[SrcProteinFrom, typer.Option(
             help='Use specific chains or all chains in a structure.'
-        )] = SrcFrom.chain,
+        )] = SrcProteinFrom.chain,
         min_res_n: Annotated[int, typer.Option(
             help='When using all chains in a structure, consider only chains with more than <min_res_n> residues.'
         )] = 0,
@@ -61,7 +61,7 @@ def residue_embedding(
     predict(
         csv_file=src_file,
         src_location=src_location,
-        src_format=src_format,
+        structure_format=src_format,
         src_from=src_from,
         min_res_n=min_res_n,
         batch_size=batch_size,
@@ -95,15 +95,15 @@ def structure_embedding(
         out_df_id: Annotated[str, typer.Option(
             help='File name to store predicted embeddings.'
         )],
-        src_location: Annotated[SrcLocation, typer.Option(
+        src_location: Annotated[StructureLocation, typer.Option(
             help='Source input location.'
-        )] = SrcLocation.local,
-        src_format: Annotated[SrcFormat, typer.Option(
+        )] = StructureLocation.local,
+        src_format: Annotated[StructureFormat, typer.Option(
             help='Structure file format.'
-        )] = SrcFormat.mmcif,
-        src_from: Annotated[SrcFrom, typer.Option(
+        )] = StructureFormat.mmcif,
+        src_from: Annotated[SrcProteinFrom, typer.Option(
             help='Use specific chains or all chains in a structure.'
-        )] = SrcFrom.chain,
+        )] = SrcProteinFrom.chain,
         min_res_n: Annotated[int, typer.Option(
             help='When using all chains in a structure, consider only chains with more than <min_res_n> residues.'
         )] = 0,
@@ -127,7 +127,7 @@ def structure_embedding(
     predict(
         csv_file=src_file,
         src_location=src_location,
-        src_format=src_format,
+        structure_format=src_format,
         src_from=src_from,
         min_res_n=min_res_n,
         batch_size=batch_size,

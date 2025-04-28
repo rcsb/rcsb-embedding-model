@@ -2,7 +2,7 @@ import os
 import unittest
 
 from rcsb_embedding_model import RcsbStructureEmbedding
-from rcsb_embedding_model.types.api_types import SrcFormat
+from rcsb_embedding_model.types.api_types import StructureFormat
 
 
 class TestEmbeddingModel(unittest.TestCase):
@@ -14,7 +14,7 @@ class TestEmbeddingModel(unittest.TestCase):
         model = RcsbStructureEmbedding()
         res_embedding = model.residue_embedding(
             src_structure=f"{self.__test_path}/resources/1acb.cif",
-            src_format=SrcFormat.mmcif,
+            structure_format=StructureFormat.mmcif,
             chain_id='A'
         )
         self.assertEqual(tuple(res_embedding.shape), (243, 1536))
@@ -34,7 +34,7 @@ class TestEmbeddingModel(unittest.TestCase):
         model = RcsbStructureEmbedding()
         res_embedding = model.residue_embedding(
             src_structure=f"{self.__test_path}/resources/1acb.cif",
-            src_format=SrcFormat.mmcif,
+            structure_format=StructureFormat.mmcif,
             chain_id='A'
         )
         structure_embedding = model.aggregator_embedding(

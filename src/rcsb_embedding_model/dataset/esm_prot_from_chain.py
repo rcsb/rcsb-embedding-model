@@ -9,7 +9,7 @@ from esm.utils.structure.protein_chain import ProteinChain
 from torch.utils.data import Dataset, DataLoader
 import pandas as pd
 
-from rcsb_embedding_model.types.api_types import SrcFormat, SrcLocation
+from rcsb_embedding_model.types.api_types import StructureFormat, StructureLocation, SrcLocation
 from rcsb_embedding_model.utils.data import stringio_from_url
 from rcsb_embedding_model.utils.structure_parser import rename_atom_ch
 from rcsb_embedding_model.utils.structure_provider import StructureProvider
@@ -28,13 +28,15 @@ class EsmProtFromChain(Dataset):
         self,
         src_stream,
         src_location=SrcLocation.local,
-        src_format=SrcFormat.mmcif,
+        structure_location=StructureLocation.local,
+        structure_format=StructureFormat.mmcif,
         structure_provider=StructureProvider()
     ):
         super().__init__()
         self.__structure_provider = structure_provider
         self.src_location = src_location
-        self.src_format = src_format
+        self.structure_location = structure_location
+        self.structure_format = structure_format
         self.data = pd.DataFrame()
         self.__load_stream(src_stream)
 
@@ -61,8 +63,8 @@ class EsmProtFromChain(Dataset):
         item_name = self.data.loc[idx, EsmProtFromChain.ITEM_NAME_ATTR]
         structure = self.__structure_provider.get_structure(
             src_name=src_name,
-            src_structure=stringio_from_url(src_structure) if self.src_location == SrcLocation.remote else src_structure,
-            src_format=self.src_format,
+            src_structure=stringio_from_url(src_structure) if self.structure_location == StructureLocation.remote else src_structure,
+            structure_format=self.structure_format,
             chain_id=chain_id
         )
         for atom_ch in chain_iter(structure):

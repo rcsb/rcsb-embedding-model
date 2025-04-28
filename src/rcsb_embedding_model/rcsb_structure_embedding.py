@@ -3,7 +3,7 @@ from biotite.structure import get_residues, chain_iter, filter_amino_acids
 from esm.sdk.api import ESMProtein, SamplingConfig
 from esm.utils.structure.protein_chain import ProteinChain
 
-from rcsb_embedding_model.types.api_types import StreamSrc, SrcFormat
+from rcsb_embedding_model.types.api_types import StreamSrc, StructureFormat
 from rcsb_embedding_model.utils.model import get_aggregator_model, get_residue_model
 from rcsb_embedding_model.utils.structure_parser import get_structure_from_src
 
@@ -42,22 +42,22 @@ class RcsbStructureEmbedding:
     def structure_embedding(
             self,
             src_structure: StreamSrc,
-            src_format: SrcFormat = SrcFormat.mmcif,
+            structure_format: StructureFormat = StructureFormat.mmcif,
             chain_id: str = None,
             assembly_id: str = None
     ):
-        res_embedding = self.residue_embedding(src_structure, src_format, chain_id, assembly_id)
+        res_embedding = self.residue_embedding(src_structure, structure_format, chain_id, assembly_id)
         return self.aggregator_embedding(res_embedding)
 
     def residue_embedding(
             self,
             src_structure: StreamSrc,
-            src_format: SrcFormat = SrcFormat.mmcif,
+            structure_format: StructureFormat = StructureFormat.mmcif,
             chain_id: str = None,
             assembly_id: str = None
     ):
         self.__check_residue_embedding()
-        structure = get_structure_from_src(src_structure, src_format, chain_id, assembly_id)
+        structure = get_structure_from_src(src_structure, structure_format, chain_id, assembly_id)
         embedding_ch = []
         for atom_ch in chain_iter(structure):
             atom_res = atom_ch[filter_amino_acids(atom_ch)]

@@ -1,7 +1,8 @@
 import os
 import unittest
 
-from rcsb_embedding_model.types.api_types import SrcLocation, Accelerator, SrcFrom
+from rcsb_embedding_model.types.api_types import StructureLocation, Accelerator, SrcProteinFrom, SrcLocation, \
+    StructureFormat
 
 
 class TestInference(unittest.TestCase):
@@ -16,7 +17,9 @@ class TestInference(unittest.TestCase):
                 ("2YBB", f"{self.__test_path}/resources/2YBB.cif", "A", "2YBB.A")
             ],
             src_location=SrcLocation.stream,
-            src_from=SrcFrom.chain,
+            src_from=SrcProteinFrom.chain,
+            structure_location=StructureLocation.local,
+            structure_format=StructureFormat.mmcif,
             accelerator=Accelerator.cpu
         )
 
@@ -34,7 +37,9 @@ class TestInference(unittest.TestCase):
                 ("2uzi", f"{self.__test_path}/resources/2uzi.cif", "2uzi")
             ],
             src_location=SrcLocation.stream,
-            src_from=SrcFrom.structure,
+            src_from=SrcProteinFrom.structure,
+            structure_location=StructureLocation.local,
+            structure_format=StructureFormat.mmcif,
             accelerator=Accelerator.cpu
         )
 
@@ -76,7 +81,9 @@ class TestInference(unittest.TestCase):
                 ("2YBB", f"{self.__test_path}/resources/2YBB.cif", "A", "2YBB.A")
             ],
             src_location=SrcLocation.stream,
-            src_from=SrcFrom.chain,
+            src_from=SrcProteinFrom.chain,
+            structure_location=StructureLocation.local,
+            structure_format=StructureFormat.mmcif,
             accelerator=Accelerator.cpu
         )
 
@@ -94,7 +101,9 @@ class TestInference(unittest.TestCase):
                 ("2uzi", f"{self.__test_path}/resources/2uzi.cif", "2uzi")
             ],
             src_location=SrcLocation.stream,
-            src_from=SrcFrom.structure,
+            src_from=SrcProteinFrom.structure,
+            structure_location=StructureLocation.local,
+            structure_format=StructureFormat.mmcif,
             accelerator=Accelerator.cpu
         )
 

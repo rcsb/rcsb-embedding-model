@@ -18,7 +18,7 @@ EmbeddingPath = Union[str, PathLike]
 OptionalPath = NewType('OptionalPath', Optional[PathLike])
 
 
-class SrcFormat(str, Enum):
+class StructureFormat(str, Enum):
     pdb = "pdb"
     mmcif = "mmcif"
     bciff = "binarycif"
@@ -31,13 +31,18 @@ class Accelerator(str, Enum):
     hpu = "hpu"
     auto = "auto"
 
-
 class SrcLocation(str, Enum):
     local = "local"
-    remote = "remote"
     stream = "stream"
 
+class StructureLocation(str, Enum):
+    local = "local"
+    remote = "remote"
 
-class SrcFrom(str, Enum):
+class SrcProteinFrom(str, Enum):
     chain = "chain"
+    structure = "structure"
+
+class SrcAssemblyFrom(str, Enum):
+    assembly = "assembly"
     structure = "structure"

@@ -2,7 +2,7 @@ import pandas as pd
 import torch
 from torch.utils.data import Dataset
 
-from rcsb_embedding_model.types.api_types import SrcLocation
+from rcsb_embedding_model.types.api_types import StructureLocation, SrcLocation
 
 
 class ResidueEmbeddingFromTensorFile(Dataset):
@@ -15,7 +15,7 @@ class ResidueEmbeddingFromTensorFile(Dataset):
     def __init__(
             self,
             src_stream,
-            src_location=SrcLocation.local,
+            src_location=SrcLocation.local
     ):
         super().__init__()
         self.src_location = src_location

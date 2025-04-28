@@ -5,21 +5,21 @@ from biotite.structure.io.pdbx import CIFFile, get_structure, get_assembly, Bina
 
 def get_structure_from_src(
         src_structure,
-        src_format="mmcif",
+        structure_format="mmcif",
         chain_id=None,
         assembly_id=None
 ):
-    if src_format == "pdb":
+    if structure_format == "pdb":
         pdb_file = PDBFile.read(src_structure)
         structure = __get_pdb_structure(pdb_file, assembly_id)
-    elif src_format == "mmcif":
+    elif structure_format == "mmcif":
         cif_file = CIFFile.read(src_structure)
         structure = __get_structure(cif_file, assembly_id)
-    elif src_format == "binarycif":
+    elif structure_format == "binarycif":
         cif_file = BinaryCIFFile.read(src_structure)
         structure = __get_structure(cif_file, assembly_id)
     else:
-        raise RuntimeError(f"Unknown file format {src_format}")
+        raise RuntimeError(f"Unknown file format {structure_format}")
 
     if chain_id is not None:
         return structure[structure.chain_id == chain_id]

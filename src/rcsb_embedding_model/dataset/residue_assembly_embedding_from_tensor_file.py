@@ -3,7 +3,7 @@ import sys
 import pandas as pd
 from torch.utils.data import Dataset, DataLoader
 
-from rcsb_embedding_model.types.api_types import SrcLocation, SrcFormat
+from rcsb_embedding_model.types.api_types import StructureLocation, StructureFormat, SrcLocation
 from rcsb_embedding_model.utils.data import stringio_from_url, concatenate_tensors
 from rcsb_embedding_model.utils.structure_parser import get_structure_from_src, get_protein_chains
 from rcsb_embedding_model.utils.structure_provider import StructureProvider
@@ -23,7 +23,8 @@ class ResidueAssemblyEmbeddingFromTensorFile(Dataset):
             src_stream,
             res_embedding_location,
             src_location=SrcLocation.local,
-            src_format=SrcFormat.mmcif,
+            structure_location=StructureLocation.local,
+            structure_format=StructureFormat.mmcif,
             min_res_n=0,
             max_res_n=sys.maxsize,
             structure_provider=StructureProvider()
@@ -31,7 +32,8 @@ class ResidueAssemblyEmbeddingFromTensorFile(Dataset):
         super().__init__()
         self.res_embedding_location = res_embedding_location
         self.src_location = src_location
-        self.src_format = src_format
+        self.structure_location=structure_location
+        self.structure_format = structure_format
         self.min_res_n = min_res_n
         self.max_res_n = max_res_n
         self.data = pd.DataFrame()
@@ -62,8 +64,8 @@ class ResidueAssemblyEmbeddingFromTensorFile(Dataset):
 
         structure = self.__structure_provider.get_structure(
             src_name=src_name,
-            src_structure=stringio_from_url(src_structure) if self.src_location == SrcLocation.remote else src_structure,
-            src_format=self.src_format,
+            src_structure=stringio_from_url(src_structure) if self.structure_location == StructureLocation.remote else src_structure,
+            structure_format=self.structure_format,
             assembly_id=assembly_id
         )
         residue_embedding_files = [
@@ -78,7 +80,8 @@ if __name__ == "__main__":
         src_stream="/Users/joan/tmp/assembly-test.csv",
         res_embedding_location="/Users/joan/tmp",
         src_location=SrcLocation.local,
-        src_format=SrcFormat.mmcif
+        structure_location=StructureLocation.local,
+        structure_format=StructureFormat.mmcif
     )
 
     dataloader = DataLoader(

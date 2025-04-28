@@ -11,7 +11,7 @@ class StructureProvider:
         self,
         src_name,
         src_structure,
-        src_format="mmcif",
+        structure_format="mmcif",
         chain_id=None,
         assembly_id=None
     ):
@@ -19,7 +19,7 @@ class StructureProvider:
             self.__src_name = src_name
             self.__structure = get_structure_from_src(
                 src_structure=src_structure,
-                src_format=src_format,
+                structure_format=structure_format,
                 assembly_id=assembly_id
             )
         if chain_id is not None:
