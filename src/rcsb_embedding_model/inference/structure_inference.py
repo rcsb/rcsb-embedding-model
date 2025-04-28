@@ -21,7 +21,7 @@ def predict(
         accelerator: Accelerator = Accelerator.auto,
         devices: Devices = 'auto',
         out_path: OptionalPath = None,
-        out_df_id: str = None
+        out_df_name: str = None
 ):
 
     inference_set = EsmProtFromChain(
@@ -45,7 +45,7 @@ def predict(
     )
 
     module = StructureModule()
-    inference_writer = DataFrameStorage(out_path, out_df_id) if out_path is not None and out_df_id is not None else None
+    inference_writer = DataFrameStorage(out_path, out_df_name) if out_path is not None and out_df_name is not None else None
     trainer = Trainer(
         callbacks=[inference_writer] if inference_writer is not None else None,
         num_nodes=num_nodes,

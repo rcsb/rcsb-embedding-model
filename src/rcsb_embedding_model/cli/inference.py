@@ -76,7 +76,7 @@ def residue_embedding(
 
 @app.command(
     name="structure-embedding",
-    help="Calculate single-chain protein embeddings from structural files. Predictions are stored in a single pandas data-frame file."
+    help="Calculate single-chain protein embeddings from structural files. Predictions are stored in a single pandas DataFrame file."
 )
 def structure_embedding(
         src_file: Annotated[typer.FileText, typer.Option(
@@ -91,10 +91,10 @@ def structure_embedding(
             file_okay=False,
             dir_okay=True,
             resolve_path=True,
-            help='Output path to store predictions. Embeddings are stored in a single pandas data-frame pkl file with 2 coloumns: Id | Embedding.'
+            help='Output path to store predictions. Embeddings are stored as a single DataFrame file (see out-df-name).'
         )],
-        out_df_id: Annotated[str, typer.Option(
-            help='Pandas data-frame pkl file name to store embeddings.'
+        out_df_name: Annotated[str, typer.Option(
+            help='File name (without extension) for storing embeddings as a pandas DataFrame pickle (.pkl). The DataFrame contains 2 columns: Id | Embedding'
         )],
         src_from: Annotated[SrcProteinFrom, typer.Option(
             help='Use specific chains or all chains in a structure.'
@@ -138,7 +138,7 @@ def structure_embedding(
         accelerator=accelerator,
         devices=arg_devices(devices),
         out_path=output_path,
-        out_df_id=out_df_id
+        out_df_name=out_df_name
     )
 
 
