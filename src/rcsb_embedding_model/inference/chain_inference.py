@@ -1,16 +1,23 @@
 from torch.utils.data import DataLoader
 from lightning import Trainer
 
+from rcsb_embedding_model.dataset.residue_embedding_from_structure import ResidueEmbeddingFromStructure
 from rcsb_embedding_model.dataset.residue_embedding_from_tensor_file import ResidueEmbeddingFromTensorFile
 from rcsb_embedding_model.modules.chain_module import ChainModule
-from rcsb_embedding_model.types.api_types import Accelerator, Devices, OptionalPath, FileOrStreamTuple, SrcLocation
+from rcsb_embedding_model.types.api_types import Accelerator, Devices, OptionalPath, FileOrStreamTuple, SrcLocation, \
+    SrcTensorFrom, StructureLocation, StructureFormat
 from rcsb_embedding_model.utils.data import collate_seq_embeddings
 from rcsb_embedding_model.writer.batch_writer import CsvBatchWriter
 
 
 def predict(
         src_stream: FileOrStreamTuple,
+        res_embedding_location: OptionalPath = None,
         src_location: SrcLocation = SrcLocation.local,
+        src_from: SrcTensorFrom = SrcTensorFrom.file,
+        structure_location: StructureLocation = StructureLocation.local,
+        structure_format: StructureFormat = StructureFormat.mmcif,
+        min_res_n: int = 0,
         batch_size: int = 1,
         num_workers: int = 0,
         num_nodes: int = 1,
@@ -24,6 +31,13 @@ def predict(
         inference_set = ResidueEmbeddingFromTensorFile(
             src_stream=src_stream,
             src_location=src_location
+        ) if src_from == SrcTensorFrom.file else ResidueEmbeddingFromStructure(
+            src_stream=src_stream,
+            res_embedding_location=res_embedding_location,
+            src_location=src_location,
+            structure_location=structure_location,
+            structure_format=structure_format,
+            min_res_n=min_res_n
         )
 
     inference_dataloader = DataLoader(

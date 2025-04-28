@@ -2,7 +2,7 @@ import os
 import unittest
 
 from rcsb_embedding_model.types.api_types import StructureLocation, Accelerator, SrcProteinFrom, SrcLocation, \
-    StructureFormat, SrcAssemblyFrom
+    StructureFormat, SrcAssemblyFrom, SrcTensorFrom
 
 
 class TestInference(unittest.TestCase):
@@ -62,6 +62,29 @@ class TestInference(unittest.TestCase):
                 (f"{self.__test_path}/resources/embeddings/2uzi.C.pt", "2uzi.C")
             ],
             src_location=SrcLocation.stream,
+            accelerator=Accelerator.cpu
+        )
+
+        self.assertEqual(len(chain_embeddings), 5)
+        self.assertEqual(tuple(chain_embeddings[0][0][0].shape), (1536,))
+        self.assertEqual(tuple(chain_embeddings[1][0][0].shape), (1536,))
+        self.assertEqual(tuple(chain_embeddings[2][0][0].shape), (1536,))
+        self.assertEqual(tuple(chain_embeddings[3][0][0].shape), (1536,))
+        self.assertEqual(tuple(chain_embeddings[4][0][0].shape), (1536,))
+
+    def test_chain_inference_from_structure(self):
+        from rcsb_embedding_model.inference.chain_inference import predict
+        chain_embeddings = predict(
+            src_stream=[
+                ("1acb", f"{self.__test_path}/resources/pdb/1acb.cif", "1acb"),
+                ("2uzi", f"{self.__test_path}/resources/pdb/2uzi.cif", "2uzi"),
+            ],
+            res_embedding_location=f"{self.__test_path}/resources/embeddings",
+            src_location=SrcLocation.stream,
+            src_from=SrcTensorFrom.structure,
+            structure_location=StructureLocation.local,
+            structure_format=StructureFormat.mmcif,
+            min_res_n=0,
             accelerator=Accelerator.cpu
         )
 

@@ -49,3 +49,8 @@ class SrcProteinFrom(str, Enum):
 class SrcAssemblyFrom(str, Enum):
     assembly = "assembly"
     structure = "structure"
+
+
+class SrcTensorFrom(str, Enum):
+    file = "file"
+    structure = "structure"

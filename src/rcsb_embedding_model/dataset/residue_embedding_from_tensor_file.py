@@ -2,7 +2,7 @@ import pandas as pd
 import torch
 from torch.utils.data import Dataset
 
-from rcsb_embedding_model.types.api_types import StructureLocation, SrcLocation
+from rcsb_embedding_model.types.api_types import SrcLocation
 
 
 class ResidueEmbeddingFromTensorFile(Dataset):
@@ -26,7 +26,7 @@ class ResidueEmbeddingFromTensorFile(Dataset):
         self.data = pd.DataFrame(
             src_stream,
             dtype=str,
-            columns=self.COLUMNS
+            columns=ResidueEmbeddingFromTensorFile.COLUMNS
         ) if self.src_location == SrcLocation.stream else pd.read_csv(
             src_stream,
             header=None,

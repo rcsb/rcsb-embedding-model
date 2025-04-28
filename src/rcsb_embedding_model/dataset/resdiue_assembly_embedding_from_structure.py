@@ -50,7 +50,7 @@ class ResidueAssemblyDatasetFromStructure(ResidueAssemblyEmbeddingFromTensorFile
         for idx, row in (pd.DataFrame(
                 src_stream,
                 dtype=str,
-                columns=self.COLUMNS
+                columns=ResidueAssemblyDatasetFromStructure.COLUMNS
         ) if self.src_location == SrcLocation.stream else pd.read_csv(
             src_stream,
             header=None,

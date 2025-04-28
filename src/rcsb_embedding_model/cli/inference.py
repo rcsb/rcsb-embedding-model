@@ -5,7 +5,7 @@ import typer
 
 from rcsb_embedding_model.cli.args_utils import arg_devices
 from rcsb_embedding_model.types.api_types import StructureFormat, Accelerator, SrcLocation, SrcProteinFrom, \
-    StructureLocation, SrcAssemblyFrom
+    StructureLocation, SrcAssemblyFrom, SrcTensorFrom
 
 app = typer.Typer(
     add_completion=False
@@ -154,7 +154,7 @@ def chain_embedding(
             file_okay=True,
             dir_okay=False,
             resolve_path=True,
-            help='CSV file 2 columns: Residue embedding torch tensor file | Output embedding name.'
+            help='Option 1 (src-from=file) - CSV file 2 columns: Residue Embedding Torch Tensor File | Output Embedding Name. Option 2 (src-from=structure) - CSV file 3 columns: Structure Name | Structure File Path or URL (switch structure-location) | Output Embedding Name.'
         )],
         output_path: Annotated[typer.FileText, typer.Option(
             exists=True,
@@ -163,6 +163,25 @@ def chain_embedding(
             resolve_path=True,
             help='Output path to store predictions. Embeddings are stored as csv files.'
         )],
+        res_embedding_location: Annotated[typer.FileText, typer.Option(
+            exists=True,
+            file_okay=False,
+            dir_okay=True,
+            resolve_path=True,
+            help='Path where residue level embeddings are located. This argument is required if src-from=structure.'
+        )] = None,
+        src_from: Annotated[SrcTensorFrom, typer.Option(
+            help='Use file names or all chains in a structure.'
+        )] = SrcTensorFrom.file,
+        structure_location: Annotated[StructureLocation, typer.Option(
+            help='Structure file location.'
+        )] = StructureLocation.local,
+        structure_format: Annotated[StructureFormat, typer.Option(
+            help='Structure file format.'
+        )] = StructureFormat.mmcif,
+        min_res_n: Annotated[int, typer.Option(
+            help='When using all chains in a structure, consider only chains with more than <min_res_n> residues.'
+        )] = 0,
         batch_size: Annotated[int, typer.Option(
             help='Number of samples processed together in one iteration.'
         )] = 1,
@@ -182,7 +201,12 @@ def chain_embedding(
     from rcsb_embedding_model.inference.chain_inference import predict
     predict(
         src_stream=src_file,
+        res_embedding_location=res_embedding_location,
         src_location=SrcLocation.local,
+        src_from=src_from,
+        structure_location=structure_location,
+        structure_format=structure_format,
+        min_res_n=min_res_n,
         batch_size=batch_size,
         num_workers=num_workers,
         num_nodes=num_nodes,
