@@ -46,10 +46,13 @@ If you are interested in training the model with a new dataset, visit the [rcsb-
     inference residue-embedding --src-file data/structures.csv --output-path results/residue_embeddings --structure-format mmcif --batch-size 8 --devices auto
 
     # 2. Compute structure embeddings: Calculate single-chain protein embeddings from structural files. Predictions are stored in a single pandas data-frame file.
-    inference structure-embedding --src-file results/residue_embeddings.csv --output-path results/structure_embeddings --out-df-id embeddings.pkl --batch-size 4 --devices 0 --devives 1
+    inference structure-embedding --src-file data/structures.csv --output-path results/residue_embeddings --out-df-id embeddings.pkl --batch-size 4 --devices 0 --devives 1
 
-    # 3. Compute chain embeddings:Calculate single-chain protein embeddings from residue level embeddings stored as torch tensor files. Predictions a re stored as csv files.
-    inference chain-embedding --src-file results/residue_embeddings.csv --output-path results/chain_embeddings --batch-size 4
+    # 3. Compute chain embeddings: Calculate single-chain protein embeddings from residue level embeddings stored as torch tensor files. Predictions a re stored as csv files.
+    inference chain-embedding --src-file data/structures.csv --output-path results/chain_embeddings --batch-size 4
+
+    # 4. Compute assembly embeddings: Calculate assembly embeddings from residue level embeddings stored as torch tensor files. Predictions are stored as csv files.
+    inference assembly-embedding --src-file data/structures.csv --res-embedding-location results/residue_embeddings --output-path results/assembly_embeddings
 
 ### Python API
 

@@ -1,10 +1,9 @@
 from enum import Enum
-from os import PathLike
 from typing import NewType, Union, IO, Tuple, List, Optional
 
 from typer import FileText
 
-StreamSrc = NewType('StreamSrc', Union[PathLike, IO])
+StreamSrc = NewType('StreamSrc', Union[FileText, IO])
 StreamTuple = NewType('StreamTuple', Union[
     Tuple[str, StreamSrc, str, str],
     Tuple[str, StreamSrc, str],
@@ -14,8 +13,8 @@ FileOrStreamTuple = NewType('FileOrStreamTuple', Union[FileText, StreamTuple])
 
 Devices = NewType('Devices', Union[int, List[int], "auto"])
 
-EmbeddingPath = Union[str, PathLike]
-OptionalPath = NewType('OptionalPath', Optional[PathLike])
+EmbeddingPath = Union[str, FileText]
+OptionalPath = NewType('OptionalPath', Optional[FileText])
 
 
 class StructureFormat(str, Enum):

@@ -144,7 +144,7 @@ def structure_embedding(
 
 @app.command(
     name="chain-embedding",
-    help="Calculate single-chain protein embeddings from residue level embeddings stored as torch tensor files. Predictions a re stored as csv files."
+    help="Calculate single-chain protein embeddings from residue level embeddings stored as torch tensor files. Predictions are stored as csv files."
 )
 def chain_embedding(
         src_file: Annotated[typer.FileText, typer.Option(
@@ -180,6 +180,61 @@ def chain_embedding(
     from rcsb_embedding_model.inference.chain_inference import predict
     predict(
         src_stream=src_file,
+        src_location=SrcLocation.local,
+        batch_size=batch_size,
+        num_workers=num_workers,
+        num_nodes=num_nodes,
+        accelerator=accelerator,
+        devices=arg_devices(devices),
+        out_path=output_path
+    )
+
+@app.command(
+    name="assembly-embedding",
+    help="Calculate assembly embeddings from residue level embeddings stored as torch tensor files. Predictions are stored as csv files."
+)
+def assembly_embedding(
+        src_file: Annotated[typer.FileText, typer.Option(
+            exists=True,
+            file_okay=True,
+            dir_okay=False,
+            resolve_path=True,
+            help='CSV file 4 columns: Structure Name | Structure File Path | Assembly Id | Output embedding name.'
+        )],
+        res_embedding_location: Annotated[typer.FileText, typer.Option(
+            exists=True,
+            file_okay=False,
+            dir_okay=True,
+            resolve_path=True,
+            help='Path where residue level embeddings for single chains are located.'
+        )],
+        output_path: Annotated[typer.FileText, typer.Option(
+            exists=True,
+            file_okay=False,
+            dir_okay=True,
+            resolve_path=True,
+            help='Output path to store predictions. Embeddings are stored as csv files.'
+        )],
+        batch_size: Annotated[int, typer.Option(
+            help='Number of samples processed together in one iteration.'
+        )] = 1,
+        num_workers: Annotated[int, typer.Option(
+            help='Number of subprocesses to use for data loading.'
+        )] = 0,
+        num_nodes: Annotated[int, typer.Option(
+            help='Number of nodes to use for inference.'
+        )] = 1,
+        accelerator: Annotated[Accelerator, typer.Option(
+            help='Device used for inference.'
+        )] = Accelerator.auto,
+        devices: Annotated[List[str], typer.Option(
+            help='The devices to use. Can be set to a positive number or "auto". Repeat this argument to indicate multiple indices of devices. "auto" for automatic selection based on the chosen accelerator.'
+        )] = tuple(['auto'])
+):
+    from rcsb_embedding_model.inference.assembly_inferece import predict
+    predict(
+        src_stream=src_file,
+        res_embedding_location=res_embedding_location,
         src_location=SrcLocation.local,
         batch_size=batch_size,
         num_workers=num_workers,
