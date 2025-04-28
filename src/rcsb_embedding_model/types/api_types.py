@@ -31,17 +31,21 @@ class Accelerator(str, Enum):
     hpu = "hpu"
     auto = "auto"
 
+
 class SrcLocation(str, Enum):
     local = "local"
     stream = "stream"
+
 
 class StructureLocation(str, Enum):
     local = "local"
     remote = "remote"
 
+
 class SrcProteinFrom(str, Enum):
     chain = "chain"
     structure = "structure"
+
 
 class SrcAssemblyFrom(str, Enum):
     assembly = "assembly"

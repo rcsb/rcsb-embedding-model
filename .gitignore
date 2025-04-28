@@ -2,3 +2,4 @@
 /rcsb-embedding-model.iml
 /dist/
 /.pypi.rc
+__pycache__

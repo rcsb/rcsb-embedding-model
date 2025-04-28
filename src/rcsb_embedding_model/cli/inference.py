@@ -3,7 +3,7 @@ from typing import Annotated, List
 import typer
 
 from rcsb_embedding_model.cli.args_utils import arg_devices
-from rcsb_embedding_model.types.api_types import StructureFormat, Accelerator, StructureLocation, SrcProteinFrom
+from rcsb_embedding_model.types.api_types import StructureFormat, Accelerator, SrcLocation, SrcProteinFrom, StructureLocation
 
 app = typer.Typer(
     add_completion=False
@@ -12,7 +12,7 @@ app = typer.Typer(
 
 @app.command(
     name="residue-embedding",
-    help="Calculate residue level embeddings of protein structures using ESM3."
+    help="Calculate residue level embeddings of protein structures using ESM3. Predictions are stored as torch tensor files."
 )
 def residue_embedding(
         src_file: Annotated[typer.FileText, typer.Option(
@@ -20,24 +20,24 @@ def residue_embedding(
             file_okay=True,
             dir_okay=False,
             resolve_path=True,
-            help='CSV file 3 columns: Structure File Path | Chain Id (asym_i for cif files) | Output file name.'
+            help='CSV file 4 (or 3) columns: Structure Name | Structure File Path | Chain Id (asym_i for cif files. This field is required if src-from=chain) | Output Embedding Name.'
         )],
         output_path: Annotated[typer.FileText, typer.Option(
             exists=True,
             file_okay=False,
             dir_okay=True,
             resolve_path=True,
-            help='Output path to store predictions.'
+            help='Output path to store predictions. Embeddings are stored as torch tensor files.'
         )],
-        src_location: Annotated[StructureLocation, typer.Option(
-            help='Source input location.'
-        )] = StructureLocation.local,
-        src_format: Annotated[StructureFormat, typer.Option(
-            help='Structure file format.'
-        )] = StructureFormat.mmcif,
         src_from: Annotated[SrcProteinFrom, typer.Option(
             help='Use specific chains or all chains in a structure.'
         )] = SrcProteinFrom.chain,
+        structure_location: Annotated[StructureLocation, typer.Option(
+            help='Structure file location.'
+        )] = StructureLocation.local,
+        structure_format: Annotated[StructureFormat, typer.Option(
+            help='Structure file format.'
+        )] = StructureFormat.mmcif,
         min_res_n: Annotated[int, typer.Option(
             help='When using all chains in a structure, consider only chains with more than <min_res_n> residues.'
         )] = 0,
@@ -59,10 +59,11 @@ def residue_embedding(
 ):
     from rcsb_embedding_model.inference.esm_inference import predict
     predict(
-        csv_file=src_file,
-        src_location=src_location,
-        structure_format=src_format,
+        src_stream=src_file,
+        src_location=SrcLocation.local,
         src_from=src_from,
+        structure_location=structure_location,
+        structure_format=structure_format,
         min_res_n=min_res_n,
         batch_size=batch_size,
         num_workers=num_workers,
@@ -83,27 +84,27 @@ def structure_embedding(
             file_okay=True,
             dir_okay=False,
             resolve_path=True,
-            help='CSV file 3 columns: Structure File Path | Chain Id (asym_i for cif files) | Output file name.'
+            help='CSV file 4 (or 3) columns: Structure Name | Structure File Path | Chain Id (asym_i for cif files. This field is required if src-from=chain) | Output Embedding Name.'
         )],
         output_path: Annotated[typer.FileText, typer.Option(
             exists=True,
             file_okay=False,
             dir_okay=True,
             resolve_path=True,
-            help='Output path to store predictions.'
+            help='Output path to store predictions. Embeddings are stored in a single pandas data-frame pkl file with 2 coloumns: Id | Embedding.'
         )],
         out_df_id: Annotated[str, typer.Option(
-            help='File name to store predicted embeddings.'
+            help='Pandas data-frame pkl file name to store embeddings.'
         )],
-        src_location: Annotated[StructureLocation, typer.Option(
-            help='Source input location.'
-        )] = StructureLocation.local,
-        src_format: Annotated[StructureFormat, typer.Option(
-            help='Structure file format.'
-        )] = StructureFormat.mmcif,
         src_from: Annotated[SrcProteinFrom, typer.Option(
             help='Use specific chains or all chains in a structure.'
         )] = SrcProteinFrom.chain,
+        structure_location: Annotated[StructureLocation, typer.Option(
+            help='Source input location.'
+        )] = StructureLocation.local,
+        structure_format: Annotated[StructureFormat, typer.Option(
+            help='Structure file format.'
+        )] = StructureFormat.mmcif,
         min_res_n: Annotated[int, typer.Option(
             help='When using all chains in a structure, consider only chains with more than <min_res_n> residues.'
         )] = 0,
@@ -125,10 +126,11 @@ def structure_embedding(
 ):
     from rcsb_embedding_model.inference.structure_inference import predict
     predict(
-        csv_file=src_file,
-        src_location=src_location,
-        structure_format=src_format,
+        src_stream=src_file,
+        src_location=SrcLocation.local,
         src_from=src_from,
+        structure_location=structure_location,
+        structure_format=structure_format,
         min_res_n=min_res_n,
         batch_size=batch_size,
         num_workers=num_workers,
@@ -142,7 +144,7 @@ def structure_embedding(
 
 @app.command(
     name="chain-embedding",
-    help="Calculate single-chain protein embeddings from residue level embeddings stored as torch tensor files."
+    help="Calculate single-chain protein embeddings from residue level embeddings stored as torch tensor files. Predictions a re stored as csv files."
 )
 def chain_embedding(
         src_file: Annotated[typer.FileText, typer.Option(
@@ -150,14 +152,14 @@ def chain_embedding(
             file_okay=True,
             dir_okay=False,
             resolve_path=True,
-            help='CSV file 2 columns: Residue Embedding Tensor File | Output file name.'
+            help='CSV file 2 columns: Residue embedding torch tensor file | Output embedding name.'
         )],
         output_path: Annotated[typer.FileText, typer.Option(
             exists=True,
             file_okay=False,
             dir_okay=True,
             resolve_path=True,
-            help='Output path to store predictions.'
+            help='Output path to store predictions. Embeddings are stored as csv files.'
         )],
         batch_size: Annotated[int, typer.Option(
             help='Number of samples processed together in one iteration.'
@@ -177,7 +179,8 @@ def chain_embedding(
 ):
     from rcsb_embedding_model.inference.chain_inference import predict
     predict(
-        csv_file=src_file,
+        src_stream=src_file,
+        src_location=SrcLocation.local,
         batch_size=batch_size,
         num_workers=num_workers,
         num_nodes=num_nodes,

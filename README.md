@@ -42,13 +42,13 @@ If you are interested in training the model with a new dataset, visit the [rcsb-
 
 ### CLI
 
-    # 1. Compute residue embeddings: Calculate residue level embeddings of protein structures using ESM3.
-    inference residue-embedding --src-file data/structures.csv --output-path results/residue_embeddings --src-format mmcif --batch-size 8 --devices auto
+    # 1. Compute residue embeddings: Calculate residue level embeddings of protein structures using ESM3. Predictions are stored as torch tensor files.
+    inference residue-embedding --src-file data/structures.csv --output-path results/residue_embeddings --structure-format mmcif --batch-size 8 --devices auto
 
     # 2. Compute structure embeddings: Calculate single-chain protein embeddings from structural files. Predictions are stored in a single pandas data-frame file.
     inference structure-embedding --src-file results/residue_embeddings.csv --output-path results/structure_embeddings --out-df-id embeddings.pkl --batch-size 4 --devices 0 --devives 1
 
-    # 3. Compute chain embeddings: Calculate single-chain protein embeddings from residue level embeddings stored as torch tensor files.
+    # 3. Compute chain embeddings:Calculate single-chain protein embeddings from residue level embeddings stored as torch tensor files. Predictions a re stored as csv files.
     inference chain-embedding --src-file results/residue_embeddings.csv --output-path results/chain_embeddings --batch-size 4
 
 ### Python API
