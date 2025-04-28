@@ -1,4 +1,4 @@
-from biotite.structure import filter_amino_acids, chain_iter, get_chains, get_residues, AtomArray
+from biotite.structure import filter_amino_acids, filter_polymer, chain_iter, get_chains, get_residues, AtomArray
 from biotite.structure.io.pdb import PDBFile, get_structure as get_pdb_structure, get_assembly as get_pdb_assembly, list_assemblies as list_pdb_assemblies
 from biotite.structure.io.pdbx import CIFFile, get_structure, get_assembly, BinaryCIFFile, list_assemblies
 
@@ -30,7 +30,8 @@ def get_structure_from_src(
 def get_protein_chains(structure, min_res_n=0):
     chain_ids = []
     for atom_ch in chain_iter(structure):
-        atom_res = atom_ch[filter_amino_acids(atom_ch)]
+        atom_res = atom_ch[filter_polymer(atom_ch)]
+        atom_res = atom_res[filter_amino_acids(atom_res)]
         if len(atom_res) > 0 and len(get_residues(atom_res)) > min_res_n:
             chain_ids.append(str(get_chains(atom_res)[0]))
     return tuple(chain_ids)

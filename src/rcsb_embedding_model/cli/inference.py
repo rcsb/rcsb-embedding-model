@@ -22,7 +22,7 @@ def residue_embedding(
             file_okay=True,
             dir_okay=False,
             resolve_path=True,
-            help='CSV file 4 (or 3) columns: Structure Name | Structure File Path | Chain Id (asym_i for cif files. This field is required if src-from=chain) | Output Embedding Name.'
+            help='CSV file 4 (or 3) columns: Structure Name | Structure File Path or URL (switch structure-location) | Chain Id (asym_i for cif files. This field is required if src-from=chain) | Output Embedding Name.'
         )],
         output_path: Annotated[typer.FileText, typer.Option(
             exists=True,
@@ -86,7 +86,7 @@ def structure_embedding(
             file_okay=True,
             dir_okay=False,
             resolve_path=True,
-            help='CSV file 4 (or 3) columns: Structure Name | Structure File Path | Chain Id (asym_i for cif files. This field is required if src-from=chain) | Output Embedding Name.'
+            help='CSV file 4 (or 3) columns: Structure Name | Structure File Path or URL (switch structure-location) | Chain Id (asym_i for cif files. This field is required if src-from=chain) | Output Embedding Name.'
         )],
         output_path: Annotated[typer.FileText, typer.Option(
             exists=True,
@@ -102,7 +102,7 @@ def structure_embedding(
             help='Use specific chains or all chains in a structure.'
         )] = SrcProteinFrom.chain,
         structure_location: Annotated[StructureLocation, typer.Option(
-            help='Source input location.'
+            help='Structure file location.'
         )] = StructureLocation.local,
         structure_format: Annotated[StructureFormat, typer.Option(
             help='Structure file format.'
@@ -201,7 +201,7 @@ def assembly_embedding(
             file_okay=True,
             dir_okay=False,
             resolve_path=True,
-            help='CSV file 4 columns: Structure Name | Structure File Path | Assembly Id | Output embedding name.'
+            help='CSV file 4 columns: Structure Name | Structure File Path or URL (switch structure-location) | Assembly Id | Output embedding name.'
         )],
         res_embedding_location: Annotated[typer.FileText, typer.Option(
             exists=True,
@@ -221,7 +221,7 @@ def assembly_embedding(
             help='Use specific assembly or all assemblies in a structure.'
         )] = SrcAssemblyFrom.assembly,
         structure_location: Annotated[StructureLocation, typer.Option(
-            help='Source input location.'
+            help='Structure file location.'
         )] = StructureLocation.local,
         structure_format: Annotated[StructureFormat, typer.Option(
             help='Structure file format.'
