@@ -105,3 +105,21 @@ class TestInference(unittest.TestCase):
         self.assertEqual(tuple(chain_embeddings[2][0][0].shape), (1536,))
         self.assertEqual(tuple(chain_embeddings[3][0][0].shape), (1536,))
         self.assertEqual(tuple(chain_embeddings[4][0][0].shape), (1536,))
+
+    def test_assembly_inference_from_structure(self):
+        from rcsb_embedding_model.inference.assembly_inferece import predict
+
+        assembly_embedding =  predict(
+            src_stream=[
+                ("1acb", f"{self.__test_path}/resources/1acb.cif", "1", "1acb.1"),
+                ("2uzi", f"{self.__test_path}/resources/2uzi.cif", "1", "2uzi.1")
+            ],
+            src_location=SrcLocation.stream,
+            accelerator=Accelerator.cpu,
+            res_embedding_location=f"{self.__test_path}/resources"
+        )
+
+        self.assertEqual(len(assembly_embedding), 2)
+        # [batch_index][item_embedding,item_name][item_index]
+        self.assertEqual(tuple(assembly_embedding[0][0][0].shape), (1536,))
+        self.assertEqual(tuple(assembly_embedding[1][0][0].shape), (1536,))

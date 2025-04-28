@@ -14,6 +14,7 @@ FileOrStreamTuple = NewType('FileOrStreamTuple', Union[FileText, StreamTuple])
 
 Devices = NewType('Devices', Union[int, List[int], "auto"])
 
+EmbeddingPath = Union[str, PathLike]
 OptionalPath = NewType('OptionalPath', Optional[PathLike])
 
 

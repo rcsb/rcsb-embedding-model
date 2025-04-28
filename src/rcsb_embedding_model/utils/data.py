@@ -44,4 +44,34 @@ def stringio_from_url(url):
         print(f"Error fetching URL: {e}")
         return None
 
+def concatenate_tensors(file_list, max_residues, dim=0):
+    """
+    Concatenates a list of tensors stored in individual files along a specified dimension.
 
+    Args:
+        file_list (list of str): List of file paths to tensor files.
+        max_residues (int): Maximum number of residues allowed in the assembly
+        dim (int): The dimension along which to concatenate the tensors. Default is 0.
+
+    Returns:
+        torch.Tensor: The concatenated tensor.
+    """
+    tensors = []
+    total_residues = 0
+    for file in file_list:
+        try:
+            tensor = torch.load(
+                file,
+                map_location=torch.device('cpu')
+            )
+            total_residues += tensor.shape[0]
+            tensors.append(tensor)
+        except Exception as e:
+            continue
+        if total_residues > max_residues:
+            break
+    if tensors and len(tensors) > 0:
+        tensor_cat = torch.cat(tensors, dim=dim)
+        return tensor_cat
+    else:
+        raise ValueError("No valid tensors were loaded to concatenate.")

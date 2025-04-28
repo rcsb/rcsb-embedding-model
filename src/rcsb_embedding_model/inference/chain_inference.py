@@ -16,12 +16,15 @@ def predict(
         num_nodes: int = 1,
         accelerator: Accelerator = Accelerator.auto,
         devices: Devices = 'auto',
-        out_path: OptionalPath = None
+        out_path: OptionalPath = None,
+        inference_set=None
 ):
-    inference_set = ResidueEmbeddingFromTensorFile(
-        src_stream=src_stream,
-        src_location=src_location
-    )
+
+    if inference_set is None:
+        inference_set = ResidueEmbeddingFromTensorFile(
+            src_stream=src_stream,
+            src_location=src_location
+        )
 
     inference_dataloader = DataLoader(
         dataset=inference_set,
