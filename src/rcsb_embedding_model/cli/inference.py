@@ -215,6 +215,12 @@ def assembly_embedding(
             resolve_path=True,
             help='Output path to store predictions. Embeddings are stored as csv files.'
         )],
+        structure_location: Annotated[StructureLocation, typer.Option(
+            help='Source input location.'
+        )] = StructureLocation.local,
+        structure_format: Annotated[StructureFormat, typer.Option(
+            help='Structure file format.'
+        )] = StructureFormat.mmcif,
         batch_size: Annotated[int, typer.Option(
             help='Number of samples processed together in one iteration.'
         )] = 1,
@@ -236,6 +242,8 @@ def assembly_embedding(
         src_stream=src_file,
         res_embedding_location=res_embedding_location,
         src_location=SrcLocation.local,
+        structure_location=structure_location,
+        structure_format=structure_format,
         batch_size=batch_size,
         num_workers=num_workers,
         num_nodes=num_nodes,

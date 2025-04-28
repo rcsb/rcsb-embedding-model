@@ -5,7 +5,7 @@ from torch.utils.data import Dataset, DataLoader
 
 from rcsb_embedding_model.types.api_types import StructureLocation, StructureFormat, SrcLocation
 from rcsb_embedding_model.utils.data import stringio_from_url, concatenate_tensors
-from rcsb_embedding_model.utils.structure_parser import get_structure_from_src, get_protein_chains
+from rcsb_embedding_model.utils.structure_parser import get_protein_chains
 from rcsb_embedding_model.utils.structure_provider import StructureProvider
 
 
@@ -32,7 +32,7 @@ class ResidueAssemblyEmbeddingFromTensorFile(Dataset):
         super().__init__()
         self.res_embedding_location = res_embedding_location
         self.src_location = src_location
-        self.structure_location=structure_location
+        self.structure_location = structure_location
         self.structure_format = structure_format
         self.min_res_n = min_res_n
         self.max_res_n = max_res_n

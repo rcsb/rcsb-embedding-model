@@ -12,7 +12,7 @@ def predict(
         src_stream: FileOrStreamTuple,
         src_location: SrcLocation = SrcLocation.local,
         src_from: SrcProteinFrom = SrcProteinFrom.chain,
-        structure_location=StructureLocation.local,
+        structure_location: StructureLocation = StructureLocation.local,
         structure_format: StructureFormat = StructureFormat.mmcif,
         min_res_n: int = 0,
         batch_size: int = 1,
