@@ -44,6 +44,7 @@ def stringio_from_url(url):
         print(f"Error fetching URL: {e}")
         return None
 
+
 def concatenate_tensors(file_list, max_residues, dim=0):
     """
     Concatenates a list of tensors stored in individual files along a specified dimension.

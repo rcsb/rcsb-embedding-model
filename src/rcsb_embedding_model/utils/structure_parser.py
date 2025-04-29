@@ -37,13 +37,13 @@ def get_protein_chains(structure, min_res_n=0):
     return tuple(chain_ids)
 
 
-def get_assemblies(src_structure, structure_format="mmcif"):
+def get_assemblies(structure, structure_format="mmcif"):
     if structure_format == "pdb":
-        return tuple(list_pdb_assemblies(PDBFile.read(src_structure)))
+        return tuple(list_pdb_assemblies(PDBFile.read(structure)))
     elif structure_format == "mmcif":
-        return tuple(list_assemblies(CIFFile.read(src_structure)).keys())
+        return tuple(list_assemblies(CIFFile.read(structure)).keys())
     elif structure_format == "binarycif":
-        return tuple(list_assemblies(BinaryCIFFile.read(src_structure)))
+        return tuple(list_assemblies(BinaryCIFFile.read(structure)))
     else:
         raise RuntimeError(f"Unknown file format {structure_format}")
 

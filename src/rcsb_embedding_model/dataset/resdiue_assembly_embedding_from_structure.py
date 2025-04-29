@@ -37,7 +37,7 @@ class ResidueAssemblyDatasetFromStructure(ResidueAssemblyEmbeddingFromTensorFile
         super().__init__(
             src_stream=self.__get_assemblies(src_stream),
             res_embedding_location=res_embedding_location,
-            src_location=src_location,
+            src_location=SrcLocation.stream,
             structure_location=structure_location,
             structure_format=structure_format,
             min_res_n=min_res_n,
@@ -60,9 +60,9 @@ class ResidueAssemblyDatasetFromStructure(ResidueAssemblyEmbeddingFromTensorFile
         )).iterrows():
             src_name = row[ResidueAssemblyDatasetFromStructure.STREAM_NAME_ATTR]
             src_structure = row[ResidueAssemblyDatasetFromStructure.STREAM_ATTR]
-            src_structure = stringio_from_url(src_structure) if self.structure_location == StructureLocation.remote else src_structure
+            structure = stringio_from_url(src_structure) if self.structure_location == StructureLocation.remote else src_structure
             item_name = row[ResidueAssemblyDatasetFromStructure.ITEM_NAME_ATTR]
-            for assembly_id in get_assemblies(src_structure=src_structure, structure_format=self.structure_format):
+            for assembly_id in get_assemblies(structure=structure, structure_format=self.structure_format):
                 assemblies.append((src_name, src_structure, str(assembly_id), f"{item_name}.{assembly_id}"))
 
         return tuple(assemblies)
