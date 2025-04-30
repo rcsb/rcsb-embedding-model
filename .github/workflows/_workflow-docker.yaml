@@ -3,34 +3,11 @@
 name: Run CI/CD Docker Workflow
 
 on:
-  workflow_dispatch:
-  #
-  # Should be run on a cron schedule every Thursday night, prior to the weekly workflow.
-  schedule:
-    # Time is based on UTC timezone
-    #  ┌───────────── minute (0 - 59)
-    #  │ ┌───────────── hour (0 - 23)
-    #  │ │ ┌───────────── day of the month (1 - 31)
-    #  │ │ │ ┌───────────── month (1 - 12 or JAN-DEC)
-    #  │ │ │ │ ┌───────────── day of the week (0 - 6 or SUN-SAT)
-    #  │ │ │ │ │
-    #  * * * * *
-    - cron: "0 0 * * FRI"  # 0 UTC Friday
-  #
-  # Also run for new PRs and PR updates
-  pull_request:
-    types:
-      - opened
-      - reopened
-      - synchronize
-  #
-  # And run when pushed to master
-  push:
-    branches:
-      - master
+  workflow_call:
 
 jobs:
   run-workflow:
+    # if: startsWith(github.ref, 'refs/tags/')
     name: "Run automated docker workflow"
     uses: rcsb/devops-cicd-github-actions/.github/workflows/workflow-docker.yaml@master
     with:
