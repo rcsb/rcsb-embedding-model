@@ -3,16 +3,15 @@ name: CI Pipeline
 on:
   push:
     branches: [master]
-    tags:
-      - 'v*'
   pull_request:
     branches: [master]
 
 jobs:
-  test:
+  hatch-test:
     name: Test on Python ${{ matrix.python-version }}
     runs-on:
       - "self-hosted"
+      - "ubuntu22-04"
     timeout-minutes: 20
     strategy:
       matrix:
@@ -35,11 +34,11 @@ jobs:
       - name: Run tests
         run: hatch test
 
-  build:
+  hatch-build:
     name: Build to PyPI
-    needs: test
+    needs: hatch-test
     runs-on: ubuntu-latest
-    # if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/')
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -64,13 +63,13 @@ jobs:
   publish-to-pypi:
     name: >-
       Publish Python 🐍 distribution 📦 to PyPI
-    # if: startsWith(github.ref, 'refs/tags/')  # only publish to PyPI on tag pushes
+    if: startsWith(github.ref, 'refs/tags/')
     needs:
-      - build
+      - hatch-build
     runs-on: ubuntu-latest
     environment:
       name: pypi
-      url: https://pypi.org/p/rcsb-embedding-model  # Replace <package-name> with your PyPI project name
+      url: https://pypi.org/p/rcsb-embedding-model
     permissions:
       id-token: write
 
@@ -82,3 +81,9 @@ jobs:
           path: dist/
       - name: Publish distribution 📦 to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+
+  push-image:
+    needs:
+      - hatch-test
+    name: Push image to harbor
+    uses: ./.github/workflows/_workflow-docker.yaml
