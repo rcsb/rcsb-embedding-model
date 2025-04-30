@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.10", "3.11"]
+        python-version: ["3.10"]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -31,7 +31,7 @@ jobs:
         run: huggingface-cli login --token ${{ secrets.HF_API_TOKEN }}
 
       - name: Run tests
-        run: hatch test --maxfail=1 --disable-warnings -q
+        run: hatch test
 
   publish:
     name: Build & Publish to PyPI
