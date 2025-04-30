@@ -57,4 +57,4 @@ jobs:
       - name: Publish to PyPI
         env:
           HATCH_PYPI_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
-        run: hatch publish
+        run: hatch publish -a __token__ -c ${{ secrets.PYPI_API_TOKEN }}
