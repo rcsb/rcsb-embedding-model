@@ -32,10 +32,7 @@ jobs:
         run: huggingface-cli login --token ${{ secrets.HF_API_TOKEN }}
 
       - name: Install build tools
-        run: sudo apt-get update && sudo apt-get install -y build-essential
-
-      - name: Install python-zstd
-        run: pip install python-zstd
+        run: sudo apt-get update && sudo apt-get install -y build-essential python3-dev
 
       - name: Run tests
         run: hatch test
