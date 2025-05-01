@@ -5,6 +5,8 @@ on:
     branches: [master]
   pull_request:
     branches: [master]
+  release:
+    types: [ published ]
 
 jobs:
   hatch-test:
@@ -37,7 +39,7 @@ jobs:
     name: Build to PyPI
     needs: hatch-test
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
+    if: github.event_name == 'release'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -62,7 +64,7 @@ jobs:
   publish-to-pypi:
     name: >-
       Publish Python 🐍 distribution 📦 to PyPI
-    if: startsWith(github.ref, 'refs/tags/')
+    if: github.event_name == 'release'
     needs:
       - hatch-build
     runs-on: ubuntu-latest
