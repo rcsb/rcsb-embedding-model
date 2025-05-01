@@ -6,12 +6,12 @@ on:
   pull_request:
     branches: [master]
   release:
-    types: [ published ]
+    types: [published]
 
 jobs:
   hatch-test:
     name: Test on Python ${{ matrix.python-version }}
-    runs-on: ["self-hosted"]
+    runs-on: ["self-hosted", "ubuntu-22.04"]
     timeout-minutes: 20
     strategy:
       matrix:

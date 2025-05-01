@@ -7,7 +7,7 @@ on:
 
 jobs:
   run-workflow:
-    # if: github.event_name == 'release'
+    if: github.event_name == 'release'
     name: "Run automated docker workflow"
     uses: rcsb/devops-cicd-github-actions/.github/workflows/workflow-docker.yaml@master
     with:
