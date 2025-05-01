@@ -12,6 +12,6 @@ jobs:
     uses: rcsb/devops-cicd-github-actions/.github/workflows/workflow-docker.yaml@master
     with:
       dockerfile_location: "Dockerfile"  # The location of the Dockerfile relative to the root of the repository. Defaults to "Dockerfile".
-      repo_project: "js-image"  # REQUIRED. The name of the project or organization in the remote Docker image repository.
+      repo_project: "rcsb"  # REQUIRED. The name of the project or organization in the remote Docker image repository.
       docker_image_name: "rcsb-embedding-model"  # REQUIRED. The name of the Docker image to create.
       docker_build_context: "."  # The path location of the docker build context, relative to the project root. Defaults to the project root.
