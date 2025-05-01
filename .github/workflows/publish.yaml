@@ -9,7 +9,7 @@ on:
 jobs:
   hatch-test:
     name: Test on Python ${{ matrix.python-version }}
-    runs-on: ["self-hosted", "aws", "east"]
+    runs-on: ["self-hosted", "buildchain", "east"]
     timeout-minutes: 20
     strategy:
       matrix:
