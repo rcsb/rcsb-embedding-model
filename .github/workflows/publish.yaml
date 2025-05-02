@@ -33,12 +33,6 @@ jobs:
       - name: Install Hatch and HaggingFace
         run: pip install hatch huggingface_hub[cli]
 
-      - name: Cache Hatch environments
-        uses: actions/cache@v3
-        with:
-          path: ~/.cache/hatch
-          key: ${{ runner.os }}-hatch-${{ hashFiles('**/hatch.toml','**/pyproject.toml') }}
-
       - name: Authenticate to Hugging Face
         run: huggingface-cli login --token ${{ secrets.HF_API_TOKEN }}
 
