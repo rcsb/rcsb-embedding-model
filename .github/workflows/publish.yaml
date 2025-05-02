@@ -11,7 +11,7 @@ on:
 jobs:
   hatch-test:
     name: Test on Python ${{ matrix.python-version }}
-    runs-on: ["ubuntu-latest"]
+    runs-on: ["self-hosted"]
     timeout-minutes: 20
     strategy:
       matrix:
@@ -23,7 +23,7 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential pkg-config libzstd-dev
+          sudo apt-get install -y libzstd-dev
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v4
