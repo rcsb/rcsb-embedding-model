@@ -27,7 +27,7 @@ class EsmProtFromChain(Dataset):
     def __init__(
         self,
         src_stream,
-        src_location=SrcLocation.local,
+        src_location=SrcLocation.file,
         structure_location=StructureLocation.local,
         structure_format=StructureFormat.mmcif,
         structure_provider=StructureProvider()

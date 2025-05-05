@@ -2,14 +2,15 @@ import sys
 
 from rcsb_embedding_model.dataset.resdiue_assembly_embedding_from_structure import ResidueAssemblyDatasetFromStructure
 from rcsb_embedding_model.dataset.residue_assembly_embedding_from_tensor_file import ResidueAssemblyEmbeddingFromTensorFile
-from rcsb_embedding_model.types.api_types import FileOrStreamTuple, SrcLocation, Accelerator, Devices, OptionalPath, EmbeddingPath, StructureLocation, StructureFormat, SrcAssemblyFrom
+from rcsb_embedding_model.types.api_types import FileOrStreamTuple, SrcLocation, Accelerator, Devices, OptionalPath, \
+    EmbeddingPath, StructureLocation, StructureFormat, SrcAssemblyFrom, OutFormat
 from rcsb_embedding_model.inference.chain_inference import predict as chain_predict
 
 
 def predict(
         src_stream: FileOrStreamTuple,
         res_embedding_location: EmbeddingPath,
-        src_location: SrcLocation = SrcLocation.local,
+        src_location: SrcLocation = SrcLocation.file,
         src_from: SrcAssemblyFrom = SrcAssemblyFrom.assembly,
         structure_location: StructureLocation = StructureLocation.local,
         structure_format: StructureFormat = StructureFormat.mmcif,
@@ -20,6 +21,8 @@ def predict(
         num_nodes: int = 1,
         accelerator: Accelerator = Accelerator.auto,
         devices: Devices = 'auto',
+        out_format: OutFormat = OutFormat.separated,
+        out_name: str = 'inference',
         out_path: OptionalPath = None
 ):
     inference_set = ResidueAssemblyEmbeddingFromTensorFile(
@@ -48,6 +51,8 @@ def predict(
         num_nodes=num_nodes,
         accelerator=accelerator,
         devices=devices,
+        out_format=out_format,
+        out_name=out_name,
         out_path=out_path,
         inference_set=inference_set
     )

@@ -5,15 +5,15 @@ from rcsb_embedding_model.dataset.residue_embedding_from_structure import Residu
 from rcsb_embedding_model.dataset.residue_embedding_from_tensor_file import ResidueEmbeddingFromTensorFile
 from rcsb_embedding_model.modules.chain_module import ChainModule
 from rcsb_embedding_model.types.api_types import Accelerator, Devices, OptionalPath, FileOrStreamTuple, SrcLocation, \
-    SrcTensorFrom, StructureLocation, StructureFormat
+    SrcTensorFrom, StructureLocation, StructureFormat, OutFormat
 from rcsb_embedding_model.utils.data import collate_seq_embeddings
-from rcsb_embedding_model.writer.batch_writer import CsvBatchWriter
+from rcsb_embedding_model.writer.batch_writer import CsvBatchWriter, JsonStorage
 
 
 def predict(
         src_stream: FileOrStreamTuple,
         res_embedding_location: OptionalPath = None,
-        src_location: SrcLocation = SrcLocation.local,
+        src_location: SrcLocation = SrcLocation.file,
         src_from: SrcTensorFrom = SrcTensorFrom.file,
         structure_location: StructureLocation = StructureLocation.local,
         structure_format: StructureFormat = StructureFormat.mmcif,
@@ -23,6 +23,8 @@ def predict(
         num_nodes: int = 1,
         accelerator: Accelerator = Accelerator.auto,
         devices: Devices = 'auto',
+        out_format: OutFormat = OutFormat.separated,
+        out_name: str = 'inference',
         out_path: OptionalPath = None,
         inference_set=None
 ):
@@ -51,13 +53,13 @@ def predict(
     )
 
     module = ChainModule()
-
-    inference_writer = CsvBatchWriter(out_path) if out_path is not None else None
+    inference_writer = (JsonStorage(out_path, out_name) if out_format == OutFormat.grouped else CsvBatchWriter(out_path)) if out_path is not None else None
     trainer = Trainer(
         callbacks=[inference_writer] if inference_writer is not None else None,
         num_nodes=num_nodes,
         accelerator=accelerator,
-        devices=devices
+        devices=devices,
+        logger=False
     )
 
     prediction = trainer.predict(

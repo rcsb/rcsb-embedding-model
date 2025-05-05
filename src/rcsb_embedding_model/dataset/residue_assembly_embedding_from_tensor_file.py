@@ -22,7 +22,7 @@ class ResidueAssemblyEmbeddingFromTensorFile(Dataset):
             self,
             src_stream,
             res_embedding_location,
-            src_location=SrcLocation.local,
+            src_location=SrcLocation.file,
             structure_location=StructureLocation.local,
             structure_format=StructureFormat.mmcif,
             min_res_n=0,
@@ -79,7 +79,7 @@ if __name__ == "__main__":
     dataset = ResidueAssemblyEmbeddingFromTensorFile(
         src_stream="/Users/joan/tmp/assembly-test.csv",
         res_embedding_location="/Users/joan/tmp",
-        src_location=SrcLocation.local,
+        src_location=SrcLocation.file,
         structure_location=StructureLocation.local,
         structure_format=StructureFormat.mmcif
     )

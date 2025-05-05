@@ -4,13 +4,14 @@ from lightning import Trainer
 from rcsb_embedding_model.dataset.esm_prot_from_structure import EsmProtFromStructure
 from rcsb_embedding_model.dataset.esm_prot_from_chain import EsmProtFromChain
 from rcsb_embedding_model.modules.esm_module import EsmModule
-from rcsb_embedding_model.types.api_types import StructureFormat, Accelerator, Devices, OptionalPath, StructureLocation, SrcProteinFrom, FileOrStreamTuple, SrcLocation
-from rcsb_embedding_model.writer.batch_writer import TensorBatchWriter
+from rcsb_embedding_model.types.api_types import StructureFormat, Accelerator, Devices, OptionalPath, StructureLocation, \
+    SrcProteinFrom, FileOrStreamTuple, SrcLocation, OutFormat
+from rcsb_embedding_model.writer.batch_writer import TensorBatchWriter, JsonStorage
 
 
 def predict(
         src_stream: FileOrStreamTuple,
-        src_location: SrcLocation = SrcLocation.local,
+        src_location: SrcLocation = SrcLocation.file,
         src_from: SrcProteinFrom = SrcProteinFrom.chain,
         structure_location: StructureLocation = StructureLocation.local,
         structure_format: StructureFormat = StructureFormat.mmcif,
@@ -20,6 +21,8 @@ def predict(
         num_nodes: int = 1,
         accelerator: Accelerator = Accelerator.auto,
         devices: Devices = 'auto',
+        out_format: OutFormat = OutFormat.separated,
+        out_name: str = 'inference',
         out_path: OptionalPath = None
 ):
 
@@ -44,12 +47,13 @@ def predict(
     )
 
     module = EsmModule()
-    inference_writer = TensorBatchWriter(out_path) if out_path is not None else None
+    inference_writer = (JsonStorage(out_path, out_name) if out_format == OutFormat.grouped else TensorBatchWriter(out_path)) if out_path is not None else None
     trainer = Trainer(
         callbacks=[inference_writer] if inference_writer is not None else None,
         num_nodes=num_nodes,
         accelerator=accelerator,
-        devices=devices
+        devices=devices,
+        logger=False
     )
 
     prediction = trainer.predict(

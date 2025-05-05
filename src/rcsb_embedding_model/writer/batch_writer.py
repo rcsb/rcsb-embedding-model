@@ -111,3 +111,21 @@ class DataFrameStorage(CoreBatchWriter, ABC):
             f"{self.out_path}/{self.df_id}.pkl.gz",
             compression='gzip'
         )
+
+
+class JsonStorage(DataFrameStorage, ABC):
+    def __init__(
+            self,
+            output_path,
+            df_id,
+            postfix="pkl",
+            write_interval="batch"
+    ):
+        super().__init__(output_path, df_id, postfix, write_interval)
+
+    def on_predict_end(self, trainer, pl_module):
+        self.embedding.to_json(
+            f"{self.out_path}/{self.df_id}.json.gz",
+            orient='records',
+            compression='gzip'
+        )

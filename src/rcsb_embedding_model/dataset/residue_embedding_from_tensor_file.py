@@ -15,7 +15,7 @@ class ResidueEmbeddingFromTensorFile(Dataset):
     def __init__(
             self,
             src_stream,
-            src_location=SrcLocation.local
+            src_location=SrcLocation.file
     ):
         super().__init__()
         self.src_location = src_location

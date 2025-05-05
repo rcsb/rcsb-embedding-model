@@ -32,7 +32,7 @@ class Accelerator(str, Enum):
 
 
 class SrcLocation(str, Enum):
-    local = "local"
+    file = "file"
     stream = "stream"
 
 
@@ -54,3 +54,7 @@ class SrcAssemblyFrom(str, Enum):
 class SrcTensorFrom(str, Enum):
     file = "file"
     structure = "structure"
+
+class OutFormat(str, Enum):
+    separated = "separated"
+    grouped = "grouped"

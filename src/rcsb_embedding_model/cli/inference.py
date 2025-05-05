@@ -5,7 +5,7 @@ import typer
 
 from rcsb_embedding_model.cli.args_utils import arg_devices
 from rcsb_embedding_model.types.api_types import StructureFormat, Accelerator, SrcLocation, SrcProteinFrom, \
-    StructureLocation, SrcAssemblyFrom, SrcTensorFrom
+    StructureLocation, SrcAssemblyFrom, SrcTensorFrom, OutFormat
 
 app = typer.Typer(
     add_completion=False
@@ -31,6 +31,12 @@ def residue_embedding(
             resolve_path=True,
             help='Output path to store predictions. Embeddings are stored as torch tensor files.'
         )],
+        output_format: Annotated[OutFormat, typer.Option(
+            help='Format of the output. Options: separated (predictions are stored in single files) or grouped (predictions are stored in a single JSON file).'
+        )] = OutFormat.separated,
+        output_name: Annotated[str, typer.Option(
+            help='File name for storing embeddings as a single JSON file. Used when output-format=grouped.'
+        )] = 'inference',
         src_from: Annotated[SrcProteinFrom, typer.Option(
             help='Use specific chains or all chains in a structure.'
         )] = SrcProteinFrom.chain,
@@ -62,7 +68,7 @@ def residue_embedding(
     from rcsb_embedding_model.inference.esm_inference import predict
     predict(
         src_stream=src_file,
-        src_location=SrcLocation.local,
+        src_location=SrcLocation.file,
         src_from=src_from,
         structure_location=structure_location,
         structure_format=structure_format,
@@ -72,6 +78,8 @@ def residue_embedding(
         num_nodes=num_nodes,
         accelerator=accelerator,
         devices=arg_devices(devices),
+        out_format=output_format,
+        out_name=output_name,
         out_path=output_path
     )
 
@@ -95,9 +103,9 @@ def structure_embedding(
             resolve_path=True,
             help='Output path to store predictions. Embeddings are stored as a single DataFrame file (see out-df-name).'
         )],
-        out_df_name: Annotated[str, typer.Option(
-            help='File name (without extension) for storing embeddings as a pandas DataFrame pickle (.pkl). The DataFrame contains 2 columns: Id | Embedding'
-        )],
+        output_name: Annotated[str, typer.Option(
+            help='File name for storing embeddings as a single JSON file.'
+        )] = 'inference',
         src_from: Annotated[SrcProteinFrom, typer.Option(
             help='Use specific chains or all chains in a structure.'
         )] = SrcProteinFrom.chain,
@@ -129,7 +137,7 @@ def structure_embedding(
     from rcsb_embedding_model.inference.structure_inference import predict
     predict(
         src_stream=src_file,
-        src_location=SrcLocation.local,
+        src_location=SrcLocation.file,
         src_from=src_from,
         structure_location=structure_location,
         structure_format=structure_format,
@@ -140,7 +148,7 @@ def structure_embedding(
         accelerator=accelerator,
         devices=arg_devices(devices),
         out_path=output_path,
-        out_df_name=out_df_name
+        out_name=output_name
     )
 
 
@@ -163,6 +171,12 @@ def chain_embedding(
             resolve_path=True,
             help='Output path to store predictions. Embeddings are stored as csv files.'
         )],
+        output_format: Annotated[OutFormat, typer.Option(
+            help='Format of the output. Options: separated (predictions are stored in single files) or grouped (predictions are stored in a single JSON file).'
+        )] = OutFormat.separated,
+        output_name: Annotated[str, typer.Option(
+            help='File name for storing embeddings as a single JSON file. Used when output-format=grouped.'
+        )] = 'inference',
         res_embedding_location: Annotated[typer.FileText, typer.Option(
             exists=True,
             file_okay=False,
@@ -202,7 +216,7 @@ def chain_embedding(
     predict(
         src_stream=src_file,
         res_embedding_location=res_embedding_location,
-        src_location=SrcLocation.local,
+        src_location=SrcLocation.file,
         src_from=src_from,
         structure_location=structure_location,
         structure_format=structure_format,
@@ -212,7 +226,9 @@ def chain_embedding(
         num_nodes=num_nodes,
         accelerator=accelerator,
         devices=arg_devices(devices),
-        out_path=output_path
+        out_path=output_path,
+        out_format=output_format,
+        out_name=output_name
     )
 
 @app.command(
@@ -241,6 +257,12 @@ def assembly_embedding(
             resolve_path=True,
             help='Output path to store predictions. Embeddings are stored as csv files.'
         )],
+        output_format: Annotated[OutFormat, typer.Option(
+            help='Format of the output. Options: separated (predictions are stored in single files) or grouped (predictions are stored in a single JSON file).'
+        )] = OutFormat.separated,
+        output_name: Annotated[str, typer.Option(
+            help='File name for storing embeddings as a single JSON file. Used when output-format=grouped.'
+        )] = 'inference',
         src_from: Annotated[SrcAssemblyFrom, typer.Option(
             help='Use specific assembly or all assemblies in a structure.'
         )] = SrcAssemblyFrom.assembly,
@@ -276,7 +298,7 @@ def assembly_embedding(
     predict(
         src_stream=src_file,
         res_embedding_location=res_embedding_location,
-        src_location=SrcLocation.local,
+        src_location=SrcLocation.file,
         src_from=src_from,
         structure_location=structure_location,
         structure_format=structure_format,
@@ -287,7 +309,113 @@ def assembly_embedding(
         num_nodes=num_nodes,
         accelerator=accelerator,
         devices=arg_devices(devices),
-        out_path=output_path
+        out_path=output_path,
+        out_format=output_format,
+        out_name=output_name
+    )
+
+@app.command(
+    name="complete-embedding",
+    help="Calculate chain and assembly embeddings from structural files. Predictions are stored as csv files."
+)
+def complete_embedding(
+        src_file: Annotated[typer.FileText, typer.Option(
+            exists=True,
+            file_okay=True,
+            dir_okay=False,
+            resolve_path=True,
+            help='CSV file 3 columns: Structure Name | Structure File Path or URL | Chain Id (asym_i for cif files. This field is required if src-from=chain) | Output Embedding Name.'
+        )],
+        output_path: Annotated[typer.FileText, typer.Option(
+            exists=True,
+            file_okay=False,
+            dir_okay=True,
+            resolve_path=True,
+            help='Output path to store predictions. Embeddings are stored as a single DataFrame file (see output_name).'
+        )],
+        esm_output_path: Annotated[typer.FileText, typer.Option(
+            exists=True,
+            file_okay=False,
+            dir_okay=True,
+            resolve_path=True,
+            help='Output path to store ESM predictions.'
+        )],
+        output_format: Annotated[OutFormat, typer.Option(
+            help='Format of the output. Options: separated (predictions are stored in single files) or grouped (predictions are stored in a single JSON file).'
+        )] = OutFormat.separated,
+        output_name: Annotated[str, typer.Option(
+            help='File name for storing embeddings as a single JSON file. Used when output-format=grouped.'
+        )] = 'inference',
+        structure_location: Annotated[StructureLocation, typer.Option(
+            help='Structure file location.'
+        )] = StructureLocation.local,
+        structure_format: Annotated[StructureFormat, typer.Option(
+            help='Structure file format.'
+        )] = StructureFormat.mmcif,
+        min_res_n: Annotated[int, typer.Option(
+            help='When using all chains in a structure, consider only chains with more than <min_res_n> residues.'
+        )] = 0,
+        batch_size: Annotated[int, typer.Option(
+            help='Number of samples processed together in one iteration.'
+        )] = 1,
+        num_workers: Annotated[int, typer.Option(
+            help='Number of subprocesses to use for data loading.'
+        )] = 0,
+        num_nodes: Annotated[int, typer.Option(
+            help='Number of nodes to use for inference.'
+        )] = 1,
+        accelerator: Annotated[Accelerator, typer.Option(
+            help='Device used for inference.'
+        )] = Accelerator.auto,
+        devices: Annotated[List[str], typer.Option(
+            help='The devices to use. Can be set to a positive number or "auto". Repeat this argument to indicate multiple indices of devices. "auto" for automatic selection based on the chosen accelerator.'
+        )] = tuple(['auto'])
+):
+    residue_embedding(
+        src_file=src_file,
+        src_from=SrcProteinFrom.structure,
+        output_path=esm_output_path,
+        output_format=OutFormat.separated,
+        structure_location=structure_location,
+        structure_format=structure_format,
+        min_res_n=min_res_n,
+        batch_size=batch_size,
+        num_workers=num_workers,
+        num_nodes=num_nodes,
+        accelerator=accelerator,
+        devices=devices,
+    )
+    chain_embedding(
+        src_file=src_file,
+        src_from=SrcTensorFrom.structure,
+        output_path=output_path,
+        output_format=output_format,
+        output_name=f"{output_name}-chain",
+        res_embedding_location=esm_output_path,
+        structure_location=structure_location,
+        structure_format=structure_format,
+        min_res_n=min_res_n,
+        batch_size=batch_size,
+        num_workers=num_workers,
+        num_nodes=num_nodes,
+        accelerator=accelerator,
+        devices=devices
+    )
+    assembly_embedding(
+        src_file=src_file,
+        src_from=SrcAssemblyFrom.structure,
+        output_path=output_path,
+        output_format=output_format,
+        output_name=f"{output_name}-assembly",
+        res_embedding_location=esm_output_path,
+        structure_location=structure_location,
+        structure_format=structure_format,
+        min_res_n=min_res_n,
+        batch_size=batch_size,
+        num_workers=num_workers,
+        num_nodes=num_nodes,
+        accelerator=accelerator,
+        devices=devices
     )
 
 
