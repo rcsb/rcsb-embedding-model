@@ -1,6 +1,6 @@
 [project]
 name = "rcsb-embedding-model"
-version = "0.0.17"
+version = "0.0.18"
 authors = [
     { name="Joan Segura", email="joan.segura@rcsb.org" },
 ]
@@ -14,8 +14,7 @@ classifiers = [
 license = "BSD-3-Clause"
 license-files = ["LICEN[CS]E*"]
 dependencies=[
-    "esm >= 3.2.0",
-    "torch >= 2.2.0",
+    "esm == 3.1.1",
     "lightning >= 2.5.0",
     "typer >= 0.15.0"
 ]

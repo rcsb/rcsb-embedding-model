@@ -1,6 +1,6 @@
 # RCSB Embedding Model
 
-**Version** 0.0.17
+**Version** 0.0.18
 
 
 ## Overview
@@ -30,11 +30,10 @@ If you are interested in training the model with a new dataset, visit the [rcsb-
 
 **Requirements:**
 
-- Python ≥ 3.10  
-- ESM ≥ 3.2.0  
-- PyTorch ≥ 2.2.0  
-- Lightning ≥ 2.5.0  
-- Typer ≥ 0.15.0  
+- Python ≥ 3.10
+- ESM == 3.1.1
+- Lightning ≥ 2.5.0 
+- Typer ≥ 0.15.0
 
 ---
 
