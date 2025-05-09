@@ -6,6 +6,7 @@ import typer
 from rcsb_embedding_model.cli.args_utils import arg_devices
 from rcsb_embedding_model.types.api_types import StructureFormat, Accelerator, SrcLocation, SrcProteinFrom, \
     StructureLocation, SrcAssemblyFrom, SrcTensorFrom, OutFormat
+from rcsb_embedding_model.utils.data import adapt_csv_to_embedding_chain_stream
 
 app = typer.Typer(
     add_completion=False
@@ -22,7 +23,7 @@ def residue_embedding(
             file_okay=True,
             dir_okay=False,
             resolve_path=True,
-            help='CSV file 4 (or 3) columns: Structure Name | Structure File Path or URL (switch structure-location) | Chain Id (asym_i for cif files. This field is required if src-from=chain) | Output Embedding Name.'
+            help='CSV file 4 columns: Structure Name | Structure File Path or URL (switch structure-location) | Chain Id (asym_i for cif files) | Output Embedding Name.'
         )],
         output_path: Annotated[typer.FileText, typer.Option(
             exists=True,
@@ -37,9 +38,6 @@ def residue_embedding(
         output_name: Annotated[str, typer.Option(
             help='File name for storing embeddings as a single JSON file. Used when output-format=grouped.'
         )] = 'inference',
-        src_from: Annotated[SrcProteinFrom, typer.Option(
-            help='Use specific chains or all chains in a structure.'
-        )] = SrcProteinFrom.chain,
         structure_location: Annotated[StructureLocation, typer.Option(
             help='Structure file location.'
         )] = StructureLocation.local,
@@ -69,7 +67,7 @@ def residue_embedding(
     predict(
         src_stream=src_file,
         src_location=SrcLocation.file,
-        src_from=src_from,
+        src_from=SrcProteinFrom.chain,
         structure_location=structure_location,
         structure_format=structure_format,
         min_res_n=min_res_n,
@@ -94,7 +92,7 @@ def structure_embedding(
             file_okay=True,
             dir_okay=False,
             resolve_path=True,
-            help='CSV file 4 (or 3) columns: Structure Name | Structure File Path or URL (switch structure-location) | Chain Id (asym_i for cif files. This field is required if src-from=chain) | Output Embedding Name.'
+            help='CSV file 4 columns: Structure Name | Structure File Path or URL (switch structure-location) | Chain Id (asym_i for cif files) | Output Embedding Name.'
         )],
         output_path: Annotated[typer.FileText, typer.Option(
             exists=True,
@@ -106,9 +104,6 @@ def structure_embedding(
         output_name: Annotated[str, typer.Option(
             help='File name for storing embeddings as a single JSON file.'
         )] = 'inference',
-        src_from: Annotated[SrcProteinFrom, typer.Option(
-            help='Use specific chains or all chains in a structure.'
-        )] = SrcProteinFrom.chain,
         structure_location: Annotated[StructureLocation, typer.Option(
             help='Structure file location.'
         )] = StructureLocation.local,
@@ -138,7 +133,7 @@ def structure_embedding(
     predict(
         src_stream=src_file,
         src_location=SrcLocation.file,
-        src_from=src_from,
+        src_from=SrcProteinFrom.chain,
         structure_location=structure_location,
         structure_format=structure_format,
         min_res_n=min_res_n,
@@ -162,7 +157,7 @@ def chain_embedding(
             file_okay=True,
             dir_okay=False,
             resolve_path=True,
-            help='Option 1 (src-from=file) - CSV file 2 columns: Residue Embedding Torch Tensor File | Output Embedding Name. Option 2 (src-from=structure) - CSV file 3 columns: Structure Name | Structure File Path or URL (switch structure-location) | Output Embedding Name.'
+            help='CSV file 4 columns: Structure Name | Structure File Path or URL (switch structure-location) | Chain Id (asym_i for cif files) | Output Embedding Name.'
         )],
         output_path: Annotated[typer.FileText, typer.Option(
             exists=True,
@@ -171,22 +166,19 @@ def chain_embedding(
             resolve_path=True,
             help='Output path to store predictions. Embeddings are stored as csv files.'
         )],
+        res_embedding_location: Annotated[typer.FileText, typer.Option(
+            exists=True,
+            file_okay=False,
+            dir_okay=True,
+            resolve_path=True,
+            help='Path where residue level embeddings are located.'
+        )],
         output_format: Annotated[OutFormat, typer.Option(
             help='Format of the output. Options: separated (predictions are stored in single files) or grouped (predictions are stored in a single JSON file).'
         )] = OutFormat.separated,
         output_name: Annotated[str, typer.Option(
             help='File name for storing embeddings as a single JSON file. Used when output-format=grouped.'
         )] = 'inference',
-        res_embedding_location: Annotated[typer.FileText, typer.Option(
-            exists=True,
-            file_okay=False,
-            dir_okay=True,
-            resolve_path=True,
-            help='Path where residue level embeddings are located. This argument is required if src-from=structure.'
-        )] = None,
-        src_from: Annotated[SrcTensorFrom, typer.Option(
-            help='Use file names or all chains in a structure.'
-        )] = SrcTensorFrom.file,
         structure_location: Annotated[StructureLocation, typer.Option(
             help='Structure file location.'
         )] = StructureLocation.local,
@@ -214,10 +206,10 @@ def chain_embedding(
 ):
     from rcsb_embedding_model.inference.chain_inference import predict
     predict(
-        src_stream=src_file,
+        src_stream=adapt_csv_to_embedding_chain_stream(src_file, res_embedding_location),
         res_embedding_location=res_embedding_location,
-        src_location=SrcLocation.file,
-        src_from=src_from,
+        src_location=SrcLocation.stream,
+        src_from=SrcTensorFrom.file,
         structure_location=structure_location,
         structure_format=structure_format,
         min_res_n=min_res_n,
@@ -263,9 +255,6 @@ def assembly_embedding(
         output_name: Annotated[str, typer.Option(
             help='File name for storing embeddings as a single JSON file. Used when output-format=grouped.'
         )] = 'inference',
-        src_from: Annotated[SrcAssemblyFrom, typer.Option(
-            help='Use specific assembly or all assemblies in a structure.'
-        )] = SrcAssemblyFrom.assembly,
         structure_location: Annotated[StructureLocation, typer.Option(
             help='Structure file location.'
         )] = StructureLocation.local,
@@ -299,7 +288,7 @@ def assembly_embedding(
         src_stream=src_file,
         res_embedding_location=res_embedding_location,
         src_location=SrcLocation.file,
-        src_from=src_from,
+        src_from=SrcAssemblyFrom.assembly,
         structure_location=structure_location,
         structure_format=structure_format,
         min_res_n=min_res_n,
@@ -319,12 +308,19 @@ def assembly_embedding(
     help="Calculate chain and assembly embeddings from structural files. Predictions are stored as csv files."
 )
 def complete_embedding(
-        src_file: Annotated[typer.FileText, typer.Option(
+        src_chain_file: Annotated[typer.FileText, typer.Option(
             exists=True,
             file_okay=True,
             dir_okay=False,
             resolve_path=True,
-            help='CSV file 3 columns: Structure Name | Structure File Path or URL | Chain Id (asym_i for cif files. This field is required if src-from=chain) | Output Embedding Name.'
+            help='CSV file 4 columns: Structure Name | Structure File Path or URL (switch structure-location) | Chain Id (asym_i for cif files) | Output Embedding Name.'
+        )],
+        src_assembly_file: Annotated[typer.FileText, typer.Option(
+            exists=True,
+            file_okay=True,
+            dir_okay=False,
+            resolve_path=True,
+            help='CSV file 4 columns: Structure Name | Structure File Path or URL (switch structure-location) | Assembly Id | Output embedding name.'
         )],
         output_path: Annotated[typer.FileText, typer.Option(
             exists=True,
@@ -333,7 +329,7 @@ def complete_embedding(
             resolve_path=True,
             help='Output path to store predictions. Embeddings are stored as a single DataFrame file (see output_name).'
         )],
-        esm_output_path: Annotated[typer.FileText, typer.Option(
+        res_embedding_location: Annotated[typer.FileText, typer.Option(
             exists=True,
             file_okay=False,
             dir_okay=True,
@@ -372,9 +368,8 @@ def complete_embedding(
         )] = tuple(['auto'])
 ):
     residue_embedding(
-        src_file=src_file,
-        src_from=SrcProteinFrom.structure,
-        output_path=esm_output_path,
+        src_file=src_chain_file,
+        output_path=res_embedding_location,
         output_format=OutFormat.separated,
         structure_location=structure_location,
         structure_format=structure_format,
@@ -386,12 +381,11 @@ def complete_embedding(
         devices=devices,
     )
     chain_embedding(
-        src_file=src_file,
-        src_from=SrcTensorFrom.structure,
+        src_file=src_chain_file,
         output_path=output_path,
         output_format=output_format,
         output_name=f"{output_name}-chain",
-        res_embedding_location=esm_output_path,
+        res_embedding_location=res_embedding_location,
         structure_location=structure_location,
         structure_format=structure_format,
         min_res_n=min_res_n,
@@ -402,12 +396,11 @@ def complete_embedding(
         devices=devices
     )
     assembly_embedding(
-        src_file=src_file,
-        src_from=SrcAssemblyFrom.structure,
+        src_file=src_assembly_file,
         output_path=output_path,
         output_format=output_format,
         output_name=f"{output_name}-assembly",
-        res_embedding_location=esm_output_path,
+        res_embedding_location=res_embedding_location,
         structure_location=structure_location,
         structure_format=structure_format,
         min_res_n=min_res_n,

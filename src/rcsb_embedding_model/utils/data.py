@@ -1,3 +1,4 @@
+import os
 from io import StringIO
 
 import requests
@@ -76,3 +77,9 @@ def concatenate_tensors(file_list, max_residues, dim=0):
         return tensor_cat
     else:
         raise ValueError("No valid tensors were loaded to concatenate.")
+
+def adapt_csv_to_embedding_chain_stream(src_file, res_embedding_location):
+    def __parse_row(row):
+        r = row.split(",")
+        return os.path.join(res_embedding_location, f"{r[0]}.{r[2]}.pt"), f"{r[0]}.{r[2]}"
+    return tuple([__parse_row(r) for r in open(src_file)])

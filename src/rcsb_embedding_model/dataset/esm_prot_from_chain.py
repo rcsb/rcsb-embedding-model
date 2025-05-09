@@ -70,6 +70,7 @@ class EsmProtFromChain(Dataset):
         for atom_ch in chain_iter(structure):
             protein_chain = ProteinChain.from_atomarray(rename_atom_ch(atom_ch))
             return ESMProtein.from_protein_chain(protein_chain), item_name
+        return None
 
 
 if __name__ == '__main__':
