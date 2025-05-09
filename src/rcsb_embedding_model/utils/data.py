@@ -82,4 +82,4 @@ def adapt_csv_to_embedding_chain_stream(src_file, res_embedding_location):
     def __parse_row(row):
         r = row.split(",")
         return os.path.join(res_embedding_location, f"{r[0]}.{r[2]}.pt"), f"{r[0]}.{r[2]}"
-    return tuple([__parse_row(r) for r in open(src_file)])
+    return tuple([__parse_row(r.strip()) for r in open(src_file)])
