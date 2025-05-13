@@ -76,7 +76,7 @@ def concatenate_tensors(file_list, max_residues, dim=0):
         tensor_cat = torch.cat(tensors, dim=dim)
         return tensor_cat
     else:
-        raise ValueError("No valid tensors were loaded to concatenate.")
+        raise ValueError(f"No valid tensors were loaded to concatenate. {', '.join(file_list)}")
 
 def adapt_csv_to_embedding_chain_stream(src_file, res_embedding_location):
     def __parse_row(row):
