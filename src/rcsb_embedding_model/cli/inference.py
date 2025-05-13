@@ -8,6 +8,9 @@ from rcsb_embedding_model.types.api_types import StructureFormat, Accelerator, S
     StructureLocation, SrcAssemblyFrom, SrcTensorFrom, OutFormat
 from rcsb_embedding_model.utils.data import adapt_csv_to_embedding_chain_stream
 
+import os
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
 app = typer.Typer(
     add_completion=False
 )
