@@ -31,7 +31,7 @@ If you are interested in training the model with a new dataset, visit the [rcsb-
 **Requirements:**
 
 - Python ≥ 3.10
-- ESM == 3.1.1
+- ESM >= 3.2.0
 - Lightning ≥ 2.5.0 
 - Typer ≥ 0.15.0
 
