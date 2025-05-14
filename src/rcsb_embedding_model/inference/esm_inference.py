@@ -53,6 +53,7 @@ def predict(
         num_nodes=num_nodes,
         accelerator=accelerator,
         devices=devices,
+        strategy="ddp",
         logger=False
     )
 
