@@ -16,6 +16,8 @@ def get_aggregator_model(device=None):
         filename=FILE_NAME,
         revision=REVISION
     )
+    if device is None:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     weights = torch.load(model_path, weights_only=True, map_location=device)
     aggregator_model = ResidueEmbeddingAggregator()
     aggregator_model.load_state_dict(weights)
