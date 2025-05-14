@@ -3,18 +3,17 @@ import logging
 from esm.sdk.api import SamplingConfig
 from lightning import LightningModule
 
-from rcsb_embedding_model.utils.model import get_residue_model
-
 logger = logging.getLogger(__name__)
 
 class EsmModule(LightningModule):
 
     def __init__(
-            self
+            self,
+            model
     ):
         super().__init__()
-        logger.info(f"Loading ESM model to device: {self.device}")
-        self.esm3 = get_residue_model(self.device)
+        logger.info(f"Using device: {self.device}")
+        self.esm3 = model
 
     def predict_step(self, prot_batch, batch_idx):
         return tuple([self.__compute_embeddings(esm_prot) for esm_prot, name in prot_batch]), tuple([name for esm_prot, name in prot_batch])

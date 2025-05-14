@@ -6,6 +6,7 @@ from rcsb_embedding_model.dataset.esm_prot_from_chain import EsmProtFromChain
 from rcsb_embedding_model.modules.structure_module import StructureModule
 from rcsb_embedding_model.types.api_types import StructureFormat, Accelerator, Devices, OptionalPath, StructureLocation, \
     SrcProteinFrom, FileOrStreamTuple, SrcLocation
+from rcsb_embedding_model.utils.model import get_residue_model, get_aggregator_model
 from rcsb_embedding_model.writer.batch_writer import JsonStorage
 
 
@@ -45,13 +46,19 @@ def predict(
         collate_fn=lambda _: _
     )
 
-    module = StructureModule()
+    res_model = get_residue_model()
+    aggregator_model = get_aggregator_model()
+    module = StructureModule(
+        res_model=res_model,
+        aggregator_model=aggregator_model
+    )
     inference_writer = JsonStorage(out_path, out_name) if out_path is not None and out_name is not None else None
     trainer = Trainer(
         callbacks=[inference_writer] if inference_writer is not None else None,
         num_nodes=num_nodes,
         accelerator=accelerator,
         devices=devices,
+        strategy="ddp",
         logger=False
     )
 

@@ -7,6 +7,7 @@ from rcsb_embedding_model.modules.chain_module import ChainModule
 from rcsb_embedding_model.types.api_types import Accelerator, Devices, OptionalPath, FileOrStreamTuple, SrcLocation, \
     SrcTensorFrom, StructureLocation, StructureFormat, OutFormat
 from rcsb_embedding_model.utils.data import collate_seq_embeddings
+from rcsb_embedding_model.utils.model import get_aggregator_model
 from rcsb_embedding_model.writer.batch_writer import CsvBatchWriter, JsonStorage
 
 
@@ -52,13 +53,17 @@ def predict(
         )
     )
 
-    module = ChainModule()
+    aggregator_model = get_aggregator_model()
+    module = ChainModule(
+        model=aggregator_model
+    )
     inference_writer = (JsonStorage(out_path, out_name) if out_format == OutFormat.grouped else CsvBatchWriter(out_path)) if out_path is not None else None
     trainer = Trainer(
         callbacks=[inference_writer] if inference_writer is not None else None,
         num_nodes=num_nodes,
         accelerator=accelerator,
         devices=devices,
+        strategy="ddp",
         logger=False
     )
 

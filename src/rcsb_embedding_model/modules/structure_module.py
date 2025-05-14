@@ -1,18 +1,23 @@
+import logging
+
 from esm.sdk.api import SamplingConfig
 from lightning import LightningModule
 
 from rcsb_embedding_model.utils.data import collate_seq_embeddings
-from rcsb_embedding_model.utils.model import get_residue_model, get_aggregator_model
 
+logger = logging.getLogger(__name__)
 
 class StructureModule(LightningModule):
 
     def __init__(
-            self
+            self,
+            res_model,
+            aggregator_model
     ):
         super().__init__()
-        self.esm3 = get_residue_model(self.device)
-        self.aggregator = get_aggregator_model(device=self.device)
+        logger.info(f"Using device: {self.device}")
+        self.esm3 = res_model
+        self.aggregator =  aggregator_model
 
     def predict_step(self, prot_batch, batch_idx):
         prot_embeddings = []

@@ -1,16 +1,19 @@
+import logging
+
 from lightning import LightningModule
 
-from rcsb_embedding_model.utils.model import get_aggregator_model
-
+logger = logging.getLogger(__name__)
 
 class ChainModule(LightningModule):
 
     def __init__(
-            self
+            self,
+            model
     ):
         super().__init__()
-        self.model = get_aggregator_model(device=self.device)
+        logger.info(f"Using device: {self.device}")
+        self.aggregator = model
 
     def predict_step(self, batch, batch_idx):
         (x, x_mask), dom_id = batch
-        return self.model(x, x_mask), dom_id
+        return self.aggregator(x, x_mask), dom_id
