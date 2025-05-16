@@ -49,6 +49,7 @@ class EsmProtFromChain(Dataset):
             src_stream,
             header=None,
             index_col=None,
+            keep_default_na=False,
             dtype=str,
             names=EsmProtFromChain.COLUMNS
         )
