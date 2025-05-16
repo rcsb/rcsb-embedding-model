@@ -72,7 +72,7 @@ class EsmProtFromChain(Dataset):
                 raise IOError(f"No atoms were found in structure chain {src_name}.{chain_id}")
             protein_chain = ProteinChain.from_atomarray(rename_atom_ch(atom_ch))
             return ESMProtein.from_protein_chain(protein_chain), item_name
-        raise IOError(f"No chain was found for structure {src_name}")
+        raise IOError(f"No atoms were found in structure chain {src_name}.{chain_id}")
 
 
 if __name__ == '__main__':
