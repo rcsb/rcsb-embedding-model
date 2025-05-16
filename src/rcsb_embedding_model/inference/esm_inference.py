@@ -1,3 +1,4 @@
+import torch
 from torch.utils.data import DataLoader
 from lightning import Trainer
 
@@ -47,7 +48,9 @@ def predict(
         collate_fn=lambda _: _
     )
 
-    esm_model = get_residue_model()
+    esm_model = get_residue_model(
+        device=torch.device("cpu")
+    )
     module = EsmModule(
         model=esm_model
     )

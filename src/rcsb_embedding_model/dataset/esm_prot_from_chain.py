@@ -83,7 +83,10 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     dataset = EsmProtFromChain(
-        args.file_list
+        src_stream=args.file_list,
+        src_location=SrcLocation.file,
+        structure_location=StructureLocation.remote,
+        structure_format=StructureFormat.mmcif,
     )
 
     esm3 = ESM3.from_pretrained(

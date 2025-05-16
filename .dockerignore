@@ -1,0 +1,36 @@
+# Only list files that could be under version control or could be created in CI/CD.
+
+# Note: Patterns are absolute, like `.prettierignore` but unlike `.gitignore`.
+
+# Gitignored files
+**/.*
+**/[~#$]*
+**/*[~#$]
+
+# Gitignored directories
+node_modules/
+
+# Directories
+/dist/
+/tests/
+/assets/
+/examples/
+
+# Files in the root directory
+/*.md
+/*.txt
+/CITATION.cff
+/compose.yaml
+/justfile
+/mkdocs.yaml
+
+# Keep README.md (needed for build)
+!/README.md
+
+# Keep .dockerignore and .gitignore
+!/.dockerignore
+!/.gitignore
+
+# Keep legal files
+!/LICENSE.*
+!/NOTICE.txt

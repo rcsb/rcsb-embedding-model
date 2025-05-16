@@ -1,3 +1,4 @@
+import torch
 from torch.utils.data import DataLoader
 from lightning import Trainer
 
@@ -53,7 +54,9 @@ def predict(
         )
     )
 
-    aggregator_model = get_aggregator_model()
+    aggregator_model = get_aggregator_model(
+        device=torch.device("cpu")
+    )
     module = ChainModule(
         model=aggregator_model
     )

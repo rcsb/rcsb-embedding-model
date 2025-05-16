@@ -1,3 +1,4 @@
+import torch
 from torch.utils.data import DataLoader
 from lightning import Trainer
 
@@ -46,8 +47,12 @@ def predict(
         collate_fn=lambda _: _
     )
 
-    res_model = get_residue_model()
-    aggregator_model = get_aggregator_model()
+    res_model = get_residue_model(
+        device=torch.device("cpu")
+    )
+    aggregator_model = get_aggregator_model(
+        device=torch.device("cpu")
+    )
     module = StructureModule(
         res_model=res_model,
         aggregator_model=aggregator_model
