@@ -53,6 +53,7 @@ class EsmProtFromChain(Dataset):
             dtype=str,
             names=EsmProtFromChain.COLUMNS
         )
+        self.data = self.data.sort_values(by=self.data.columns[0])
 
     def __len__(self):
         return len(self.data)

@@ -33,6 +33,7 @@ class ResidueEmbeddingFromTensorFile(Dataset):
             index_col=None,
             names=ResidueEmbeddingFromTensorFile.COLUMNS
         )
+        self.data = self.data.sort_values(by=self.data.columns[0])
 
     def __len__(self):
         return len(self.data)

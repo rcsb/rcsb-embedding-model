@@ -52,6 +52,7 @@ class ResidueAssemblyEmbeddingFromTensorFile(Dataset):
             dtype=str,
             names=ResidueAssemblyEmbeddingFromTensorFile.COLUMNS
         )
+        self.data = self.data.sort_values(by=self.data.columns[0])
 
     def __len__(self):
         return len(self.data)
