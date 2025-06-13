@@ -1,7 +1,8 @@
 import os
-from io import StringIO
-
 import requests
+import gzip
+from io import StringIO, BytesIO
+
 import torch
 
 
@@ -40,10 +41,24 @@ def stringio_from_url(url):
     try:
         response = requests.get(url)
         response.raise_for_status()
-        return StringIO(response.text)
+        data = response.content
+        if url.endswith('.bcif.gz'):
+            with gzip.GzipFile(fileobj=BytesIO(data), mode='rb') as gz:
+                decompressed_data = gz.read()
+                return BytesIO(decompressed_data)
+        if url.endswith('.gz'):
+            compressed = BytesIO(data)
+            with gzip.open(compressed, 'rt') as f:
+                return StringIO(f.read())
+        else:
+            return StringIO(response.text)
     except requests.exceptions.RequestException as e:
         print(f"Error fetching URL: {e}")
         return None
+    except (OSError, gzip.BadGzipFile) as e:
+        print(f"Error decompressing gzip file: {e}")
+        return None
+
 
 
 def concatenate_tensors(file_list, max_residues, dim=0):
