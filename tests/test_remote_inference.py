@@ -50,6 +50,24 @@ class TestRemoteInference(unittest.TestCase):
             self.assertEqual(tuple(esm_embeddings[idx][0][0].shape), shape)
 
 
+    def test_esm_inference_from_csv_bcif_gz(self):
+        from rcsb_embedding_model.inference.esm_inference import predict
+
+        esm_embeddings = predict(
+            src_stream=f"{self.__test_path}/resources/src_stream/instance.csv",
+            src_location=SrcLocation.file,
+            src_from=SrcProteinFrom.chain,
+            structure_location=StructureLocation.remote,
+            structure_format=StructureFormat.bciff,
+            accelerator=Accelerator.cpu
+        )
+
+        self.assertEqual(len(esm_embeddings), 2)
+        shapes = ((243, 1536), (116, 1536))
+        for idx, shape in enumerate(shapes):
+            self.assertEqual(tuple(esm_embeddings[idx][0][0].shape), shape)
+
+
     def test_esm_inference_from_cif_gz(self):
         from rcsb_embedding_model.inference.esm_inference import predict
 
