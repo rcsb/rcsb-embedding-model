@@ -1,3 +1,4 @@
+import argparse
 import sys
 
 import pandas as pd
@@ -76,12 +77,17 @@ class ResidueAssemblyEmbeddingFromTensorFile(Dataset):
 
 if __name__ == "__main__":
 
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--file_list', type=argparse.FileType('r'), required=True)
+    parser.add_argument('--res_embeddings_path', type=argparse.FileType('r'), required=True)
+    args = parser.parse_args()
+
     dataset = ResidueAssemblyEmbeddingFromTensorFile(
-        src_stream="/Users/joan/tmp/assembly-test.csv",
-        res_embedding_location="/Users/joan/tmp",
+        src_stream=args.file_list,
+        res_embedding_location=args.res_embeddings_path,
         src_location=SrcLocation.file,
-        structure_location=StructureLocation.local,
-        structure_format=StructureFormat.mmcif
+        structure_location=StructureLocation.remote,
+        structure_format=StructureFormat.bciff
     )
 
     dataloader = DataLoader(
