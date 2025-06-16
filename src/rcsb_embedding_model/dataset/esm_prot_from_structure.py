@@ -40,7 +40,7 @@ class EsmProtFromStructure(EsmProtFromChain):
 
     def __get_chains(self, src_stream):
         chains = []
-        for idx, row in (pd.DataFrame(
+        data = pd.DataFrame(
             src_stream,
             dtype=str,
             columns=EsmProtFromStructure.COLUMNS
@@ -50,7 +50,9 @@ class EsmProtFromStructure(EsmProtFromChain):
             index_col=None,
             dtype=str,
             names=EsmProtFromStructure.COLUMNS
-        )).iterrows():
+        )
+        data = data.sort_values(by=data.columns[0])
+        for idx, row in data.iterrows():
             src_name = row[EsmProtFromStructure.STREAM_NAME_ATTR]
             src_structure = row[EsmProtFromStructure.STREAM_ATTR]
             item_name = row[EsmProtFromStructure.ITEM_NAME_ATTR]

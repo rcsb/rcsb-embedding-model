@@ -33,7 +33,6 @@ class ResidueAssemblyDatasetFromStructure(ResidueAssemblyEmbeddingFromTensorFile
         self.structure_format = structure_format
         self.min_res_n = min_res_n
         self.max_res_n = max_res_n
-        self.__structure_provider = structure_provider
         super().__init__(
             src_stream=self.__get_assemblies(src_stream),
             res_embedding_location=res_embedding_location,
@@ -47,17 +46,19 @@ class ResidueAssemblyDatasetFromStructure(ResidueAssemblyEmbeddingFromTensorFile
 
     def __get_assemblies(self, src_stream):
         assemblies = []
-        for idx, row in (pd.DataFrame(
-                src_stream,
-                dtype=str,
-                columns=ResidueAssemblyDatasetFromStructure.COLUMNS
+        data = pd.DataFrame(
+            src_stream,
+            dtype=str,
+            columns=ResidueAssemblyDatasetFromStructure.COLUMNS
         ) if self.src_location == SrcLocation.stream else pd.read_csv(
             src_stream,
             header=None,
             index_col=None,
             dtype=str,
             names=ResidueAssemblyDatasetFromStructure.COLUMNS
-        )).iterrows():
+        )
+        data = data.sort_values(by=data.columns[0])
+        for idx, row in data.iterrows():
             src_name = row[ResidueAssemblyDatasetFromStructure.STREAM_NAME_ATTR]
             src_structure = row[ResidueAssemblyDatasetFromStructure.STREAM_ATTR]
             structure = stringio_from_url(src_structure) if self.structure_location == StructureLocation.remote else src_structure

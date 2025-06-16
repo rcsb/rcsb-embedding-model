@@ -58,11 +58,10 @@ class ResidueAssemblyEmbeddingFromTensorFile(Dataset):
         return len(self.data)
 
     def __getitem__(self, idx):
-        src_name = self.data.loc[idx, ResidueAssemblyEmbeddingFromTensorFile.STREAM_NAME_ATTR]
-        src_structure = self.data.loc[idx, ResidueAssemblyEmbeddingFromTensorFile.STREAM_ATTR]
-        assembly_id = self.data.loc[idx, ResidueAssemblyEmbeddingFromTensorFile.ASSEMBLY_ATTR]
-        item_name = self.data.loc[idx, ResidueAssemblyEmbeddingFromTensorFile.ITEM_NAME_ATTR]
-
+        src_name = self.data.iloc[idx][ResidueAssemblyEmbeddingFromTensorFile.STREAM_NAME_ATTR]
+        src_structure = self.data.iloc[idx][ResidueAssemblyEmbeddingFromTensorFile.STREAM_ATTR]
+        assembly_id = self.data.iloc[idx][ResidueAssemblyEmbeddingFromTensorFile.ASSEMBLY_ATTR]
+        item_name = self.data.iloc[idx][ResidueAssemblyEmbeddingFromTensorFile.ITEM_NAME_ATTR]
         structure = self.__structure_provider.get_structure(
             src_name=src_name,
             src_structure=stringio_from_url(src_structure) if self.structure_location == StructureLocation.remote else src_structure,

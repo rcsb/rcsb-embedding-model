@@ -59,10 +59,10 @@ class EsmProtFromChain(Dataset):
         return len(self.data)
 
     def __getitem__(self, idx):
-        src_name = self.data.loc[idx, EsmProtFromChain.STREAM_NAME_ATTR]
-        src_structure = self.data.loc[idx, EsmProtFromChain.STREAM_ATTR]
-        chain_id = self.data.loc[idx, EsmProtFromChain.CH_ATTR]
-        item_name = self.data.loc[idx, EsmProtFromChain.ITEM_NAME_ATTR]
+        src_name = self.data.iloc[idx][EsmProtFromChain.STREAM_NAME_ATTR]
+        src_structure = self.data.iloc[idx][EsmProtFromChain.STREAM_ATTR]
+        chain_id = self.data.iloc[idx][EsmProtFromChain.CH_ATTR]
+        item_name = self.data.iloc[idx][EsmProtFromChain.ITEM_NAME_ATTR]
         structure = self.__structure_provider.get_structure(
             src_name=src_name,
             src_structure=stringio_from_url(src_structure) if self.structure_location == StructureLocation.remote else src_structure,
@@ -87,7 +87,7 @@ if __name__ == '__main__':
         src_stream=args.file_list,
         src_location=SrcLocation.file,
         structure_location=StructureLocation.remote,
-        structure_format=StructureFormat.mmcif,
+        structure_format=StructureFormat.bciff,
     )
 
     esm3 = ESM3.from_pretrained(

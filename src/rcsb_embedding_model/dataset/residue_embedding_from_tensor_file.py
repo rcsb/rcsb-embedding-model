@@ -39,6 +39,6 @@ class ResidueEmbeddingFromTensorFile(Dataset):
         return len(self.data)
 
     def __getitem__(self, idx):
-        embedding_src = self.data.loc[idx, ResidueEmbeddingFromTensorFile.FILE_ATTR]
-        item_name = self.data.loc[idx, ResidueEmbeddingFromTensorFile.ITEM_NAME_ATTR]
+        embedding_src = self.data.iloc[idx][ResidueEmbeddingFromTensorFile.FILE_ATTR]
+        item_name = self.data.iloc[idx][ResidueEmbeddingFromTensorFile.ITEM_NAME_ATTR]
         return torch.load(embedding_src, map_location=torch.device('cpu')), item_name

@@ -42,17 +42,19 @@ class ResidueEmbeddingFromStructure(ResidueEmbeddingFromTensorFile):
 
     def __get_chains(self, src_stream):
         chains = []
-        for idx, row in (pd.DataFrame(
-                src_stream,
-                dtype=str,
-                columns=ResidueEmbeddingFromStructure.COLUMNS
+        data = pd.DataFrame(
+            src_stream,
+            dtype=str,
+            columns=ResidueEmbeddingFromStructure.COLUMNS
         ) if self.src_location == SrcLocation.stream else pd.read_csv(
             src_stream,
             header=None,
             index_col=None,
             dtype=str,
             names=ResidueEmbeddingFromStructure.COLUMNS
-        )).iterrows():
+        )
+        data = data.sort_values(by=data.columns[0])
+        for idx, row in data.iterrows():
             src_name = row[ResidueEmbeddingFromStructure.STREAM_NAME_ATTR]
             src_structure = row[ResidueEmbeddingFromStructure.STREAM_ATTR]
             item_name = row[ResidueEmbeddingFromStructure.ITEM_NAME_ATTR]
