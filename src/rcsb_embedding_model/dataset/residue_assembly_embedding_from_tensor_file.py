@@ -79,7 +79,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--file_list', type=argparse.FileType('r'), required=True)
-    parser.add_argument('--res_embeddings_path', type=argparse.FileType('r'), required=True)
+    parser.add_argument('--res_embeddings_path', required=True)
     args = parser.parse_args()
 
     dataset = ResidueAssemblyEmbeddingFromTensorFile(
