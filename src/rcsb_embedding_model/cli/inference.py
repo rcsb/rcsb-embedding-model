@@ -3,6 +3,7 @@ from typing import Annotated, List
 
 import typer
 
+from rcsb_embedding_model import __version__
 from rcsb_embedding_model.cli.args_utils import arg_devices
 from rcsb_embedding_model.types.api_types import StructureFormat, Accelerator, SrcLocation, SrcProteinFrom, \
     StructureLocation, SrcAssemblyFrom, SrcTensorFrom, OutFormat
@@ -436,6 +437,23 @@ def complete_embedding(
         devices=devices
     )
 
+
+def version_callback(value: bool):
+    if value:
+        typer.echo(f"{__version__}")
+        raise typer.Exit()
+
+@app.callback()
+def main(
+        version: bool = typer.Option(
+            None,
+            "--version",
+            callback=version_callback,
+            is_eager=True,
+            help="Show the version and exit",
+        )
+):
+    pass
 
 if __name__ == "__main__":
     app()
