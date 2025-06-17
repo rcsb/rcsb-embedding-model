@@ -41,6 +41,7 @@ class TestCliInference(unittest.TestCase):
 
 
 def _remove_files_in_directory(directory_path):
+    os.makedirs(directory_path, exist_ok=True)
     for filename in os.listdir(directory_path):
         file_path = os.path.join(directory_path, filename)
         try:
