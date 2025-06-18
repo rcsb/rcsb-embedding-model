@@ -11,7 +11,7 @@ import pandas as pd
 
 from rcsb_embedding_model.types.api_types import StructureFormat, StructureLocation, SrcLocation
 from rcsb_embedding_model.utils.data import stringio_from_url
-from rcsb_embedding_model.utils.structure_parser import rename_atom_ch
+from rcsb_embedding_model.utils.structure_parser import rename_atom_ch, check_all_hetero, remove_hetero
 from rcsb_embedding_model.utils.structure_provider import StructureProvider
 
 
@@ -72,8 +72,14 @@ class EsmProtFromChain(Dataset):
         for atom_ch in chain_iter(structure):
             if len(atom_ch) == 0:
                 raise IOError(f"No atoms were found in structure chain {src_name}.{chain_id}")
-            protein_chain = ProteinChain.from_atomarray(rename_atom_ch(atom_ch))
-            return ESMProtein.from_protein_chain(protein_chain), item_name
+            if check_all_hetero(atom_ch):
+                atom_ch = remove_hetero(atom_ch)
+            atom_ch = rename_atom_ch(atom_ch)
+            protein_chain = ProteinChain.from_atomarray(atom_ch)
+            protein_chain = ESMProtein.from_protein_chain(protein_chain)
+            if len(protein_chain) == 0:
+                raise IOError(f"No atoms were found in structure chain {src_name}.{chain_id}")
+            return protein_chain, item_name
         raise IOError(f"No atoms were found in structure chain {src_name}.{chain_id}")
 
 

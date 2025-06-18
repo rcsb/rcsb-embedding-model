@@ -50,12 +50,22 @@ def get_assemblies(structure, structure_format="mmcif"):
 
 def rename_atom_ch(atom_ch, ch="A"):
     renamed_atom_ch = AtomArray(len(atom_ch))
-    n = 0
-    for atom in atom_ch:
+    for idx, atom in enumerate(atom_ch):
         atom.chain_id = ch
-        renamed_atom_ch[n] = atom
-        n += 1
+        renamed_atom_ch[idx] = atom
     return renamed_atom_ch
+
+
+def remove_hetero(atom_ch):
+    renamed_atom_ch = AtomArray(len(atom_ch))
+    for idx, atom in enumerate(atom_ch):
+        atom.hetero = False
+        renamed_atom_ch[idx] = atom
+    return renamed_atom_ch
+
+
+def check_all_hetero(atom_ch):
+    return sum(atom_ch.hetero) == len(atom_ch)
 
 
 def __get_pdb_structure(pdb_file, assembly_id=None):
