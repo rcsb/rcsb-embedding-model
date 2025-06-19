@@ -4,6 +4,7 @@ import gzip
 from io import StringIO, BytesIO
 
 import torch
+from requests import RequestException
 
 
 def collate_seq_embeddings(batch_list):
@@ -52,13 +53,10 @@ def stringio_from_url(url):
                 return StringIO(f.read())
         else:
             return StringIO(response.text)
-    except requests.exceptions.RequestException as e:
-        print(f"Error fetching URL: {e}")
-        return None
+    except RequestException as e:
+        raise RuntimeError(f"Error fetching URL: {e}")
     except (OSError, gzip.BadGzipFile) as e:
-        print(f"Error decompressing gzip file: {e}")
-        return None
-
+        raise RuntimeError(f"Error decompressing gzip file: {e}")
 
 
 def concatenate_tensors(file_list, max_residues, dim=0):

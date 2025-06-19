@@ -9,17 +9,20 @@ def get_structure_from_src(
         chain_id=None,
         assembly_id=None
 ):
-    if structure_format == "pdb":
-        pdb_file = PDBFile.read(src_structure)
-        structure = __get_pdb_structure(pdb_file, assembly_id)
-    elif structure_format == "mmcif":
-        cif_file = CIFFile.read(src_structure)
-        structure = __get_structure(cif_file, assembly_id)
-    elif structure_format == "binarycif":
-        cif_file = BinaryCIFFile.read(src_structure)
-        structure = __get_structure(cif_file, assembly_id)
-    else:
-        raise RuntimeError(f"Unknown file format {structure_format}")
+    try:
+        if structure_format == "pdb":
+            pdb_file = PDBFile.read(src_structure)
+            structure = __get_pdb_structure(pdb_file, assembly_id)
+        elif structure_format == "mmcif":
+            cif_file = CIFFile.read(src_structure)
+            structure = __get_structure(cif_file, assembly_id)
+        elif structure_format == "binarycif":
+            cif_file = BinaryCIFFile.read(src_structure)
+            structure = __get_structure(cif_file, assembly_id)
+        else:
+            raise RuntimeError(f"Unknown file format {structure_format}")
+    except Exception as e:
+        raise RuntimeError(f"Error reading structure from {src_structure}: {e}")
 
     if chain_id is not None:
         return structure[structure.chain_id == chain_id]
@@ -38,14 +41,17 @@ def get_protein_chains(structure, min_res_n=0):
 
 
 def get_assemblies(structure, structure_format="mmcif"):
-    if structure_format == "pdb":
-        return tuple(list_pdb_assemblies(PDBFile.read(structure)))
-    elif structure_format == "mmcif":
-        return tuple(list_assemblies(CIFFile.read(structure)).keys())
-    elif structure_format == "binarycif":
-        return tuple(list_assemblies(BinaryCIFFile.read(structure)))
-    else:
-        raise RuntimeError(f"Unknown file format {structure_format}")
+    try:
+        if structure_format == "pdb":
+            return tuple(list_pdb_assemblies(PDBFile.read(structure)))
+        elif structure_format == "mmcif":
+            return tuple(list_assemblies(CIFFile.read(structure)).keys())
+        elif structure_format == "binarycif":
+            return tuple(list_assemblies(BinaryCIFFile.read(structure)))
+        else:
+            raise RuntimeError(f"Unknown file format {structure_format}")
+    except Exception as e:
+        raise RuntimeError(f"Error reading assemblies from {structure}: {e}")
 
 
 def rename_atom_ch(atom_ch, ch="A"):
