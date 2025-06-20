@@ -1,4 +1,6 @@
-from biotite.structure import filter_amino_acids, filter_polymer, chain_iter, get_chains, get_residues, AtomArray
+import numpy as np
+from biotite.structure import filter_amino_acids, filter_polymer, chain_iter, get_chains, get_residues, AtomArray, \
+    filter_peptide_backbone, residue_iter
 from biotite.structure.io.pdb import PDBFile, get_structure as get_pdb_structure, get_assembly as get_pdb_assembly, list_assemblies as list_pdb_assemblies
 from biotite.structure.io.pdbx import CIFFile, get_structure, get_assembly, BinaryCIFFile, list_assemblies
 
@@ -63,15 +65,28 @@ def rename_atom_ch(atom_ch, ch="A"):
 
 
 def remove_hetero(atom_ch):
-    renamed_atom_ch = AtomArray(len(atom_ch))
+    no_het_atom_ch = AtomArray(len(atom_ch))
     for idx, atom in enumerate(atom_ch):
         atom.hetero = False
-        renamed_atom_ch[idx] = atom
-    return renamed_atom_ch
+        no_het_atom_ch[idx] = atom
+    return no_het_atom_ch
 
 
 def check_all_hetero(atom_ch):
     return sum(atom_ch.hetero) == len(atom_ch)
+
+
+def get_backbone_atoms(atom_ch):
+    return np.array([(lambda x: [a.coord for a in x])(r) for r in  residue_iter(atom_ch[filter_peptide_backbone(atom_ch)])])
+
+
+def get_3_letter_amino_acids(atom_ch):
+    unk_atom_ch = AtomArray(len(atom_ch))
+    for idx, atom in enumerate(atom_ch):
+        if len(atom.res_name) > 3:
+            atom.res_name = 'UNK'
+        unk_atom_ch[idx] = atom
+    return unk_atom_ch
 
 
 def __get_pdb_structure(pdb_file, assembly_id=None):
