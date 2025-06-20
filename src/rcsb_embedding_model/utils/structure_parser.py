@@ -1,6 +1,6 @@
 import numpy as np
-from biotite.structure import filter_amino_acids, filter_polymer, chain_iter, get_chains, get_residues, AtomArray, \
-    filter_peptide_backbone, residue_iter
+from biotite.structure import filter_amino_acids, filter_polymer, chain_iter, get_chains, get_residues, \
+    filter_peptide_backbone, residue_iter, array
 from biotite.structure.io.pdb import PDBFile, get_structure as get_pdb_structure, get_assembly as get_pdb_assembly, list_assemblies as list_pdb_assemblies
 from biotite.structure.io.pdbx import CIFFile, get_structure, get_assembly, BinaryCIFFile, list_assemblies
 
@@ -56,37 +56,16 @@ def get_assemblies(structure, structure_format="mmcif"):
         raise RuntimeError(f"Error reading assemblies from {structure}: {e}")
 
 
-def rename_atom_ch(atom_ch, ch="A"):
-    renamed_atom_ch = AtomArray(len(atom_ch))
-    for idx, atom in enumerate(atom_ch):
-        atom.chain_id = ch
-        renamed_atom_ch[idx] = atom
-    return renamed_atom_ch
+def rename_atom_attr(atom_ch):
+    return array([__rename_atom(a) for a in atom_ch])
 
 
-def remove_hetero(atom_ch):
-    no_het_atom_ch = AtomArray(len(atom_ch))
-    for idx, atom in enumerate(atom_ch):
-        atom.hetero = False
-        no_het_atom_ch[idx] = atom
-    return no_het_atom_ch
-
-
-def check_all_hetero(atom_ch):
-    return sum(atom_ch.hetero) == len(atom_ch)
+def filter_residues(atom_ch):
+    return atom_ch[filter_amino_acids(atom_ch)]
 
 
 def get_backbone_atoms(atom_ch):
     return np.array([(lambda x: [a.coord for a in x])(r) for r in  residue_iter(atom_ch[filter_peptide_backbone(atom_ch)])])
-
-
-def get_3_letter_amino_acids(atom_ch):
-    unk_atom_ch = AtomArray(len(atom_ch))
-    for idx, atom in enumerate(atom_ch):
-        if len(atom.res_name) > 3:
-            atom.res_name = 'UNK'
-        unk_atom_ch[idx] = atom
-    return unk_atom_ch
 
 
 def __get_pdb_structure(pdb_file, assembly_id=None):
@@ -98,6 +77,14 @@ def __get_pdb_structure(pdb_file, assembly_id=None):
         assembly_id=assembly_id,
         model=1
     )
+
+
+def __rename_atom(atom):
+    atom.chain_id = "A"
+    atom.hetero = False
+    if len(atom.res_name) > 3:
+        atom.res_name = 'UNK'
+    return atom
 
 
 def __get_structure(cif_file, assembly_id=None):
