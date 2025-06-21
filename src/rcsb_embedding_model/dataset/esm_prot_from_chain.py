@@ -72,9 +72,9 @@ class EsmProtFromChain(Dataset):
         for atom_ch in chain_iter(structure):
             if len(atom_ch) == 0:
                 raise IOError(f"No atoms were found in structure chain {src_name}.{chain_id}")
-            atom_ch = filter_residues(atom_ch)
-            atom_ch = rename_atom_attr(atom_ch)
             try:
+                atom_ch = filter_residues(atom_ch)
+                atom_ch = rename_atom_attr(atom_ch)
                 protein_chain = ProteinChain.from_atomarray(atom_ch)
                 protein_chain = ESMProtein.from_protein_chain(protein_chain)
             except Exception as e:
