@@ -6,7 +6,7 @@ import typer
 from rcsb_embedding_model import __version__
 from rcsb_embedding_model.cli.args_utils import arg_devices
 from rcsb_embedding_model.types.api_types import StructureFormat, Accelerator, SrcLocation, SrcProteinFrom, \
-    StructureLocation, SrcAssemblyFrom, SrcTensorFrom, OutFormat
+    SrcAssemblyFrom, SrcTensorFrom, OutFormat
 from rcsb_embedding_model.utils.data import adapt_csv_to_embedding_chain_stream
 
 import os
@@ -42,9 +42,6 @@ def residue_embedding(
         output_name: Annotated[str, typer.Option(
             help='File name for storing embeddings as a single JSON file. Used when output-format=grouped.'
         )] = 'inference',
-        structure_location: Annotated[StructureLocation, typer.Option(
-            help='Structure file location.'
-        )] = StructureLocation.local,
         structure_format: Annotated[StructureFormat, typer.Option(
             help='Structure file format.'
         )] = StructureFormat.mmcif,
@@ -72,7 +69,6 @@ def residue_embedding(
         src_stream=src_file,
         src_location=SrcLocation.file,
         src_from=SrcProteinFrom.chain,
-        structure_location=structure_location,
         structure_format=structure_format,
         min_res_n=min_res_n,
         batch_size=batch_size,
@@ -108,9 +104,6 @@ def structure_embedding(
         output_name: Annotated[str, typer.Option(
             help='File name for storing embeddings as a single JSON file.'
         )] = 'inference',
-        structure_location: Annotated[StructureLocation, typer.Option(
-            help='Structure file location.'
-        )] = StructureLocation.local,
         structure_format: Annotated[StructureFormat, typer.Option(
             help='Structure file format.'
         )] = StructureFormat.mmcif,
@@ -138,7 +131,6 @@ def structure_embedding(
         src_stream=src_file,
         src_location=SrcLocation.file,
         src_from=SrcProteinFrom.chain,
-        structure_location=structure_location,
         structure_format=structure_format,
         min_res_n=min_res_n,
         batch_size=batch_size,
@@ -183,9 +175,6 @@ def chain_embedding(
         output_name: Annotated[str, typer.Option(
             help='File name for storing embeddings as a single JSON file. Used when output-format=grouped.'
         )] = 'inference',
-        structure_location: Annotated[StructureLocation, typer.Option(
-            help='Structure file location.'
-        )] = StructureLocation.local,
         structure_format: Annotated[StructureFormat, typer.Option(
             help='Structure file format.'
         )] = StructureFormat.mmcif,
@@ -214,7 +203,6 @@ def chain_embedding(
         res_embedding_location=res_embedding_location,
         src_location=SrcLocation.stream,
         src_from=SrcTensorFrom.file,
-        structure_location=structure_location,
         structure_format=structure_format,
         min_res_n=min_res_n,
         batch_size=batch_size,
@@ -259,9 +247,6 @@ def assembly_embedding(
         output_name: Annotated[str, typer.Option(
             help='File name for storing embeddings as a single JSON file. Used when output-format=grouped.'
         )] = 'inference',
-        structure_location: Annotated[StructureLocation, typer.Option(
-            help='Structure file location.'
-        )] = StructureLocation.local,
         structure_format: Annotated[StructureFormat, typer.Option(
             help='Structure file format.'
         )] = StructureFormat.mmcif,
@@ -293,7 +278,6 @@ def assembly_embedding(
         res_embedding_location=res_embedding_location,
         src_location=SrcLocation.file,
         src_from=SrcAssemblyFrom.assembly,
-        structure_location=structure_location,
         structure_format=structure_format,
         min_res_n=min_res_n,
         max_res_n=max_res_n,
@@ -356,9 +340,6 @@ def complete_embedding(
         output_assembly_name: Annotated[str, typer.Option(
             help='File name for storing chain embeddings as a single JSON file. Used when output-format=grouped.'
         )] = 'chain-inference',
-        structure_location: Annotated[StructureLocation, typer.Option(
-            help='Structure file location.'
-        )] = StructureLocation.local,
         structure_format: Annotated[StructureFormat, typer.Option(
             help='Structure file format.'
         )] = StructureFormat.mmcif,
@@ -397,7 +378,6 @@ def complete_embedding(
         src_file=src_chain_file,
         output_path=output_res_path,
         output_format=OutFormat.separated,
-        structure_location=structure_location,
         structure_format=structure_format,
         min_res_n=min_res_n,
         batch_size=batch_size_res,
@@ -412,7 +392,6 @@ def complete_embedding(
         output_format=output_format,
         output_name=output_chain_name,
         res_embedding_location=output_res_path,
-        structure_location=structure_location,
         structure_format=structure_format,
         min_res_n=min_res_n,
         batch_size=batch_size_chain,
@@ -427,7 +406,6 @@ def complete_embedding(
         output_format=output_format,
         output_name=output_assembly_name,
         res_embedding_location=output_res_path,
-        structure_location=structure_location,
         structure_format=structure_format,
         min_res_n=min_res_n,
         batch_size=batch_size_assembly,

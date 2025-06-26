@@ -3,11 +3,7 @@ import os
 import shutil
 import unittest
 
-from rcsb_embedding_model.types.api_types import OutFormat, StructureLocation, StructureFormat, Accelerator
-
-
-
-
+from rcsb_embedding_model.types.api_types import OutFormat, StructureFormat, Accelerator
 
 class TestCliInference(unittest.TestCase):
     __test_path = os.path.dirname(__file__)
@@ -24,7 +20,6 @@ class TestCliInference(unittest.TestCase):
             output_format=OutFormat.grouped,
             output_chain_name="instance-inference",
             output_assembly_name="assembly-inference",
-            structure_location=StructureLocation.remote,
             structure_format=StructureFormat.bciff,
             min_res_n=0,
             batch_size_res=1,

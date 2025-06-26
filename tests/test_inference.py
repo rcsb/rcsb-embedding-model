@@ -1,7 +1,7 @@
 import os
 import unittest
 
-from rcsb_embedding_model.types.api_types import StructureLocation, Accelerator, SrcProteinFrom, SrcLocation, \
+from rcsb_embedding_model.types.api_types import Accelerator, SrcProteinFrom, SrcLocation, \
     StructureFormat, SrcAssemblyFrom, SrcTensorFrom
 
 
@@ -18,7 +18,6 @@ class TestInference(unittest.TestCase):
             ],
             src_location=SrcLocation.stream,
             src_from=SrcProteinFrom.chain,
-            structure_location=StructureLocation.local,
             structure_format=StructureFormat.mmcif,
             accelerator=Accelerator.cpu
         )
@@ -38,7 +37,6 @@ class TestInference(unittest.TestCase):
             ],
             src_location=SrcLocation.stream,
             src_from=SrcProteinFrom.structure,
-            structure_location=StructureLocation.local,
             structure_format=StructureFormat.mmcif,
             accelerator=Accelerator.cpu
         )
@@ -82,7 +80,6 @@ class TestInference(unittest.TestCase):
             res_embedding_location=f"{self.__test_path}/resources/embeddings",
             src_location=SrcLocation.stream,
             src_from=SrcTensorFrom.structure,
-            structure_location=StructureLocation.local,
             structure_format=StructureFormat.mmcif,
             min_res_n=0,
             accelerator=Accelerator.cpu
@@ -105,7 +102,6 @@ class TestInference(unittest.TestCase):
             ],
             src_location=SrcLocation.stream,
             src_from=SrcProteinFrom.chain,
-            structure_location=StructureLocation.local,
             structure_format=StructureFormat.mmcif,
             accelerator=Accelerator.cpu
         )
@@ -125,7 +121,6 @@ class TestInference(unittest.TestCase):
             ],
             src_location=SrcLocation.stream,
             src_from=SrcProteinFrom.structure,
-            structure_location=StructureLocation.local,
             structure_format=StructureFormat.mmcif,
             accelerator=Accelerator.cpu
         )

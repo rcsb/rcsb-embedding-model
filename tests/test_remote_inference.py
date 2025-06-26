@@ -1,7 +1,7 @@
 import os.path
 import unittest
 
-from rcsb_embedding_model.types.api_types import SrcLocation, SrcProteinFrom, StructureLocation, StructureFormat, \
+from rcsb_embedding_model.types.api_types import SrcLocation, SrcProteinFrom, StructureFormat, \
     Accelerator, SrcAssemblyFrom
 
 
@@ -19,7 +19,6 @@ class TestRemoteInference(unittest.TestCase):
             ],
             src_location=SrcLocation.stream,
             src_from=SrcProteinFrom.structure,
-            structure_location=StructureLocation.remote,
             structure_format=StructureFormat.mmcif,
             accelerator=Accelerator.cpu
         )
@@ -39,7 +38,6 @@ class TestRemoteInference(unittest.TestCase):
             ],
             src_location=SrcLocation.stream,
             src_from=SrcProteinFrom.structure,
-            structure_location=StructureLocation.remote,
             structure_format=StructureFormat.bciff,
             accelerator=Accelerator.cpu
         )
@@ -57,7 +55,6 @@ class TestRemoteInference(unittest.TestCase):
             src_stream=f"{self.__test_path}/resources/src_stream/instance.csv",
             src_location=SrcLocation.file,
             src_from=SrcProteinFrom.chain,
-            structure_location=StructureLocation.remote,
             structure_format=StructureFormat.bciff,
             accelerator=Accelerator.cpu
         )
@@ -78,7 +75,6 @@ class TestRemoteInference(unittest.TestCase):
             ],
             src_location=SrcLocation.stream,
             src_from=SrcProteinFrom.structure,
-            structure_location=StructureLocation.remote,
             structure_format=StructureFormat.mmcif,
             accelerator=Accelerator.cpu
         )
@@ -100,7 +96,6 @@ class TestRemoteInference(unittest.TestCase):
             res_embedding_location=f"{self.__test_path}/resources/embeddings",
             src_location=SrcLocation.stream,
             src_from=SrcAssemblyFrom.structure,
-            structure_location=StructureLocation.remote,
             structure_format=StructureFormat.mmcif,
             accelerator=Accelerator.cpu
         )

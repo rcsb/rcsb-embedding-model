@@ -3,6 +3,7 @@ import os
 import pandas as pd
 
 from rcsb_embedding_model.dataset.residue_embedding_from_tensor_file import ResidueEmbeddingFromTensorFile
+from rcsb_embedding_model.dataset.untils import get_structure_location
 from rcsb_embedding_model.types.api_types import SrcLocation, StructureLocation, StructureFormat
 from rcsb_embedding_model.utils.data import stringio_from_url
 from rcsb_embedding_model.utils.structure_parser import get_protein_chains
@@ -22,7 +23,6 @@ class ResidueEmbeddingFromStructure(ResidueEmbeddingFromTensorFile):
             src_stream,
             res_embedding_location,
             src_location=SrcLocation.file,
-            structure_location=StructureLocation.local,
             structure_format=StructureFormat.mmcif,
             min_res_n=0,
             structure_provider=StructureProvider()
@@ -31,7 +31,6 @@ class ResidueEmbeddingFromStructure(ResidueEmbeddingFromTensorFile):
             raise FileNotFoundError(f"Folder {res_embedding_location} does not exist")
         self.res_embedding_location = res_embedding_location
         self.src_location = src_location
-        self.structure_location = structure_location
         self.structure_format = structure_format
         self.min_res_n = min_res_n
         self.__structure_provider = structure_provider
@@ -60,7 +59,7 @@ class ResidueEmbeddingFromStructure(ResidueEmbeddingFromTensorFile):
             item_name = row[ResidueEmbeddingFromStructure.ITEM_NAME_ATTR]
             structure = self.__structure_provider.get_structure(
                 src_name=src_name,
-                src_structure=stringio_from_url(src_structure) if self.structure_location == StructureLocation.remote else src_structure,
+                src_structure=stringio_from_url(src_structure) if get_structure_location(src_structure) == StructureLocation.remote else src_structure,
                 structure_format=self.structure_format
             )
             for ch in get_protein_chains(structure, self.min_res_n):

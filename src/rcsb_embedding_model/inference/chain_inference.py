@@ -6,7 +6,7 @@ from rcsb_embedding_model.dataset.residue_embedding_from_structure import Residu
 from rcsb_embedding_model.dataset.residue_embedding_from_tensor_file import ResidueEmbeddingFromTensorFile
 from rcsb_embedding_model.modules.chain_module import ChainModule
 from rcsb_embedding_model.types.api_types import Accelerator, Devices, OptionalPath, FileOrStreamTuple, SrcLocation, \
-    SrcTensorFrom, StructureLocation, StructureFormat, OutFormat
+    SrcTensorFrom, StructureFormat, OutFormat
 from rcsb_embedding_model.utils.data import collate_seq_embeddings
 from rcsb_embedding_model.utils.model import get_aggregator_model
 from rcsb_embedding_model.writer.batch_writer import CsvBatchWriter, JsonStorage
@@ -17,7 +17,6 @@ def predict(
         res_embedding_location: OptionalPath = None,
         src_location: SrcLocation = SrcLocation.file,
         src_from: SrcTensorFrom = SrcTensorFrom.file,
-        structure_location: StructureLocation = StructureLocation.local,
         structure_format: StructureFormat = StructureFormat.mmcif,
         min_res_n: int = 0,
         batch_size: int = 1,
@@ -39,7 +38,6 @@ def predict(
             src_stream=src_stream,
             res_embedding_location=res_embedding_location,
             src_location=src_location,
-            structure_location=structure_location,
             structure_format=structure_format,
             min_res_n=min_res_n
         )

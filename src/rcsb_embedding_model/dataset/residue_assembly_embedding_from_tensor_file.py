@@ -4,6 +4,7 @@ import sys
 import pandas as pd
 from torch.utils.data import Dataset, DataLoader
 
+from rcsb_embedding_model.dataset.untils import get_structure_location
 from rcsb_embedding_model.types.api_types import StructureLocation, StructureFormat, SrcLocation
 from rcsb_embedding_model.utils.data import stringio_from_url, concatenate_tensors
 from rcsb_embedding_model.utils.structure_parser import get_protein_chains
@@ -24,7 +25,6 @@ class ResidueAssemblyEmbeddingFromTensorFile(Dataset):
             src_stream,
             res_embedding_location,
             src_location=SrcLocation.file,
-            structure_location=StructureLocation.local,
             structure_format=StructureFormat.mmcif,
             min_res_n=0,
             max_res_n=sys.maxsize,
@@ -33,7 +33,6 @@ class ResidueAssemblyEmbeddingFromTensorFile(Dataset):
         super().__init__()
         self.res_embedding_location = res_embedding_location
         self.src_location = src_location
-        self.structure_location = structure_location
         self.structure_format = structure_format
         self.min_res_n = min_res_n
         self.max_res_n = max_res_n
@@ -65,7 +64,7 @@ class ResidueAssemblyEmbeddingFromTensorFile(Dataset):
         item_name = self.data.iloc[idx][ResidueAssemblyEmbeddingFromTensorFile.ITEM_NAME_ATTR]
         structure = self.__structure_provider.get_structure(
             src_name=src_name,
-            src_structure=stringio_from_url(src_structure) if self.structure_location == StructureLocation.remote else src_structure,
+            src_structure=stringio_from_url(src_structure) if get_structure_location(src_structure) == StructureLocation.remote else src_structure,
             structure_format=self.structure_format,
             assembly_id=assembly_id
         )
@@ -86,7 +85,6 @@ if __name__ == "__main__":
         src_stream=args.file_list,
         res_embedding_location=args.res_embeddings_path,
         src_location=SrcLocation.file,
-        structure_location=StructureLocation.remote,
         structure_format=StructureFormat.bciff
     )
 
