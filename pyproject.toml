@@ -11,7 +11,7 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Operating System :: OS Independent",
 ]
-license = "Cambrian Non-Commercial License"
+license = {file = "LICENSE.md"}
 license-files = ["LICEN[CS]E*"]
 dependencies=[
     "importlib-metadata >= 8.7.0",
