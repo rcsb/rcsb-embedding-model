@@ -18,7 +18,8 @@ dependencies=[
     "esm >= 3.2.0",
     "lightning >= 2.5.0",
     "typer >= 0.15.0",
-    "hf_xet >= 1.1.10"
+    "hf-xet >= 1.1.10",
+    "huggingface-hub >= 0.30.2"
 ]
 
 [project.urls]
