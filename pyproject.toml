@@ -1,6 +1,6 @@
 [project]
 name = "rcsb-embedding-model"
-version = "0.0.36"
+version = "0.0.37"
 authors = [
     { name="Joan Segura", email="joan.segura@rcsb.org" },
 ]
@@ -11,13 +11,14 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Operating System :: OS Independent",
 ]
-license = "BSD-3-Clause"
+license = "Cambrian Non-Commercial License"
 license-files = ["LICEN[CS]E*"]
 dependencies=[
     "importlib-metadata >= 8.7.0",
     "esm >= 3.2.0",
     "lightning >= 2.5.0",
-    "typer >= 0.15.0"
+    "typer >= 0.15.0",
+    "hf_xet >= 1.1.10"
 ]
 
 [project.urls]

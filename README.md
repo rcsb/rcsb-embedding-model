@@ -1,6 +1,6 @@
 # RCSB Embedding Model
 
-**Version** 0.0.26
+**Version** 0.0.37
 
 
 ## Overview
@@ -107,4 +107,5 @@ Segura, J., Bittrich, S., et al. (2024). *Multi-scale structural similarity embe
 
 ## License
 
-This project is licensed under the BSD 3-Clause License. See [LICENSE.md](LICENSE.md) for details.
+This project uses the EvolutionaryScale ESM-3 model and is distributed under the
+[Cambrian Non-Commercial License Agreement](https://www.evolutionaryscale.ai/policies/cambrian-non-commercial-license-agreement).

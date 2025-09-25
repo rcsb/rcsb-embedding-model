@@ -1,9 +1,8 @@
 import torch
-from esm.models.esm3 import ESM3
-from esm.utils.constants.models import ESM3_OPEN_SMALL
-from huggingface_hub import hf_hub_download
 
+from huggingface_hub import hf_hub_download
 from rcsb_embedding_model.model.residue_embedding_aggregator import ResidueEmbeddingAggregator
+from rcsb_embedding_model.utils.esm.loaders import esm_open
 
 REPO_ID = "rcsb/rcsb-embedding-model"
 FILE_NAME = "rcsb-embedding-model.pt"
@@ -25,7 +24,5 @@ def get_aggregator_model(device=None):
 
 
 def get_residue_model(device=None):
-    return ESM3.from_pretrained(
-        ESM3_OPEN_SMALL,
-        device
-    )
+    return esm_open(device)
+
