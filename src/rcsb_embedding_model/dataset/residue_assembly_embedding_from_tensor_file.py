@@ -72,7 +72,7 @@ class ResidueAssemblyEmbeddingFromTensorFile(Dataset):
             f"{self.res_embedding_location}/{src_name}.{ch}.pt" for ch in get_protein_chains(structure, self.min_res_n)
         ]
         if len(residue_embedding_files) == 0:
-            raise ValueError(f"No chains found for {src_name} is structure {src_structure}.")
+            raise ValueError(f"No chains found for {src_name}-{assembly_id} in structure {src_structure}.")
         return concatenate_tensors(residue_embedding_files, self.max_res_n), item_name
 
 
