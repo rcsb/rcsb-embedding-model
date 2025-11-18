@@ -33,9 +33,6 @@ jobs:
       - name: Install Hatch and HaggingFace
         run: pip install hatch huggingface_hub[cli]
 
-      - name: Authenticate to Hugging Face
-        run: huggingface-cli login --token ${{ secrets.HF_API_TOKEN }}
-
       - name: Run tests
         run: hatch test
 
