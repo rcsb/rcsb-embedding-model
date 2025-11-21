@@ -82,6 +82,8 @@ def concatenate_tensors(file_list, max_residues, dim=0):
             total_residues += tensor.shape[0]
             tensors.append(tensor)
         except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f"Error loading tensor from {file}: {e}")
             continue
         if total_residues > max_residues:
             break

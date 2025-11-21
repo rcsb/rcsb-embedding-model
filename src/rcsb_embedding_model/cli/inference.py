@@ -346,6 +346,9 @@ def complete_embedding(
         min_res_n: Annotated[int, typer.Option(
             help='When using all chains in a structure, consider only chains with more than <min_res_n> residues.'
         )] = 0,
+        max_res_n: Annotated[int, typer.Option(
+            help='Stop adding assembly chains when number of residues is greater than <max_res_n> residues.'
+        )] = sys.maxsize,
         batch_size_res: Annotated[int, typer.Option(
             help='Number of samples processed together in one iteration.'
         )] = 1,
@@ -408,6 +411,7 @@ def complete_embedding(
         res_embedding_location=output_res_path,
         structure_format=structure_format,
         min_res_n=min_res_n,
+        max_res_n=max_res_n,
         batch_size=batch_size_assembly,
         num_workers=num_workers_assembly,
         num_nodes=num_nodes,
@@ -415,6 +419,14 @@ def complete_embedding(
         devices=devices
     )
 
+@app.command(
+    name="download-models",
+    help="Download models from huggingface and store them in the default location."
+)
+def download_models():
+    from rcsb_embedding_model.utils.model import get_residue_model, get_aggregator_model
+    get_residue_model()
+    get_aggregator_model()
 
 def version_callback(value: bool):
     if value:
