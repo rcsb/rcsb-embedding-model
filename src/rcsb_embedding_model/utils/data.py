@@ -44,7 +44,7 @@ def stringio_from_url(url):
         retries=5,
         delay=60,
         backoff=2,
-        exceptions=(RequestException, OSError, gzip.BadGzipFile)
+        exceptions=(RequestException, IOError)
     )
 
 
@@ -64,9 +64,9 @@ def __stringio_from_url(url):
         else:
             return StringIO(response.text)
     except RequestException as e:
-        raise RuntimeError(f"Error fetching URL {url}: {e}")
+        raise RequestException(f"Error fetching URL {url}: {e}")
     except (OSError, gzip.BadGzipFile) as e:
-        raise RuntimeError(f"Error decompressing gzip file {url}: {e}")
+        raise IOError(f"Error decompressing gzip file {url}: {e}")
 
 
 def concatenate_tensors(file_list, max_residues, dim=0):
