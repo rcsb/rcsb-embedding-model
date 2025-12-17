@@ -1,3 +1,4 @@
+import logging
 import torch
 from torch.utils.data import DataLoader
 from lightning import Trainer
@@ -26,6 +27,7 @@ def predict(
         out_name: str = 'inference',
         out_path: OptionalPath = None
 ):
+    logger = logging.getLogger(__name__)
 
     inference_set = EsmProtFromChain(
         src_stream=src_stream,
@@ -37,6 +39,7 @@ def predict(
         structure_format=structure_format,
         min_res_n=min_res_n
     )
+    logger.info(f"esm-inference set contains {len(inference_set)} samples")
 
     inference_dataloader = DataLoader(
         dataset=inference_set,
@@ -45,12 +48,15 @@ def predict(
         collate_fn=lambda _: _
     )
 
+    logger.info(f"Loading rcsb-esm module")
     esm_model = get_residue_model(
         device=torch.device("cpu")
     )
     module = EsmModule(
         model=esm_model
     )
+    logger.info(f"rcsb-esm module ready")
+
     inference_writer = (JsonStorage(out_path, out_name) if out_format == OutFormat.grouped else TensorBatchWriter(out_path)) if out_path is not None else None
     trainer = Trainer(
         callbacks=[inference_writer] if inference_writer is not None else None,
@@ -61,6 +67,7 @@ def predict(
         logger=False
     )
 
+    logger.info(f"esm-inference starts")
     prediction = trainer.predict(
         module,
         inference_dataloader

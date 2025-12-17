@@ -2,8 +2,9 @@ import os
 import requests
 import gzip
 import torch
+import logging
 
-from requests import RequestException
+from requests import RequestException, ConnectTimeout
 from io import StringIO, BytesIO
 
 def collate_seq_embeddings(batch_list):
@@ -50,7 +51,7 @@ def stringio_from_url(url):
 
 def __stringio_from_url(url):
     try:
-        response = requests.get(url)
+        response = requests.get(url, timeout=60)
         response.raise_for_status()
         data = response.content
         if url.endswith('.bcif.gz'):
@@ -63,7 +64,7 @@ def __stringio_from_url(url):
                 return StringIO(f.read())
         else:
             return StringIO(response.text)
-    except RequestException as e:
+    except (RequestException, ConnectTimeout) as e:
         raise RequestException(f"Error fetching URL {url}: {e}")
     except (OSError, gzip.BadGzipFile) as e:
         raise IOError(f"Error decompressing gzip file {url}: {e}")
@@ -160,6 +161,9 @@ def run_with_retries(
         try:
             return func(*args, **kwargs)
         except exceptions as e:
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Attempt {attempt} failed, will retry in {current_delay} seconds")
+            logger.exception(f"Attempt {attempt} failed with exception: {e}")
             attempt += 1
             if attempt > retries:
                 raise e

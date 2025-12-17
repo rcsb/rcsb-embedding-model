@@ -1,3 +1,4 @@
+import logging
 import torch
 from torch.utils.data import DataLoader
 from lightning import Trainer
@@ -29,6 +30,7 @@ def predict(
         out_path: OptionalPath = None,
         inference_set=None
 ):
+    logger = logging.getLogger(__name__)
 
     if inference_set is None:
         inference_set = ResidueEmbeddingFromTensorFile(
@@ -41,6 +43,7 @@ def predict(
             structure_format=structure_format,
             min_res_n=min_res_n
         )
+    logger.info(f"chain-inference set contains {len(inference_set)} samples")
 
     inference_dataloader = DataLoader(
         dataset=inference_set,
@@ -52,12 +55,15 @@ def predict(
         )
     )
 
+    logger.info(f"Loading rcsb-aggregator module")
     aggregator_model = get_aggregator_model(
         device=torch.device("cpu")
     )
     module = ChainModule(
         model=aggregator_model
     )
+    logger.info(f"rcsb-aggregator module ready")
+
     inference_writer = (JsonStorage(out_path, out_name) if out_format == OutFormat.grouped else CsvBatchWriter(out_path)) if out_path is not None else None
     trainer = Trainer(
         callbacks=[inference_writer] if inference_writer is not None else None,
@@ -68,6 +74,7 @@ def predict(
         logger=False
     )
 
+    logger.info(f"chain-inference starts")
     prediction = trainer.predict(
         module,
         inference_dataloader

@@ -1,3 +1,4 @@
+import logging
 import torch
 from torch.utils.data import DataLoader
 from lightning import Trainer
@@ -25,6 +26,7 @@ def predict(
         out_name: str = 'inference',
         out_path: OptionalPath = None
 ):
+    logger = logging.getLogger(__name__)
 
     inference_set = EsmProtFromChain(
         src_stream=src_stream,
@@ -36,6 +38,7 @@ def predict(
         structure_format=structure_format,
         min_res_n=min_res_n
     )
+    logger.info(f"structure-inference set contains {len(inference_set)} samples")
 
     inference_dataloader = DataLoader(
         dataset=inference_set,
@@ -44,6 +47,7 @@ def predict(
         collate_fn=lambda _: _
     )
 
+    logger.info(f"Loading rcsb-esm + rcsb-aggregator module")
     res_model = get_residue_model(
         device=torch.device("cpu")
     )
@@ -54,6 +58,8 @@ def predict(
         res_model=res_model,
         aggregator_model=aggregator_model
     )
+    logger.info(f"rcsb-esm + rcsb-aggregator module ready")
+
     inference_writer = JsonStorage(out_path, out_name) if out_path is not None and out_name is not None else None
     trainer = Trainer(
         callbacks=[inference_writer] if inference_writer is not None else None,
@@ -64,6 +70,7 @@ def predict(
         logger=False
     )
 
+    logger.info(f"structure-inference starts")
     prediction = trainer.predict(
         module,
         inference_dataloader

@@ -1,3 +1,4 @@
+import logging
 import sys
 
 from rcsb_embedding_model.dataset.resdiue_assembly_embedding_from_structure import ResidueAssemblyDatasetFromStructure
@@ -24,6 +25,8 @@ def predict(
         out_name: str = 'inference',
         out_path: OptionalPath = None
 ):
+    logger = logging.getLogger(__name__)
+
     inference_set = ResidueAssemblyEmbeddingFromTensorFile(
         src_stream=src_stream,
         res_embedding_location=res_embedding_location,
@@ -39,7 +42,9 @@ def predict(
         min_res_n=min_res_n,
         max_res_n=max_res_n
     )
+    logger.info(f"assembly-inference set contains {len(inference_set)} samples")
 
+    logger.info(f"Delegating assembly-inference to chain-inference method")
     return chain_predict(
         src_stream=src_stream,
         src_location=src_location,

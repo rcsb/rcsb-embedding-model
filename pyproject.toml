@@ -1,6 +1,6 @@
 [project]
 name = "rcsb-embedding-model"
-version = "0.0.43"
+version = "0.0.44"
 authors = [
     { name="Joan Segura", email="joan.segura@rcsb.org" },
 ]
