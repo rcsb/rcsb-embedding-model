@@ -24,5 +24,7 @@ def get_aggregator_model(device=None):
 
 
 def get_residue_model(device=None):
+    if device is None:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     return esm_open(device)
 

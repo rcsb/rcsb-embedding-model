@@ -1,7 +1,7 @@
 import sys
-from typing import Annotated, List
-
 import typer
+
+from typing import Annotated, List
 
 from rcsb_embedding_model import __version__
 from rcsb_embedding_model.cli.args_utils import arg_devices

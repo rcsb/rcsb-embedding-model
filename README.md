@@ -1,6 +1,6 @@
 # RCSB Embedding Model
 
-**Version** 0.0.44
+**Version** 0.0.46
 
 
 ## Overview
