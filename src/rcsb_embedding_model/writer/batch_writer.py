@@ -111,13 +111,14 @@ class DataFrameStorage(CoreBatchWriter, ABC):
 
     def on_predict_end(self, trainer, pl_module):
         path = f"{self.out_path}/{self.df_id}.pkl.gz"
-        self.embedding.to_pickle(
-            path,
-            compression='gzip'
-        )
+        def __embedding_to_pickle():
+            self.embedding.to_pickle(
+                path,
+                compression='gzip'
+            )
+            _verify_gzip(path)
         run_with_retries(
-            _verify_gzip,
-            path,
+            __embedding_to_pickle,
             retries=3,
             delay=15,
             backoff=2,
@@ -130,21 +131,22 @@ class JsonStorage(DataFrameStorage, ABC):
             self,
             output_path,
             df_id,
-            postfix="pkl",
+            postfix="json",
             write_interval="batch"
     ):
         super().__init__(output_path, df_id, postfix, write_interval)
 
     def on_predict_end(self, trainer, pl_module):
         path = f"{self.out_path}/{self.df_id}.json.gz"
-        self.embedding.to_json(
-            path,
-            orient='records',
-            compression='gzip'
-        )
+        def __embedding_to_json():
+            self.embedding.to_json(
+                path,
+                orient='records',
+                compression='gzip'
+            )
+            _verify_gzip(path)
         run_with_retries(
-            _verify_gzip,
-            path,
+            __embedding_to_json,
             retries=3,
             delay=15,
             backoff=2,
