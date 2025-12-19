@@ -163,7 +163,7 @@ def run_with_retries(
         except exceptions as e:
             logger = logging.getLogger(__name__)
             logger.warning(f"Attempt {attempt} failed, will retry in {current_delay} seconds")
-            logger.exception(f"Attempt {attempt} failed with exception: {e}")
+            logger.exception(f"Attempt {attempt} failed with exception: {str(e)}")
             attempt += 1
             if attempt > retries:
                 raise e
