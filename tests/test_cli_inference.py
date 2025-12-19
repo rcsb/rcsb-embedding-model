@@ -31,8 +31,8 @@ class TestCliInference(unittest.TestCase):
             num_nodes=1,
             accelerator=Accelerator.cpu
         )
-        self.assertTrue(os.path.exists(f"{self.__test_path}/resources/tmp/instance-inference.json.gz"))
-        self.assertTrue(os.path.exists(f"{self.__test_path}/resources/tmp/assembly-inference.json.gz"))
+        self.assertTrue(os.path.exists(f"{self.__test_path}/resources/tmp/instance-inference-0.json.gz"))
+        self.assertTrue(os.path.exists(f"{self.__test_path}/resources/tmp/assembly-inference-0.json.gz"))
 
 
 def _remove_files_in_directory(directory_path):
