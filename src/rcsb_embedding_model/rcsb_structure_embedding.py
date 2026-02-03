@@ -10,11 +10,11 @@ from rcsb_embedding_model.utils.structure_parser import get_structure_from_src
 
 class RcsbStructureEmbedding:
 
-    MIN_RES = 10
-
-    def __init__(self):
+    def __init__(self, min_res = 10, max_res = None):
         self.__residue_embedding = None
         self.__aggregator_embedding = None
+        self.min_res = min_res
+        self.max_res = max_res
 
     def load_models(
             self,
@@ -58,10 +58,14 @@ class RcsbStructureEmbedding:
     ):
         self.__check_residue_embedding()
         structure = get_structure_from_src(src_structure, structure_format, chain_id, assembly_id)
+
+        if self.max_res is not None and _protein_length(structure) > self.max_res:
+            raise ValueError(f"Protein too long for embedding (max {self.max_res} residues)")
+
         embedding_ch = []
         for atom_ch in chain_iter(structure):
             atom_res = atom_ch[filter_amino_acids(atom_ch)]
-            if len(atom_res) == 0 or len(get_residues(atom_res)[0]) < RcsbStructureEmbedding.MIN_RES:
+            if len(atom_res) == 0 or len(get_residues(atom_res)[0]) < self.min_res:
                 continue
             protein_chain = ProteinChain.from_atomarray(atom_ch)
             protein = ESMProtein.from_protein_chain(protein_chain)
@@ -83,8 +87,11 @@ class RcsbStructureEmbedding:
         if sequence.startswith(">"):
             sequence = "".join(line.strip() for line in sequence.splitlines() if not line.startswith(">"))
 
-        if len(sequence) < RcsbStructureEmbedding.MIN_RES:
-            raise ValueError(f"Sequence too short for embedding (min {RcsbStructureEmbedding.MIN_RES} residues)")
+        if len(sequence) < self.min_res:
+            raise ValueError(f"Sequence too short for embedding (min {self.min_res} residues)")
+
+        if self.max_res is not None and len(sequence) > self.max_res:
+            raise ValueError(f"Sequence too long for embedding (max {self.max_res} residues)")
 
         protein = ESMProtein(sequence=sequence)
         protein_tensor = self.__residue_embedding.encode(protein)
@@ -125,3 +132,8 @@ def _load_res_model(device=None):
     if not device:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     return get_residue_model(device)
+
+
+def _protein_length(structure):
+    protein_atoms = structure[filter_amino_acids(structure)]
+    return len(get_residues(protein_atoms)[0])
