@@ -21,7 +21,8 @@ dependencies=[
     "typer >= 0.15.0",
     "hf-xet >= 1.1.10",
     "huggingface-hub >= 0.30.2",
-    "httpx >= 0.28.1"
+    "httpx >= 0.28.1",
+    "chromadb >= 0.4.0"
 ]
 
 [project.urls]
@@ -37,3 +38,4 @@ build-backend = "hatchling.build"
 
 [project.scripts]
 inference = "rcsb_embedding_model.cli.inference:app"
+search = "rcsb_embedding_model.cli.search:app"
