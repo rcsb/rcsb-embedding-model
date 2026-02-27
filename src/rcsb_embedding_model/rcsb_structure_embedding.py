@@ -78,6 +78,31 @@ class RcsbStructureEmbedding:
             dim=0
         )
 
+    def residue_embedding_by_chain(
+            self,
+            src_structure: StreamSrc,
+            structure_format: StructureFormat = StructureFormat.mmcif
+    ):
+        self.__check_residue_embedding()
+        structure = get_structure_from_src(src_structure, structure_format)
+
+        if self.max_res is not None and _protein_length(structure) > self.max_res:
+            raise ValueError(f"Protein too long for embedding (max {self.max_res} residues)")
+
+        embedding_by_chain = {}
+        for atom_ch in chain_iter(structure):
+            atom_res = atom_ch[filter_amino_acids(atom_ch)]
+            if len(atom_res) == 0 or len(get_residues(atom_res)[0]) < self.min_res:
+                continue
+            chain_id_value = atom_ch.chain_id[0]
+            protein_chain = ProteinChain.from_atomarray(atom_ch)
+            protein = ESMProtein.from_protein_chain(protein_chain)
+            protein_tensor = self.__residue_embedding.encode(protein)
+            embedding_by_chain[chain_id_value] = self.__residue_embedding.forward_and_sample(
+                protein_tensor, SamplingConfig(return_per_residue_embeddings=True)
+            ).per_residue_embedding
+        return embedding_by_chain
+
     def sequence_embedding(
             self,
             sequence: str
