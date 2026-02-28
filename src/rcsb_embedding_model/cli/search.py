@@ -1,19 +1,20 @@
 import os
 import torch
 import typer
+from pathlib import Path
 from typing import Annotated, Optional
 
 from rcsb_embedding_model import __version__
 from rcsb_embedding_model.types.api_types import StructureFormat
 from rcsb_embedding_model.search.database_builder import EmbeddingDatabaseBuilder
-from rcsb_embedding_model.search.chroma_database import ChromaEmbeddingDatabase
+from rcsb_embedding_model.search.faiss_database import FaissEmbeddingDatabase
 from rcsb_embedding_model.search.structure_search import StructureSearch
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 app = typer.Typer(
     add_completion=False,
-    help="3D structure search using embeddings and ChromaDB"
+    help="3D structure search using embeddings and FAISS"
 )
 
 
@@ -26,19 +27,16 @@ def build_database(
             help='Directory containing structure files'
         )],
         output_db: Annotated[str, typer.Option(
-            help='Path to save the ChromaDB database directory'
+            help='Path to save the FAISS database directory'
         )],
-        temp_file: Annotated[str, typer.Option(
-            help='Temporary file to save intermediate embeddings (torch format)'
-        )] = "temp_embeddings.pt",
         structure_format: Annotated[StructureFormat, typer.Option(
             help='Structure file format (mmcif or pdb)'
         )] = StructureFormat.mmcif,
         file_extension: Annotated[Optional[str], typer.Option(
             help='File extension to filter (e.g., .cif, .pdb). If not specified, uses default for format'
         )] = None,
-        collection_name: Annotated[str, typer.Option(
-            help='Name of the ChromaDB collection'
+        index_name: Annotated[str, typer.Option(
+            help='Name of the FAISS index'
         )] = "structure_embeddings",
         min_res: Annotated[int, typer.Option(
             help='Minimum residue length for chains'
@@ -47,8 +45,11 @@ def build_database(
             help='Maximum residue length for structures (None for no limit)'
         )] = None,
         device: Annotated[str, typer.Option(
-            help='Device to use (cuda, cpu, or auto)'
-        )] = "auto"
+            help='Device to use for embeddings (cuda, cpu, or auto)'
+        )] = "auto",
+        use_gpu_index: Annotated[bool, typer.Option(
+            help='Use GPU for FAISS index (requires faiss-gpu)'
+        )] = False
 ):
     """Build an embedding database from structure files."""
 
@@ -58,7 +59,9 @@ def build_database(
     else:
         torch_device = torch.device(device)
 
-    print(f"Using device: {torch_device}")
+    print(f"Using device for embeddings: {torch_device}")
+    if use_gpu_index:
+        print("GPU acceleration for FAISS index: enabled")
 
     # Step 1: Build embeddings from structure files
     print("\n" + "="*80)
@@ -73,24 +76,53 @@ def build_database(
         device=torch_device
     )
 
-    chain_ids, embeddings = builder.build_database(
-        output_path=temp_file,
-        file_extension=file_extension
-    )
+    # Build embeddings (stored in memory, no temp file needed)
+    chain_ids = []
+    embeddings = []
 
-    # Step 2: Create ChromaDB database
+    structure_files = list(Path(structure_dir).glob(f"*{file_extension or ('.cif' if structure_format == StructureFormat.mmcif else '.pdb')}"))
+    if not structure_files:
+        raise ValueError(f"No structure files found in {structure_dir}")
+
+    print(f"Processing {len(structure_files)} structure files...")
+
+    for structure_file in structure_files:
+        try:
+            structure_name = structure_file.stem
+            print(f"Processing {structure_name}...")
+
+            chain_residue_embeddings = builder.embedder.residue_embedding_by_chain(
+                src_structure=str(structure_file),
+                structure_format=structure_format
+            )
+
+            for chain_id, residue_embedding in chain_residue_embeddings.items():
+                full_chain_id = f"{structure_name}:{chain_id}"
+                chain_ids.append(full_chain_id)
+                protein_embedding = builder.embedder.aggregator_embedding(residue_embedding)
+                embeddings.append(protein_embedding)
+                print(f"  Added chain {chain_id} with {residue_embedding.shape[0]} residues")
+
+        except Exception as e:
+            print(f"Error processing {structure_file.name}: {e}")
+            continue
+
+    if not chain_ids:
+        raise ValueError("No valid chains were processed")
+
+    # Step 2: Create FAISS database
     print("\n" + "="*80)
-    print("STEP 2: Creating ChromaDB database")
+    print("STEP 2: Creating FAISS database")
     print("="*80 + "\n")
 
-    db = ChromaEmbeddingDatabase(db_path=output_db, collection_name=collection_name)
-    db.create_database(chain_ids=chain_ids, embeddings=embeddings)
+    db = FaissEmbeddingDatabase(db_path=output_db, index_name=index_name)
+    db.create_database(chain_ids=chain_ids, embeddings=embeddings, use_gpu=use_gpu_index)
 
     print("\n" + "="*80)
     print("Database build complete!")
     print("="*80)
     print(f"Database location: {output_db}")
-    print(f"Collection name: {collection_name}")
+    print(f"Index name: {index_name}")
     print(f"Total chains: {len(chain_ids)}")
     print(f"\nYou can now search this database using:")
     print(f"  search query --db-path {output_db} --query-structure <path_to_structure>")
@@ -102,7 +134,7 @@ def build_database(
 )
 def query_database(
         db_path: Annotated[str, typer.Option(
-            help='Path to the ChromaDB database directory'
+            help='Path to the FAISS database directory'
         )],
         query_structure: Annotated[str, typer.Option(
             help='Path to query structure file'
@@ -113,8 +145,8 @@ def query_database(
         chain_id: Annotated[Optional[str], typer.Option(
             help='Specific chain to search (if not specified, searches all chains)'
         )] = None,
-        collection_name: Annotated[str, typer.Option(
-            help='Name of the ChromaDB collection'
+        index_name: Annotated[str, typer.Option(
+            help='Name of the FAISS index'
         )] = "structure_embeddings",
         top_k: Annotated[int, typer.Option(
             help='Number of top results to return per chain'
@@ -132,8 +164,11 @@ def query_database(
             help='Maximum residue length for structures (None for no limit)'
         )] = None,
         device: Annotated[str, typer.Option(
-            help='Device to use (cuda, cpu, or auto)'
-        )] = "auto"
+            help='Device to use for embeddings (cuda, cpu, or auto)'
+        )] = "auto",
+        use_gpu_index: Annotated[bool, typer.Option(
+            help='Use GPU for FAISS search (requires faiss-gpu)'
+        )] = False
 ):
     """Search database for similar structures."""
 
@@ -143,16 +178,19 @@ def query_database(
     else:
         torch_device = torch.device(device)
 
-    print(f"Using device: {torch_device}")
+    print(f"Using device for embeddings: {torch_device}")
+    if use_gpu_index:
+        print("GPU acceleration for FAISS search: enabled")
 
     # Initialize search
     print("\nLoading database...")
     searcher = StructureSearch(
         db_path=db_path,
-        collection_name=collection_name,
+        index_name=index_name,
         min_res=min_res,
         max_res=max_res,
-        device=torch_device
+        device=torch_device,
+        use_gpu_for_search=use_gpu_index
     )
 
     # Display database statistics
@@ -198,14 +236,14 @@ def query_database(
 )
 def show_statistics(
         db_path: Annotated[str, typer.Option(
-            help='Path to the ChromaDB database directory'
+            help='Path to the FAISS database directory'
         )],
-        collection_name: Annotated[str, typer.Option(
-            help='Name of the ChromaDB collection'
+        index_name: Annotated[str, typer.Option(
+            help='Name of the FAISS index'
         )] = "structure_embeddings"
 ):
     """Display database statistics."""
-    db = ChromaEmbeddingDatabase(db_path=db_path, collection_name=collection_name)
+    db = FaissEmbeddingDatabase(db_path=db_path, index_name=index_name)
     db.load_database()
 
     stats = db.get_statistics()
@@ -214,8 +252,12 @@ def show_statistics(
     print("DATABASE STATISTICS")
     print("="*80)
     print(f"Database path:    {stats['db_path']}")
-    print(f"Collection name:  {stats['collection_name']}")
+    print(f"Index name:       {stats['index_name']}")
+    print(f"Index type:       {stats['index_type']}")
+    print(f"Dimension:        {stats['dimension']}")
     print(f"Total chains:     {stats['total_chains']}")
+    print(f"On GPU:           {stats['on_gpu']}")
+    print(f"GPU available:    {stats['gpu_available']}")
     print("="*80 + "\n")
 
 

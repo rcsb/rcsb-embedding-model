@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import List, Tuple, Dict
 
 from rcsb_embedding_model.rcsb_structure_embedding import RcsbStructureEmbedding
-from rcsb_embedding_model.search.chroma_database import ChromaEmbeddingDatabase
+from rcsb_embedding_model.search.faiss_database import FaissEmbeddingDatabase
 from rcsb_embedding_model.types.api_types import StructureFormat
 
 
@@ -13,23 +13,25 @@ class StructureSearch:
     def __init__(
             self,
             db_path: str,
-            collection_name: str = "structure_embeddings",
+            index_name: str = "structure_embeddings",
             min_res: int = 10,
             max_res: int = None,
-            device: torch.device = None
+            device: torch.device = None,
+            use_gpu_for_search: bool = False
     ):
         """
         Initialize structure search.
 
         Args:
-            db_path: Path to ChromaDB database
-            collection_name: Name of the ChromaDB collection
+            db_path: Path to FAISS database
+            index_name: Name of the FAISS index
             min_res: Minimum residue length for chains
             max_res: Maximum residue length for structures
-            device: Device to use for computation
+            device: Device to use for embedding computation
+            use_gpu_for_search: Whether to use GPU for FAISS search operations
         """
-        self.db = ChromaEmbeddingDatabase(db_path, collection_name)
-        self.db.load_database()
+        self.db = FaissEmbeddingDatabase(db_path, index_name)
+        self.db.load_database(use_gpu=use_gpu_for_search)
         self.embedder = RcsbStructureEmbedding(min_res=min_res, max_res=max_res)
         self.embedder.load_models(device=device)
 

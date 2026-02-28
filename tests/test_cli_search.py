@@ -17,7 +17,7 @@ class TestCliSearch(unittest.TestCase):
         """Set up test fixtures that are used by all tests."""
         # Create temporary directory for test outputs
         cls.__temp_dir = tempfile.mkdtemp()
-        cls.__db_path = os.path.join(cls.__temp_dir, "test_chromadb")
+        cls.__db_path = os.path.join(cls.__temp_dir, "test_faiss")
         cls.__temp_file = os.path.join(cls.__temp_dir, "temp_embeddings.pt")
 
     @classmethod
@@ -36,10 +36,9 @@ class TestCliSearch(unittest.TestCase):
         build_database(
             structure_dir=structure_dir,
             output_db=self.__db_path,
-            temp_file=self.__temp_file,
             structure_format=StructureFormat.mmcif,
             file_extension=".cif",
-            collection_name="test_structures",
+            index_name="test_structures",
             min_res=10,
             max_res=None,
             device="cpu"
@@ -47,8 +46,6 @@ class TestCliSearch(unittest.TestCase):
 
         # Verify database was created
         self.assertTrue(os.path.exists(self.__db_path))
-        # Verify temp file was created
-        self.assertTrue(os.path.exists(self.__temp_file))
 
     def test_02_query_database(self):
         """Test querying the database with a structure."""
@@ -63,7 +60,7 @@ class TestCliSearch(unittest.TestCase):
             query_structure=query_structure,
             structure_format=StructureFormat.mmcif,
             chain_id=None,
-            collection_name="test_structures",
+            index_name="test_structures",
             top_k=5,
             threshold=None,
             output_csv=output_csv,
@@ -93,7 +90,7 @@ class TestCliSearch(unittest.TestCase):
             query_structure=query_structure,
             structure_format=StructureFormat.mmcif,
             chain_id=None,
-            collection_name="test_structures",
+            index_name="test_structures",
             top_k=10,
             threshold=0.5,  # Apply threshold
             output_csv=output_csv,
@@ -117,7 +114,7 @@ class TestCliSearch(unittest.TestCase):
             query_structure=query_structure,
             structure_format=StructureFormat.mmcif,
             chain_id="A",  # Query specific chain
-            collection_name="test_structures",
+            index_name="test_structures",
             top_k=5,
             threshold=None,
             output_csv=output_csv,
@@ -136,7 +133,7 @@ class TestCliSearch(unittest.TestCase):
         # This should run without errors
         show_statistics(
             db_path=self.__db_path,
-            collection_name="test_structures"
+            index_name="test_structures"
         )
 
     def test_06_database_builder_class(self):
@@ -171,13 +168,13 @@ class TestCliSearch(unittest.TestCase):
         self.assertEqual(chain_ids, loaded_chain_ids)
         self.assertEqual(len(embeddings), len(loaded_embeddings))
 
-    def test_07_chroma_database_class(self):
-        """Test ChromaEmbeddingDatabase class directly."""
-        from rcsb_embedding_model.search.chroma_database import ChromaEmbeddingDatabase
+    def test_07_faiss_database_class(self):
+        """Test FaissEmbeddingDatabase class directly."""
+        from rcsb_embedding_model.search.faiss_database import FaissEmbeddingDatabase
         import torch
 
         db_path = os.path.join(self.__temp_dir, "test_chroma_direct")
-        db = ChromaEmbeddingDatabase(db_path=db_path, collection_name="test_direct")
+        db = FaissEmbeddingDatabase(db_path=db_path, index_name="test_direct")
 
         # Create some dummy embeddings
         chain_ids = ["test1:A", "test2:A", "test3:B"]
@@ -187,7 +184,7 @@ class TestCliSearch(unittest.TestCase):
         db.create_database(chain_ids=chain_ids, embeddings=embeddings)
 
         # Load database
-        db2 = ChromaEmbeddingDatabase(db_path=db_path, collection_name="test_direct")
+        db2 = FaissEmbeddingDatabase(db_path=db_path, index_name="test_direct")
         db2.load_database()
 
         # Get stats
@@ -208,7 +205,7 @@ class TestCliSearch(unittest.TestCase):
 
         searcher = StructureSearch(
             db_path=self.__db_path,
-            collection_name="test_structures",
+            index_name="test_structures",
             min_res=10,
             max_res=None,
             device="cpu"
