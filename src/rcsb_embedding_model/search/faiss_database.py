@@ -182,7 +182,8 @@ class FaissEmbeddingDatabase:
             top_k: Number of top results to return
 
         Returns:
-            Tuple of (chain_ids, distances) for the top matches
+            Tuple of (chain_ids, similarity_scores) for the top matches.
+            Similarity scores range from -1 to 1, where 1.0 indicates a perfect match (similar to TM-score).
         """
         if self.index is None:
             raise ValueError("Database not loaded. Call load_database() first.")
@@ -202,18 +203,14 @@ class FaissEmbeddingDatabase:
 
         # Search
         # Note: FAISS returns inner product (higher is better)
-        # For cosine similarity after normalization, distance = 1 - inner_product
-        distances, indices = self.index.search(query_embedding, top_k)
-
-        # Convert distances to more intuitive format (cosine distance: 0 = identical, 2 = opposite)
-        # Inner product ranges from -1 to 1 after normalization
-        # Cosine distance = 1 - inner_product, so ranges from 0 (identical) to 2 (opposite)
-        cosine_distances = 1.0 - distances[0]
+        # After L2 normalization, inner product equals cosine similarity
+        # Cosine similarity ranges from -1 to 1, where 1.0 = identical (like TM-score)
+        scores, indices = self.index.search(query_embedding, top_k)
 
         # Get chain IDs for the results
         result_chain_ids = [self.chain_ids[idx] for idx in indices[0]]
 
-        return result_chain_ids, cosine_distances.tolist()
+        return result_chain_ids, scores[0].tolist()
 
     def search_by_chain_ids(
             self,
@@ -228,7 +225,8 @@ class FaissEmbeddingDatabase:
             top_k: Number of top results per query
 
         Returns:
-            Dictionary mapping query chain ID to (matching_chain_ids, distances)
+            Dictionary mapping query chain ID to (matching_chain_ids, similarity_scores).
+            Similarity scores range from -1 to 1, where 1.0 indicates a perfect match (similar to TM-score).
         """
         if self.index is None:
             raise ValueError("Database not loaded. Call load_database() first.")
@@ -247,11 +245,10 @@ class FaissEmbeddingDatabase:
                 query_embedding = self.index.reconstruct(chain_idx).reshape(1, -1)
 
                 # Search
-                distances, indices = self.index.search(query_embedding, top_k)
-                cosine_distances = 1.0 - distances[0]
+                scores, indices = self.index.search(query_embedding, top_k)
 
                 result_chain_ids = [self.chain_ids[idx] for idx in indices[0]]
-                results_dict[query_chain_id] = (result_chain_ids, cosine_distances.tolist())
+                results_dict[query_chain_id] = (result_chain_ids, scores[0].tolist())
 
             except Exception as e:
                 print(f"Error searching for {query_chain_id}: {e}")

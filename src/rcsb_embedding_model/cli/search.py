@@ -152,7 +152,7 @@ def query_database(
             help='Number of top results to return per chain'
         )] = 10,
         threshold: Annotated[Optional[float], typer.Option(
-            help='Distance threshold to filter results (only return matches with distance <= threshold)'
+            help='Similarity score threshold to filter results (only return matches with score >= threshold)'
         )] = None,
         output_csv: Annotated[Optional[str], typer.Option(
             help='Path to save results as CSV file (optional)'
@@ -208,14 +208,14 @@ def query_database(
 
     # Filter by threshold if specified
     if threshold is not None:
-        print(f"Filtering results with distance threshold <= {threshold}")
+        print(f"Filtering results with similarity score threshold >= {threshold}")
         filtered_results = {}
         total_before = sum(len(ids) for ids, _ in results.values())
-        for query_chain, (chain_ids, distances) in results.items():
-            filtered_pairs = [(cid, dist) for cid, dist in zip(chain_ids, distances) if dist <= threshold]
+        for query_chain, (chain_ids, scores) in results.items():
+            filtered_pairs = [(cid, score) for cid, score in zip(chain_ids, scores) if score >= threshold]
             if filtered_pairs:
-                filtered_chain_ids, filtered_distances = zip(*filtered_pairs)
-                filtered_results[query_chain] = (list(filtered_chain_ids), list(filtered_distances))
+                filtered_chain_ids, filtered_scores = zip(*filtered_pairs)
+                filtered_results[query_chain] = (list(filtered_chain_ids), list(filtered_scores))
             else:
                 filtered_results[query_chain] = ([], [])
         total_after = sum(len(ids) for ids, _ in filtered_results.values())

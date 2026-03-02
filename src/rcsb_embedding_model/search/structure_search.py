@@ -52,7 +52,7 @@ class StructureSearch:
             top_k: Number of top results per chain
 
         Returns:
-            Dictionary mapping query chain ID to (matching_chain_ids, distances)
+            Dictionary mapping query chain ID to (matching_chain_ids, similarity_scores)
         """
         query_path = Path(query_structure)
         if not query_path.exists():
@@ -80,9 +80,9 @@ class StructureSearch:
             print(f"Searching with chain {chain_id} ({residue_embedding.shape[0]} residues)...")
             # Apply aggregator to get protein-level embedding
             protein_embedding = self.embedder.aggregator_embedding(residue_embedding)
-            matching_ids, distances = self.db.search(protein_embedding, top_k=top_k)
+            matching_ids, scores = self.db.search(protein_embedding, top_k=top_k)
             query_chain_id = f"{structure_name}:{chain_id}"
-            results[query_chain_id] = (matching_ids, distances)
+            results[query_chain_id] = (matching_ids, scores)
 
         return results
 
@@ -93,17 +93,17 @@ class StructureSearch:
         Args:
             results: Dictionary from search_by_structure
         """
-        for query_chain, (matching_ids, distances) in results.items():
+        for query_chain, (matching_ids, scores) in results.items():
             print(f"\n{'='*80}")
             print(f"Query: {query_chain}")
             print(f"{'='*80}")
             if not matching_ids:
                 print("No results found matching the criteria")
             else:
-                print(f"{'Rank':<6} {'Chain ID':<40} {'Distance':<10}")
+                print(f"{'Rank':<6} {'Chain ID':<40} {'Score':<10}")
                 print(f"{'-'*80}")
-                for rank, (chain_id, distance) in enumerate(zip(matching_ids, distances), 1):
-                    print(f"{rank:<6} {chain_id:<40} {distance:<10.6f}")
+                for rank, (chain_id, score) in enumerate(zip(matching_ids, scores), 1):
+                    print(f"{rank:<6} {chain_id:<40} {score:<10.6f}")
 
     def export_results(
             self,
@@ -121,11 +121,11 @@ class StructureSearch:
 
         with open(output_file, 'w', newline='') as f:
             writer = csv.writer(f)
-            writer.writerow(['Query Chain', 'Rank', 'Matching Chain', 'Distance'])
+            writer.writerow(['Query Chain', 'Rank', 'Matching Chain', 'Score'])
 
-            for query_chain, (matching_ids, distances) in results.items():
-                for rank, (chain_id, distance) in enumerate(zip(matching_ids, distances), 1):
-                    writer.writerow([query_chain, rank, chain_id, distance])
+            for query_chain, (matching_ids, scores) in results.items():
+                for rank, (chain_id, score) in enumerate(zip(matching_ids, scores), 1):
+                    writer.writerow([query_chain, rank, chain_id, score])
 
         print(f"\nResults exported to {output_file}")
 

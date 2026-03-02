@@ -79,7 +79,7 @@ class TestCliSearch(unittest.TestCase):
             self.assertGreater(len(lines), 1)
 
     def test_03_query_with_threshold(self):
-        """Test querying with a distance threshold."""
+        """Test querying with a similarity score threshold."""
         from rcsb_embedding_model.cli.search import query_database
 
         query_structure = f"{self.__test_path}/resources/pdb/1acb.cif"
