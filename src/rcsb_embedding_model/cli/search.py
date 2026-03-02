@@ -27,7 +27,7 @@ def build_database(
             help='Directory containing structure files'
         )],
         output_db: Annotated[str, typer.Option(
-            help='Path to save the FAISS database directory'
+            help='Path to save the FAISS database'
         )],
         structure_format: Annotated[StructureFormat, typer.Option(
             help='Structure file format (mmcif or pdb)'
@@ -35,9 +35,6 @@ def build_database(
         file_extension: Annotated[Optional[str], typer.Option(
             help='File extension to filter (e.g., .cif, .pdb). If not specified, uses default for format'
         )] = None,
-        index_name: Annotated[str, typer.Option(
-            help='Name of the FAISS index'
-        )] = "structure_embeddings",
         min_res: Annotated[int, typer.Option(
             help='Minimum residue length for chains'
         )] = 10,
@@ -52,6 +49,18 @@ def build_database(
         )] = False
 ):
     """Build an embedding database from structure files."""
+
+    # Parse output_db into directory and prefix
+    # Files will be saved as: {output_db}.index and {output_db}.metadata
+    output_db_path = Path(output_db)
+    db_dir = output_db_path.parent
+    index_name = output_db_path.name
+
+    # Ensure we have a valid directory and prefix
+    if not index_name:
+        index_name = "embeddings"
+    if db_dir == Path('.'):
+        db_dir = Path.cwd()  # Use current directory explicitly
 
     # Determine device
     if device == "auto":
@@ -115,14 +124,13 @@ def build_database(
     print("STEP 2: Creating FAISS database")
     print("="*80 + "\n")
 
-    db = FaissEmbeddingDatabase(db_path=output_db, index_name=index_name)
+    db = FaissEmbeddingDatabase(db_path=str(db_dir), index_name=index_name)
     db.create_database(chain_ids=chain_ids, embeddings=embeddings, use_gpu=use_gpu_index)
 
     print("\n" + "="*80)
     print("Database build complete!")
     print("="*80)
     print(f"Database location: {output_db}")
-    print(f"Index name: {index_name}")
     print(f"Total chains: {len(chain_ids)}")
     print(f"\nYou can now search this database using:")
     print(f"  search query --db-path {output_db} --query-structure <path_to_structure>")
@@ -134,7 +142,7 @@ def build_database(
 )
 def query_database(
         db_path: Annotated[str, typer.Option(
-            help='Path to the FAISS database directory'
+            help='Path to the FAISS database'
         )],
         query_structure: Annotated[str, typer.Option(
             help='Path to query structure file'
@@ -145,9 +153,6 @@ def query_database(
         chain_id: Annotated[Optional[str], typer.Option(
             help='Specific chain to search (if not specified, searches all chains)'
         )] = None,
-        index_name: Annotated[str, typer.Option(
-            help='Name of the FAISS index'
-        )] = "structure_embeddings",
         top_k: Annotated[int, typer.Option(
             help='Number of top results to return per chain'
         )] = 10,
@@ -172,6 +177,17 @@ def query_database(
 ):
     """Search database for similar structures."""
 
+    # Parse db_path into directory and index name
+    db_path_obj = Path(db_path)
+    db_dir = db_path_obj.parent
+    index_name = db_path_obj.name
+
+    # Ensure we have a valid directory and prefix
+    if not index_name:
+        index_name = "structure_embeddings"
+    if db_dir == Path('.'):
+        db_dir = Path.cwd()  # Use current directory explicitly
+
     # Determine device
     if device == "auto":
         torch_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -185,7 +201,7 @@ def query_database(
     # Initialize search
     print("\nLoading database...")
     searcher = StructureSearch(
-        db_path=db_path,
+        db_path=str(db_dir),
         index_name=index_name,
         min_res=min_res,
         max_res=max_res,
@@ -236,14 +252,22 @@ def query_database(
 )
 def show_statistics(
         db_path: Annotated[str, typer.Option(
-            help='Path to the FAISS database directory'
-        )],
-        index_name: Annotated[str, typer.Option(
-            help='Name of the FAISS index'
-        )] = "structure_embeddings"
+            help='Path to the FAISS database (directory + prefix, e.g., ./db/my_db)'
+        )]
 ):
     """Display database statistics."""
-    db = FaissEmbeddingDatabase(db_path=db_path, index_name=index_name)
+    # Parse db_path into directory and index name
+    db_path_obj = Path(db_path)
+    db_dir = db_path_obj.parent
+    index_name = db_path_obj.name
+
+    # Ensure we have a valid directory and prefix
+    if not index_name:
+        index_name = "structure_embeddings"
+    if db_dir == Path('.'):
+        db_dir = Path.cwd()  # Use current directory explicitly
+
+    db = FaissEmbeddingDatabase(db_path=str(db_dir), index_name=index_name)
     db.load_database()
 
     stats = db.get_statistics()
