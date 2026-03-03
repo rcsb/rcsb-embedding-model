@@ -30,10 +30,10 @@ def build_database(
             help='Path to save the FAISS database'
         )],
         structure_format: Annotated[StructureFormat, typer.Option(
-            help='Structure file format (mmcif or pdb)'
+            help='Structure file format (mmcif, binarycif, or pdb)'
         )] = StructureFormat.mmcif,
         file_extension: Annotated[Optional[str], typer.Option(
-            help='File extension to filter (e.g., .cif, .pdb). If not specified, uses default for format'
+            help='File extension to filter (e.g., .cif, .bcif, or .pdb). If not specified, uses default for format'
         )] = None,
         min_res: Annotated[int, typer.Option(
             help='Minimum residue length for chains'
