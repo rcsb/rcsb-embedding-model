@@ -109,7 +109,7 @@ def query_database(
         )] = None,
         top_k: Annotated[int, typer.Option(
             help='Number of top results to return per chain'
-        )] = 10,
+        )] = 100,
         threshold: Annotated[Optional[float], typer.Option(
             help='Similarity score threshold to filter results (only return matches with score >= threshold)'
         )] = None,
