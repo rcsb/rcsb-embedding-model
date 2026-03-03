@@ -72,11 +72,6 @@ def build_database(
     if use_gpu_index:
         print("GPU acceleration for FAISS index: enabled")
 
-    # Step 1: Build embeddings from structure files
-    print("\n" + "="*80)
-    print("STEP 1: Building embeddings from structure files")
-    print("="*80 + "\n")
-
     builder = EmbeddingDatabaseBuilder(
         structure_dir=structure_dir,
         structure_format=structure_format,
@@ -85,53 +80,12 @@ def build_database(
         device=torch_device
     )
 
-    # Build embeddings (stored in memory, no temp file needed)
-    chain_ids = []
-    embeddings = []
+    builder.build_faiss_database(
+        output_db=output_db,
+        file_extension=file_extension,
+        use_gpu_index=use_gpu_index
+    )
 
-    structure_files = list(Path(structure_dir).glob(f"*{file_extension or ('.cif' if structure_format == StructureFormat.mmcif else '.pdb')}"))
-    if not structure_files:
-        raise ValueError(f"No structure files found in {structure_dir}")
-
-    print(f"Processing {len(structure_files)} structure files...")
-
-    for structure_file in structure_files:
-        try:
-            structure_name = structure_file.stem
-            print(f"Processing {structure_name}...")
-
-            chain_residue_embeddings = builder.embedder.residue_embedding_by_chain(
-                src_structure=str(structure_file),
-                structure_format=structure_format
-            )
-
-            for chain_id, residue_embedding in chain_residue_embeddings.items():
-                full_chain_id = f"{structure_name}:{chain_id}"
-                chain_ids.append(full_chain_id)
-                protein_embedding = builder.embedder.aggregator_embedding(residue_embedding)
-                embeddings.append(protein_embedding)
-                print(f"  Added chain {chain_id} with {residue_embedding.shape[0]} residues")
-
-        except Exception as e:
-            print(f"Error processing {structure_file.name}: {e}")
-            continue
-
-    if not chain_ids:
-        raise ValueError("No valid chains were processed")
-
-    # Step 2: Create FAISS database
-    print("\n" + "="*80)
-    print("STEP 2: Creating FAISS database")
-    print("="*80 + "\n")
-
-    db = FaissEmbeddingDatabase(db_path=str(db_dir), index_name=index_name)
-    db.create_database(chain_ids=chain_ids, embeddings=embeddings, use_gpu=use_gpu_index)
-
-    print("\n" + "="*80)
-    print("Database build complete!")
-    print("="*80)
-    print(f"Database location: {output_db}")
-    print(f"Total chains: {len(chain_ids)}")
     print(f"\nYou can now search this database using:")
     print(f"  search query --db-path {output_db} --query-structure <path_to_structure>")
 

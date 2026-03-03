@@ -1,10 +1,10 @@
-import os
 import torch
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import List, Tuple, Optional
 
 from rcsb_embedding_model.rcsb_structure_embedding import RcsbStructureEmbedding
 from rcsb_embedding_model.types.api_types import StructureFormat
+from rcsb_embedding_model.search.faiss_database import FaissEmbeddingDatabase
 
 
 class EmbeddingDatabaseBuilder:
@@ -33,16 +33,14 @@ class EmbeddingDatabaseBuilder:
         self.embedder = RcsbStructureEmbedding(min_res=min_res, max_res=max_res)
         self.embedder.load_models(device=device)
 
-    def build_database(
+    def build_embeddings(
             self,
-            output_path: str,
-            file_extension: str = None
+            file_extension: Optional[str] = None
     ) -> Tuple[List[str], List[torch.Tensor]]:
         """
-        Build embedding database from structure files.
+        Build embeddings from structure files (in-memory).
 
         Args:
-            output_path: Path to save the database file
             file_extension: File extension filter (e.g., '.cif', '.pdb'). If None, uses structure_format default
 
         Returns:
@@ -91,30 +89,51 @@ class EmbeddingDatabaseBuilder:
         if not chain_ids:
             raise ValueError("No valid chains were processed")
 
-        # Save the database
-        database = {
-            'chain_ids': chain_ids,
-            'embeddings': embeddings
-        }
-        torch.save(database, output_path)
-        print(f"\nDatabase saved to {output_path}")
-        print(f"Total chains: {len(chain_ids)}")
-
+        print(f"Total chains processed: {len(chain_ids)}")
         return chain_ids, embeddings
 
-    @staticmethod
-    def load_database(database_path: str) -> Tuple[List[str], List[torch.Tensor]]:
+    def build_faiss_database(
+            self,
+            output_db: str,
+            file_extension: Optional[str] = None,
+            use_gpu_index: bool = False
+    ):
         """
-        Load a previously built database.
+        Build a FAISS database from structure files.
 
         Args:
-            database_path: Path to the database file
-
-        Returns:
-            Tuple of (chain_ids, embeddings)
+            output_db: Path to save the FAISS database (directory + prefix)
+            file_extension: File extension filter (e.g., '.cif', '.pdb'). If None, uses structure_format default
+            use_gpu_index: Whether to use GPU for FAISS indexing
         """
-        if not os.path.exists(database_path):
-            raise ValueError(f"Database file does not exist: {database_path}")
+        # Parse output_db into directory and prefix
+        output_db_path = Path(output_db)
+        db_dir = output_db_path.parent
+        index_name = output_db_path.name
 
-        database = torch.load(database_path)
-        return database['chain_ids'], database['embeddings']
+        # Ensure we have a valid directory and prefix
+        if not index_name:
+            index_name = "embeddings"
+        if db_dir == Path('.'):
+            db_dir = Path.cwd()
+
+        # Step 1: Build embeddings from structure files
+        print("\n" + "="*80)
+        print("STEP 1: Building embeddings from structure files")
+        print("="*80 + "\n")
+
+        chain_ids, embeddings = self.build_embeddings(file_extension=file_extension)
+
+        # Step 2: Create FAISS database
+        print("\n" + "="*80)
+        print("STEP 2: Creating FAISS database")
+        print("="*80 + "\n")
+
+        db = FaissEmbeddingDatabase(db_path=str(db_dir), index_name=index_name)
+        db.create_database(chain_ids=chain_ids, embeddings=embeddings, use_gpu=use_gpu_index)
+
+        print("\n" + "="*80)
+        print("Database build complete!")
+        print("="*80)
+        print(f"Database location: {output_db}")
+        print(f"Total chains: {len(chain_ids)}")

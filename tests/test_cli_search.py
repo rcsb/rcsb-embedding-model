@@ -38,14 +38,17 @@ class TestCliSearch(unittest.TestCase):
             output_db=self.__db_path,
             structure_format=StructureFormat.mmcif,
             file_extension=".cif",
-            index_name="test_structures",
             min_res=10,
             max_res=None,
-            device="cpu"
+            device="cpu",
+            use_gpu_index=False
         )
 
-        # Verify database was created
-        self.assertTrue(os.path.exists(self.__db_path))
+        # Verify database files were created
+        from pathlib import Path
+        db_path = Path(self.__db_path)
+        self.assertTrue((db_path.parent / f"{db_path.name}.index").exists())
+        self.assertTrue((db_path.parent / f"{db_path.name}.metadata").exists())
 
     def test_02_query_database(self):
         """Test querying the database with a structure."""
@@ -60,13 +63,13 @@ class TestCliSearch(unittest.TestCase):
             query_structure=query_structure,
             structure_format=StructureFormat.mmcif,
             chain_id=None,
-            index_name="test_structures",
             top_k=5,
             threshold=None,
             output_csv=output_csv,
             min_res=10,
             max_res=None,
-            device="cpu"
+            device="cpu",
+            use_gpu_index=False
         )
 
         # Verify CSV was created
@@ -90,13 +93,13 @@ class TestCliSearch(unittest.TestCase):
             query_structure=query_structure,
             structure_format=StructureFormat.mmcif,
             chain_id=None,
-            index_name="test_structures",
             top_k=10,
             threshold=0.5,  # Apply threshold
             output_csv=output_csv,
             min_res=10,
             max_res=None,
-            device="cpu"
+            device="cpu",
+            use_gpu_index=False
         )
 
         # Verify CSV was created
@@ -114,13 +117,13 @@ class TestCliSearch(unittest.TestCase):
             query_structure=query_structure,
             structure_format=StructureFormat.mmcif,
             chain_id="A",  # Query specific chain
-            index_name="test_structures",
             top_k=5,
             threshold=None,
             output_csv=output_csv,
             min_res=10,
             max_res=None,
-            device="cpu"
+            device="cpu",
+            use_gpu_index=False
         )
 
         # Verify CSV was created
@@ -132,16 +135,18 @@ class TestCliSearch(unittest.TestCase):
 
         # This should run without errors
         show_statistics(
-            db_path=self.__db_path,
-            index_name="test_structures"
+            db_path=self.__db_path
         )
 
     def test_06_database_builder_class(self):
         """Test EmbeddingDatabaseBuilder class directly."""
         from rcsb_embedding_model.search.database_builder import EmbeddingDatabaseBuilder
+        from rcsb_embedding_model.search.faiss_database import FaissEmbeddingDatabase
 
         structure_dir = f"{self.__test_path}/resources/pdb"
-        output_file = os.path.join(self.__temp_dir, "test_db.pt")
+
+        # Test new FAISS database building method
+        output_db = os.path.join(self.__temp_dir, "test_builder_faiss")
 
         builder = EmbeddingDatabaseBuilder(
             structure_dir=structure_dir,
@@ -151,22 +156,24 @@ class TestCliSearch(unittest.TestCase):
             device="cpu"
         )
 
-        chain_ids, embeddings = builder.build_database(
-            output_path=output_file,
-            file_extension=".cif"
+        builder.build_faiss_database(
+            output_db=output_db,
+            file_extension=".cif",
+            use_gpu_index=False
         )
 
-        # Verify we got some chains
-        self.assertGreater(len(chain_ids), 0)
-        self.assertEqual(len(chain_ids), len(embeddings))
+        # Verify FAISS database files exist
+        from pathlib import Path
+        db_path = Path(output_db).parent
+        index_name = Path(output_db).name
+        self.assertTrue((db_path / f"{index_name}.index").exists())
+        self.assertTrue((db_path / f"{index_name}.metadata").exists())
 
-        # Verify output file exists
-        self.assertTrue(os.path.exists(output_file))
-
-        # Test loading the database
-        loaded_chain_ids, loaded_embeddings = EmbeddingDatabaseBuilder.load_database(output_file)
-        self.assertEqual(chain_ids, loaded_chain_ids)
-        self.assertEqual(len(embeddings), len(loaded_embeddings))
+        # Test loading the FAISS database
+        db = FaissEmbeddingDatabase(db_path=str(db_path), index_name=index_name)
+        db.load_database()
+        stats = db.get_statistics()
+        self.assertGreater(stats['total_chains'], 0)
 
     def test_07_faiss_database_class(self):
         """Test FaissEmbeddingDatabase class directly."""
@@ -200,12 +207,18 @@ class TestCliSearch(unittest.TestCase):
     def test_08_structure_search_class(self):
         """Test StructureSearch class directly."""
         from rcsb_embedding_model.search.structure_search import StructureSearch
+        from pathlib import Path
 
         query_structure = f"{self.__test_path}/resources/pdb/2uzi.cif"
 
+        # Parse db_path into directory and index name
+        db_path_obj = Path(self.__db_path)
+        db_dir = db_path_obj.parent
+        index_name = db_path_obj.name
+
         searcher = StructureSearch(
-            db_path=self.__db_path,
-            index_name="test_structures",
+            db_path=str(db_dir),
+            index_name=index_name,
             min_res=10,
             max_res=None,
             device="cpu"
