@@ -1,6 +1,6 @@
 import torch
 from pathlib import Path
-from typing import List, Tuple, Optional
+from typing import Optional
 
 from rcsb_embedding_model.rcsb_structure_embedding import RcsbStructureEmbedding
 from rcsb_embedding_model.types.api_types import StructureFormat
@@ -35,16 +35,18 @@ class EmbeddingDatabaseBuilder:
 
     def build_embeddings(
             self,
-            file_extension: Optional[str] = None
-    ) -> Tuple[List[str], List[torch.Tensor]]:
+            file_extension: Optional[str] = None,
+            batch_size: int = 100
+    ):
         """
-        Build embeddings from structure files (in-memory).
+        Build embeddings from structure files in batches (generator).
 
         Args:
             file_extension: File extension filter (e.g., '.cif', '.pdb'). If None, uses structure_format default
+            batch_size: Number of structure files to process per batch
 
-        Returns:
-            Tuple of (chain_ids, embeddings) where chain_ids are in format "structure_name:chain_id"
+        Yields:
+            Tuple of (chain_ids, embeddings) for each batch where chain_ids are in format "structure_name:chain_id"
         """
         if file_extension is None:
             file_extension = '.cif' if self.structure_format == StructureFormat.mmcif else '.pdb'
@@ -57,54 +59,64 @@ class EmbeddingDatabaseBuilder:
         if not structure_files:
             raise ValueError(f"No structure files found with extension {file_extension} in {self.structure_dir}")
 
-        chain_ids = []
-        embeddings = []
+        print(f"Processing {len(structure_files)} structure files in batches of {batch_size}...")
 
-        print(f"Processing {len(structure_files)} structure files...")
+        total_batches = (len(structure_files) + batch_size - 1) // batch_size
 
-        for structure_file in structure_files:
-            try:
-                structure_name = structure_file.stem
-                print(f"Processing {structure_name}...")
+        for batch_idx in range(0, len(structure_files), batch_size):
+            batch_files = structure_files[batch_idx:batch_idx + batch_size]
+            batch_num = (batch_idx // batch_size) + 1
 
-                # Get residue-level embeddings by chain
-                chain_residue_embeddings = self.embedder.residue_embedding_by_chain(
-                    src_structure=str(structure_file),
-                    structure_format=self.structure_format
-                )
+            print(f"\n--- Batch {batch_num}/{total_batches} ({len(batch_files)} files) ---")
 
-                # Add each chain to the database (apply aggregator to get protein-level embeddings)
-                for chain_id, residue_embedding in chain_residue_embeddings.items():
-                    full_chain_id = f"{structure_name}:{chain_id}"
-                    chain_ids.append(full_chain_id)
-                    # Apply aggregator to get protein-level embedding
-                    protein_embedding = self.embedder.aggregator_embedding(residue_embedding)
-                    embeddings.append(protein_embedding)
-                    print(f"  Added chain {chain_id} with {residue_embedding.shape[0]} residues")
+            chain_ids = []
+            embeddings = []
 
-            except Exception as e:
-                print(f"Error processing {structure_file.name}: {e}")
-                continue
+            for structure_file in batch_files:
+                try:
+                    structure_name = structure_file.stem
+                    print(f"Processing {structure_name}...")
 
-        if not chain_ids:
-            raise ValueError("No valid chains were processed")
+                    # Get residue-level embeddings by chain
+                    chain_residue_embeddings = self.embedder.residue_embedding_by_chain(
+                        src_structure=str(structure_file),
+                        structure_format=self.structure_format
+                    )
 
-        print(f"Total chains processed: {len(chain_ids)}")
-        return chain_ids, embeddings
+                    # Add each chain to the batch (apply aggregator to get protein-level embeddings)
+                    for chain_id, residue_embedding in chain_residue_embeddings.items():
+                        full_chain_id = f"{structure_name}:{chain_id}"
+                        chain_ids.append(full_chain_id)
+                        # Apply aggregator to get protein-level embedding
+                        protein_embedding = self.embedder.aggregator_embedding(residue_embedding)
+                        embeddings.append(protein_embedding)
+                        print(f"  Added chain {chain_id} with {residue_embedding.shape[0]} residues")
+
+                except Exception as e:
+                    print(f"Error processing {structure_file.name}: {e}")
+                    continue
+
+            if chain_ids:
+                print(f"Batch {batch_num} complete: {len(chain_ids)} chains processed")
+                yield chain_ids, embeddings
+            else:
+                print(f"Batch {batch_num} complete: No valid chains processed")
 
     def build_faiss_database(
             self,
             output_db: str,
             file_extension: Optional[str] = None,
-            use_gpu_index: bool = False
+            use_gpu_index: bool = False,
+            batch_size: int = 100
     ):
         """
-        Build a FAISS database from structure files.
+        Build a FAISS database from structure files in batches.
 
         Args:
             output_db: Path to save the FAISS database (directory + prefix)
             file_extension: File extension filter (e.g., '.cif', '.pdb'). If None, uses structure_format default
             use_gpu_index: Whether to use GPU for FAISS indexing
+            batch_size: Number of structure files to process per batch
         """
         # Parse output_db into directory and prefix
         output_db_path = Path(output_db)
@@ -117,23 +129,37 @@ class EmbeddingDatabaseBuilder:
         if db_dir == Path('.'):
             db_dir = Path.cwd()
 
-        # Step 1: Build embeddings from structure files
         print("\n" + "="*80)
-        print("STEP 1: Building embeddings from structure files")
-        print("="*80 + "\n")
-
-        chain_ids, embeddings = self.build_embeddings(file_extension=file_extension)
-
-        # Step 2: Create FAISS database
-        print("\n" + "="*80)
-        print("STEP 2: Creating FAISS database")
+        print("Building embeddings and FAISS database in batches")
         print("="*80 + "\n")
 
         db = FaissEmbeddingDatabase(db_path=str(db_dir), index_name=index_name)
-        db.create_database(chain_ids=chain_ids, embeddings=embeddings, use_gpu=use_gpu_index)
+        total_chains = 0
+        first_batch = True
+
+        for chain_ids_batch, embeddings_batch in self.build_embeddings(
+                file_extension=file_extension,
+                batch_size=batch_size
+        ):
+            if first_batch:
+                # Create database with first batch
+                print(f"\nCreating FAISS database with first batch ({len(chain_ids_batch)} chains)...")
+                db.create_database(chain_ids=chain_ids_batch, embeddings=embeddings_batch, use_gpu=use_gpu_index)
+                first_batch = False
+            else:
+                # Add subsequent batches to existing database
+                print(f"\nAdding batch to database ({len(chain_ids_batch)} chains)...")
+                db.add_embeddings(chain_ids=chain_ids_batch, embeddings=embeddings_batch)
+
+            total_chains += len(chain_ids_batch)
+
+            # Free memory after each batch
+            del chain_ids_batch, embeddings_batch
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
 
         print("\n" + "="*80)
-        print("Database build complete!")
+        print("Batch database build complete!")
         print("="*80)
         print(f"Database location: {output_db}")
-        print(f"Total chains: {len(chain_ids)}")
+        print(f"Total chains: {total_chains}")

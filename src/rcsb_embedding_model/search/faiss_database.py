@@ -3,7 +3,7 @@ import torch
 import numpy as np
 import pickle
 from pathlib import Path
-from typing import List, Dict, Tuple, Optional
+from typing import List, Dict, Tuple
 
 
 def _has_gpu_support():
@@ -102,6 +102,48 @@ class FaissEmbeddingDatabase:
         self._save()
 
         print(f"Database created successfully with {len(chain_ids)} chains!")
+
+    def add_embeddings(
+            self,
+            chain_ids: List[str],
+            embeddings: List[torch.Tensor]
+    ):
+        """
+        Add new embeddings to an existing FAISS database.
+
+        Args:
+            chain_ids: List of chain identifiers (format: "structure_name:chain_id")
+            embeddings: List of embedding tensors (one per chain)
+        """
+        if self.index is None:
+            raise ValueError("Database not initialized. Call create_database() first.")
+
+        if len(chain_ids) != len(embeddings):
+            raise ValueError("Number of chain_ids must match number of embeddings")
+
+        # Convert embeddings to numpy array
+        embedding_array = []
+        for embedding in embeddings:
+            if isinstance(embedding, torch.Tensor):
+                embedding = embedding.detach().cpu().numpy()
+            # Ensure 1D
+            if embedding.ndim > 1:
+                embedding = np.mean(embedding, axis=0)
+            embedding_array.append(embedding)
+
+        embedding_array = np.array(embedding_array, dtype=np.float32)
+
+        # Normalize embeddings for cosine similarity
+        faiss.normalize_L2(embedding_array)
+
+        # Add vectors to index
+        self.index.add(embedding_array)
+        self.chain_ids.extend(chain_ids)
+
+        # Save to disk
+        self._save()
+
+        print(f"Added {len(chain_ids)} chains to database (total: {len(self.chain_ids)} chains)")
 
     def load_database(self, use_gpu: bool = False):
         """
