@@ -1,7 +1,7 @@
 import os
 import torch
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import List, Tuple
 
 from rcsb_embedding_model.rcsb_structure_embedding import RcsbStructureEmbedding
 from rcsb_embedding_model.types.api_types import StructureFormat
@@ -82,7 +82,7 @@ class EmbeddingDatabaseBuilder:
                     # Apply aggregator to get protein-level embedding
                     protein_embedding = self.embedder.aggregator_embedding(residue_embedding)
                     embeddings.append(protein_embedding)
-                    print(f"  Added chain {chain_id} with {residue_embedding.shape[0]} residues")
+                    print(f"  Added {structure_name} chain {chain_id} with {residue_embedding.shape[0]} residues")
 
             except Exception as e:
                 print(f"Error processing {structure_file.name}: {e}")
