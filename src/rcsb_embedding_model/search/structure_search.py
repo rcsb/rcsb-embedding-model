@@ -1,3 +1,5 @@
+import warnings
+
 import torch
 from pathlib import Path
 from typing import List, Tuple, Dict
@@ -61,13 +63,17 @@ class StructureSearch:
         structure_name = query_path.stem
         print(f"Processing query structure: {structure_name}")
 
-        # Get residue-level embeddings for chains in the query structure
-        # If chain_id is specified, only compute embeddings for that chain
-        chain_residue_embeddings = self.embedder.residue_embedding_by_chain(
-            src_structure=query_structure,
-            structure_format=structure_format,
-            chain_id=chain_id
-        )
+        # Suppress biotite warnings during structure loading
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=UserWarning, module="biotite")
+            warnings.filterwarnings("ignore", category=FutureWarning, module="esm")
+            # Get residue-level embeddings for chains in the query structure
+            # If chain_id is specified, only compute embeddings for that chain
+            chain_residue_embeddings = self.embedder.residue_embedding_by_chain(
+                src_structure=query_structure,
+                structure_format=structure_format,
+                chain_id=chain_id
+            )
 
         if not chain_residue_embeddings:
             if chain_id:
