@@ -1,6 +1,8 @@
 import torch
+import warnings
 from pathlib import Path
 from typing import Optional
+from tqdm import tqdm
 
 from rcsb_embedding_model.rcsb_structure_embedding import RcsbStructureEmbedding
 from rcsb_embedding_model.types.api_types import StructureFormat
@@ -59,48 +61,48 @@ class EmbeddingDatabaseBuilder:
         if not structure_files:
             raise ValueError(f"No structure files found with extension {file_extension} in {self.structure_dir}")
 
-        print(f"Processing {len(structure_files)} structure files in batches of {batch_size}...")
-
         total_batches = (len(structure_files) + batch_size - 1) // batch_size
 
-        for batch_idx in range(0, len(structure_files), batch_size):
-            batch_files = structure_files[batch_idx:batch_idx + batch_size]
-            batch_num = (batch_idx // batch_size) + 1
+        with tqdm(total=len(structure_files), desc="Processing structures", unit="file") as pbar:
+            for batch_idx in range(0, len(structure_files), batch_size):
+                batch_files = structure_files[batch_idx:batch_idx + batch_size]
+                batch_num = (batch_idx // batch_size) + 1
 
-            print(f"\n--- Batch {batch_num}/{total_batches} ({len(batch_files)} files) ---")
+                chain_ids = []
+                embeddings = []
 
-            chain_ids = []
-            embeddings = []
+                for structure_file in batch_files:
+                    try:
+                        structure_name = structure_file.stem
 
-            for structure_file in batch_files:
-                try:
-                    structure_name = structure_file.stem
-                    print(f"Processing {structure_name}...")
+                        # Suppress biotite warnings during structure loading
+                        with warnings.catch_warnings():
+                            warnings.filterwarnings("ignore", category=UserWarning, module="biotite")
+                            warnings.filterwarnings("ignore", category=FutureWarning, module="esm")
 
-                    # Get residue-level embeddings by chain
-                    chain_residue_embeddings = self.embedder.residue_embedding_by_chain(
-                        src_structure=str(structure_file),
-                        structure_format=self.structure_format
-                    )
+                            # Get residue-level embeddings by chain
+                            chain_residue_embeddings = self.embedder.residue_embedding_by_chain(
+                                src_structure=str(structure_file),
+                                structure_format=self.structure_format
+                            )
 
-                    # Add each chain to the batch (apply aggregator to get protein-level embeddings)
-                    for chain_id, residue_embedding in chain_residue_embeddings.items():
-                        full_chain_id = f"{structure_name}:{chain_id}"
-                        chain_ids.append(full_chain_id)
-                        # Apply aggregator to get protein-level embedding
-                        protein_embedding = self.embedder.aggregator_embedding(residue_embedding)
-                        embeddings.append(protein_embedding)
-                        print(f"  Added chain {chain_id} with {residue_embedding.shape[0]} residues")
+                        # Add each chain to the batch (apply aggregator to get protein-level embeddings)
+                        for chain_id, residue_embedding in chain_residue_embeddings.items():
+                            full_chain_id = f"{structure_name}:{chain_id}"
+                            chain_ids.append(full_chain_id)
+                            # Apply aggregator to get protein-level embedding
+                            protein_embedding = self.embedder.aggregator_embedding(residue_embedding)
+                            embeddings.append(protein_embedding)
 
-                except Exception as e:
-                    print(f"Error processing {structure_file.name}: {e}")
-                    continue
+                        pbar.set_postfix({"current": structure_name, "chains": len(chain_ids)})
 
-            if chain_ids:
-                print(f"Batch {batch_num} complete: {len(chain_ids)} chains processed")
-                yield chain_ids, embeddings
-            else:
-                print(f"Batch {batch_num} complete: No valid chains processed")
+                    except Exception as e:
+                        pbar.write(f"Error processing {structure_file.name}: {e}")
+                    finally:
+                        pbar.update(1)
+
+                if chain_ids:
+                    yield chain_ids, embeddings
 
     def build_faiss_database(
             self,
@@ -130,7 +132,7 @@ class EmbeddingDatabaseBuilder:
             db_dir = Path.cwd()
 
         print("\n" + "="*80)
-        print("Building embeddings and FAISS database in batches")
+        print("Building embeddings and FAISS database")
         print("="*80 + "\n")
 
         db = FaissEmbeddingDatabase(db_path=str(db_dir), index_name=index_name)
@@ -143,12 +145,12 @@ class EmbeddingDatabaseBuilder:
         ):
             if first_batch:
                 # Create database with first batch
-                print(f"\nCreating FAISS database with first batch ({len(chain_ids_batch)} chains)...")
+                # print(f"\nCreating FAISS database with first batch ({len(chain_ids_batch)} chains)...")
                 db.create_database(chain_ids=chain_ids_batch, embeddings=embeddings_batch, use_gpu=use_gpu_index)
                 first_batch = False
             else:
                 # Add subsequent batches to existing database
-                print(f"\nAdding batch to database ({len(chain_ids_batch)} chains)...")
+                # print(f"\nAdding batch to database ({len(chain_ids_batch)} chains)...")
                 db.add_embeddings(chain_ids=chain_ids_batch, embeddings=embeddings_batch)
 
             total_chains += len(chain_ids_batch)

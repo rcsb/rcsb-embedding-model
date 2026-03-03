@@ -51,7 +51,7 @@ class FaissEmbeddingDatabase:
             raise ValueError("Number of chain_ids must match number of embeddings")
 
         # Convert embeddings to numpy array
-        print("Converting embeddings to numpy array...")
+        # print("Converting embeddings to numpy array...")
         embedding_array = []
         for embedding in embeddings:
             if isinstance(embedding, torch.Tensor):
@@ -65,7 +65,7 @@ class FaissEmbeddingDatabase:
         self.dimension = embedding_array.shape[1]
         n_embeddings = embedding_array.shape[0]
 
-        print(f"Creating FAISS index with {n_embeddings} embeddings of dimension {self.dimension}...")
+        # print(f"Creating FAISS index with {n_embeddings} embeddings of dimension {self.dimension}...")
 
         # Normalize embeddings for cosine similarity
         faiss.normalize_L2(embedding_array)
@@ -73,26 +73,26 @@ class FaissEmbeddingDatabase:
         # Choose index type based on dataset size
         if n_embeddings < 10000:
             # Small dataset: use exact search (IndexFlatIP)
-            print("Using IndexFlatIP (exact search) for small dataset")
+            # print("Using IndexFlatIP (exact search) for small dataset")
             self.index = faiss.IndexFlatIP(self.dimension)
         else:
             # Large dataset: use HNSW for approximate search
-            print("Using IndexHNSWFlat (approximate search) for large dataset")
+            # print("Using IndexHNSWFlat (approximate search) for large dataset")
             self.index = faiss.IndexHNSWFlat(self.dimension, 32)
 
         # Move to GPU if requested and available
         if use_gpu:
             if _has_gpu_support():
-                print(f"Moving index to GPU (detected {faiss.get_num_gpus()} GPU(s))...")
+                # print(f"Moving index to GPU (detected {faiss.get_num_gpus()} GPU(s))...")
                 self.gpu_resources = faiss.StandardGpuResources()
                 # Allow up to 1GB of temporary memory for GPU operations
                 self.gpu_resources.setTempMemory(1024 * 1024 * 1024)
                 self.index = faiss.index_cpu_to_gpu(self.gpu_resources, 0, self.index)
                 self.is_gpu_index = True
-                print("Index successfully moved to GPU")
-            else:
-                print("WARNING: GPU requested but not available. Using CPU instead.")
-                print("To enable GPU support, install: pip install faiss-gpu")
+                # print("Index successfully moved to GPU")
+            # else:
+                # print("WARNING: GPU requested but not available. Using CPU instead.")
+                # print("To enable GPU support, install: pip install faiss-gpu")
 
         # Add vectors to index
         self.index.add(embedding_array)
@@ -101,7 +101,7 @@ class FaissEmbeddingDatabase:
         # Save to disk
         self._save()
 
-        print(f"Database created successfully with {len(chain_ids)} chains!")
+        # print(f"Database created successfully with {len(chain_ids)} chains!")
 
     def add_embeddings(
             self,
@@ -143,7 +143,7 @@ class FaissEmbeddingDatabase:
         # Save to disk
         self._save()
 
-        print(f"Added {len(chain_ids)} chains to database (total: {len(self.chain_ids)} chains)")
+        # print(f"Added {len(chain_ids)} chains to database (total: {len(self.chain_ids)} chains)")
 
     def load_database(self, use_gpu: bool = False):
         """
@@ -337,5 +337,5 @@ class FaissEmbeddingDatabase:
         with open(metadata_file, 'wb') as f:
             pickle.dump(metadata, f)
 
-        print(f"Saved index to {index_file}")
-        print(f"Saved metadata to {metadata_file}")
+        # print(f"Saved index to {index_file}")
+        # print(f"Saved metadata to {metadata_file}")
