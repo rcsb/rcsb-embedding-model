@@ -112,7 +112,7 @@ def query_database(
         )] = 100,
         threshold: Annotated[Optional[float], typer.Option(
             help='Similarity score threshold to filter results (only return matches with score >= threshold)'
-        )] = None,
+        )] = 0.8,
         output_csv: Annotated[Optional[str], typer.Option(
             help='Path to save results as CSV file (optional)'
         )] = None,
