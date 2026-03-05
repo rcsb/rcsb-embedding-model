@@ -201,6 +201,126 @@ def query_database(
 
 
 @app.command(
+    name="query-db",
+    help="Compare entries from a query database with a subject database"
+)
+def query_database_with_database(
+        query_db_path: Annotated[str, typer.Option(
+            help='Path to the query FAISS database'
+        )],
+        subject_db_path: Annotated[str, typer.Option(
+            help='Path to the subject FAISS database to search against'
+        )],
+        top_k: Annotated[int, typer.Option(
+            help='Number of top results to return per query chain'
+        )] = 100,
+        threshold: Annotated[Optional[float], typer.Option(
+            help='Similarity score threshold to filter results (only return matches with score >= threshold)'
+        )] = 0.8,
+        output_csv: Annotated[Optional[str], typer.Option(
+            help='Path to save results as CSV file (optional)'
+        )] = None,
+        use_gpu_index: Annotated[bool, typer.Option(
+            help='Use GPU for FAISS search (requires faiss-gpu)'
+        )] = False
+):
+    """Search subject database using all entries from query database."""
+
+    # Parse query_db_path
+    query_db_path_obj = Path(query_db_path)
+    query_db_dir = query_db_path_obj.parent
+    query_index_name = query_db_path_obj.name
+
+    if not query_index_name:
+        query_index_name = "structure_embeddings"
+    if query_db_dir == Path('.'):
+        query_db_dir = Path.cwd()
+
+    # Parse subject_db_path
+    subject_db_path_obj = Path(subject_db_path)
+    subject_db_dir = subject_db_path_obj.parent
+    subject_index_name = subject_db_path_obj.name
+
+    if not subject_index_name:
+        subject_index_name = "structure_embeddings"
+    if subject_db_dir == Path('.'):
+        subject_db_dir = Path.cwd()
+
+    if use_gpu_index:
+        print("GPU acceleration for FAISS search: enabled")
+
+    # Load query database
+    print("\nLoading query database...")
+    query_db = FaissEmbeddingDatabase(db_path=str(query_db_dir), index_name=query_index_name)
+    query_db.load_database()
+
+    # Load subject database
+    print("Loading subject database...")
+    subject_db = FaissEmbeddingDatabase(db_path=str(subject_db_dir), index_name=subject_index_name)
+    subject_db.load_database(use_gpu=use_gpu_index)
+
+    # Display database statistics
+    query_stats = query_db.get_statistics()
+    subject_stats = subject_db.get_statistics()
+    print(f"Query database contains {query_stats['total_chains']} chains")
+    print(f"Subject database contains {subject_stats['total_chains']} chains")
+
+    # Query all chains from query database
+    chain_ids_to_query = query_db.chain_ids
+    print(f"\nQuerying all {len(chain_ids_to_query)} chains from query database...")
+
+    # Perform database-to-database search
+    print("Performing search...")
+    results = {}
+    for i, query_chain_id in enumerate(chain_ids_to_query, 1):
+        # Get the embedding from query database
+        chain_idx = query_db.chain_ids.index(query_chain_id)
+        query_embedding = query_db.index.reconstruct(chain_idx)
+
+        # Convert to torch tensor for compatibility with search method
+        query_embedding_tensor = torch.from_numpy(query_embedding)
+
+        # Search in subject database
+        matching_ids, scores = subject_db.search(query_embedding_tensor, top_k=top_k)
+        results[query_chain_id] = (matching_ids, scores)
+
+        if i % 100 == 0:
+            print(f"  Processed {i}/{len(chain_ids_to_query)} queries...")
+
+    print(f"Completed {len(results)} queries")
+
+    # Filter by threshold if specified
+    if threshold is not None:
+        print(f"Filtering results with similarity score threshold >= {threshold}")
+        filtered_results = {}
+        total_before = sum(len(ids) for ids, _ in results.values())
+        for query_chain, (chain_ids, scores) in results.items():
+            filtered_pairs = [(cid, score) for cid, score in zip(chain_ids, scores) if score >= threshold]
+            if filtered_pairs:
+                filtered_chain_ids, filtered_scores = zip(*filtered_pairs)
+                filtered_results[query_chain] = (list(filtered_chain_ids), list(filtered_scores))
+            else:
+                filtered_results[query_chain] = ([], [])
+        total_after = sum(len(ids) for ids, _ in filtered_results.values())
+        print(f"Filtered from {total_before} to {total_after} results")
+        results = filtered_results
+
+    # Display results (use StructureSearch's print method for consistency)
+    from rcsb_embedding_model.search.structure_search import StructureSearch
+    # Create a dummy searcher just to use its print/export methods
+    dummy_searcher = type('obj', (object,), {
+        'print_results': StructureSearch.print_results.__get__(object()),
+        'export_results': StructureSearch.export_results.__get__(object())
+    })()
+
+    dummy_searcher.print_results(results)
+
+    # Export if requested
+    if output_csv:
+        dummy_searcher.export_results(results, output_csv)
+
+
+@app.command(
     name="stats",
     help="Display database statistics"
 )
