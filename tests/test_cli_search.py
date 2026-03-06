@@ -2,75 +2,8 @@ import os
 import shutil
 import unittest
 import tempfile
-from unittest.mock import patch
 
 from rcsb_embedding_model.types.api_types import StructureFormat
-
-
-class _FakeAttributeStore:
-    def __init__(self):
-        self._data = {}
-
-    def __setitem__(self, key, value):
-        self._data[key] = value
-
-    def __getitem__(self, key):
-        return self._data[key]
-
-
-class _FakeGraph:
-    def __init__(self, n, edges, directed=False):
-        self.n = n
-        self.edges = list(edges)
-        self.directed = directed
-        self.vs = _FakeAttributeStore()
-        self.es = _FakeAttributeStore()
-
-
-class _FakePartition:
-    def __init__(self, membership):
-        self.membership = membership
-
-
-class _FakeLeidenAlg:
-    class RBConfigurationVertexPartition:
-        pass
-
-    @staticmethod
-    def find_partition(graph, partition_type, weights=None, resolution_parameter=1.0, seed=0):
-        parents = list(range(graph.n))
-
-        def find(node):
-            while parents[node] != node:
-                parents[node] = parents[parents[node]]
-                node = parents[node]
-            return node
-
-        def union(left, right):
-            left_root = find(left)
-            right_root = find(right)
-            if left_root != right_root:
-                parents[right_root] = left_root
-
-        for left, right in graph.edges:
-            union(left, right)
-
-        label_map = {}
-        membership = []
-        for node in range(graph.n):
-            root = find(node)
-            if root not in label_map:
-                label_map[root] = len(label_map)
-            membership.append(label_map[root])
-
-        return _FakePartition(membership)
-
-
-def _fake_leiden_dependencies():
-    class _FakeIgraphModule:
-        Graph = _FakeGraph
-
-    return _FakeIgraphModule, _FakeLeidenAlg
 
 
 class TestCliSearch(unittest.TestCase):
@@ -390,67 +323,6 @@ class TestCliSearch(unittest.TestCase):
         for query_chain, (matching_ids, scores) in results.items():
             self.assertGreater(len(matching_ids), 0)
             self.assertEqual(len(matching_ids), len(scores))
-
-    @patch("rcsb_embedding_model.search.database_clusterer._load_leiden_dependencies", side_effect=_fake_leiden_dependencies)
-    def test_12_cluster_database_command(self, _mock_dependencies):
-        """Test clustering a FAISS database through the CLI."""
-        from rcsb_embedding_model.cli.search import cluster_database
-
-        output_csv = os.path.join(self.__temp_dir, "cluster_results.csv")
-
-        cluster_database(
-            db_path=self.__db_path,
-            threshold=0.3,
-            output_csv=output_csv,
-            max_neighbors=3,
-            resolution=1.0,
-            seed=0,
-            block_size=2,
-            use_gpu_index=False
-        )
-
-        self.assertTrue(os.path.exists(output_csv))
-        with open(output_csv, 'r') as f:
-            lines = f.readlines()
-            self.assertGreater(len(lines), 1)
-
-    @patch("rcsb_embedding_model.search.database_clusterer._load_leiden_dependencies", side_effect=_fake_leiden_dependencies)
-    def test_13_database_clusterer_class(self, _mock_dependencies):
-        """Test DatabaseClusterer with a mocked Leiden implementation."""
-        import torch
-        from rcsb_embedding_model.search.database_clusterer import DatabaseClusterer
-        from rcsb_embedding_model.search.faiss_database import FaissEmbeddingDatabase
-
-        cluster_db_dir = os.path.join(self.__temp_dir, "cluster_db")
-        cluster_index_name = "cluster_test"
-        cluster_db = FaissEmbeddingDatabase(db_path=cluster_db_dir, index_name=cluster_index_name)
-
-        chain_ids = ["cluster1:A", "cluster1:B", "cluster2:A", "cluster2:B"]
-        embeddings = [
-            torch.tensor([1.0, 0.0, 0.0]),
-            torch.tensor([0.99, 0.01, 0.0]),
-            torch.tensor([0.0, 1.0, 0.0]),
-            torch.tensor([0.01, 0.99, 0.0]),
-        ]
-        cluster_db.create_database(chain_ids=chain_ids, embeddings=embeddings)
-
-        clusterer = DatabaseClusterer(
-            db_path=cluster_db_dir,
-            index_name=cluster_index_name
-        )
-        cluster_results = clusterer.cluster_by_similarity(
-            threshold=0.95,
-            max_neighbors=2,
-            resolution=1.0,
-            seed=0,
-            block_size=2
-        )
-
-        self.assertEqual(cluster_results["summary"]["total_clusters"], 2)
-        cluster_sizes = sorted(
-            assignment["cluster_size"] for assignment in cluster_results["assignments"]
-        )
-        self.assertEqual(cluster_sizes, [2, 2, 2, 2])
 
 
 if __name__ == '__main__':

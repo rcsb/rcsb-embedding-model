@@ -27,7 +27,6 @@ dependencies=[
 
 [project.optional-dependencies]
 gpu = ["faiss-gpu >= 1.7.0"]
-cluster = ["igraph >= 0.11.0", "leidenalg >= 0.10.0"]
 
 [project.urls]
 Homepage = "https://github.com/rcsb/rcsb-embedding-model"

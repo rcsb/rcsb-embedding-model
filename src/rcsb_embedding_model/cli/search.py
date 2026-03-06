@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Annotated, Optional
 
 from rcsb_embedding_model import __version__
-from rcsb_embedding_model.search.database_clusterer import DatabaseClusterer
 from rcsb_embedding_model.types.api_types import StructureFormat
 from rcsb_embedding_model.search.database_builder import EmbeddingDatabaseBuilder
 from rcsb_embedding_model.search.structure_search import StructureSearch
@@ -244,64 +243,6 @@ def query_database_with_database(
 
 
 @app.command(
-    name="cluster-db",
-    help="Cluster a FAISS database using Leiden on an approximate kNN similarity graph"
-)
-def cluster_database(
-        db_path: Annotated[str, typer.Option(
-            help='Path to the FAISS database'
-        )],
-        threshold: Annotated[float, typer.Option(
-            help='Similarity threshold for graph edges'
-        )],
-        output_csv: Annotated[Optional[str], typer.Option(
-            help='Path to save cluster assignments as CSV file (optional)'
-        )] = None,
-        max_neighbors: Annotated[int, typer.Option(
-            help='Maximum nearest neighbors to inspect per node when building the graph'
-        )] = 50,
-        resolution: Annotated[float, typer.Option(
-            help='Leiden resolution parameter'
-        )] = 1.0,
-        seed: Annotated[int, typer.Option(
-            help='Random seed for Leiden clustering'
-        )] = 0,
-        block_size: Annotated[int, typer.Option(
-            help='Number of embeddings to query per FAISS batch'
-        )] = 1024,
-        use_gpu_index: Annotated[bool, typer.Option(
-            help='Use GPU for FAISS kNN search during graph construction (requires faiss-gpu)'
-        )] = False
-):
-    """Cluster database embeddings with Leiden on a thresholded approximate similarity graph."""
-    db_dir, index_name = _parse_database_path(db_path)
-
-    if use_gpu_index:
-        print("GPU acceleration for FAISS graph construction: enabled")
-
-    print("\nLoading database...")
-    clusterer = DatabaseClusterer(
-        db_path=str(db_dir),
-        index_name=index_name,
-        use_gpu_for_search=use_gpu_index
-    )
-
-    print("Building approximate similarity graph and clustering...")
-    cluster_results = clusterer.cluster_by_similarity(
-        threshold=threshold,
-        max_neighbors=max_neighbors,
-        resolution=resolution,
-        seed=seed,
-        block_size=block_size
-    )
-
-    clusterer.print_summary(cluster_results)
-
-    if output_csv:
-        clusterer.export_results(cluster_results, output_csv)
-
-
-@app.command(
     name="stats",
     help="Display database statistics"
 )
@@ -346,7 +287,6 @@ def main(
         )
 ):
     pass
-
 
 def _parse_database_path(db_path: str, default_index_name: str = "structure_embeddings") -> tuple[Path, str]:
     """Split a database path into its directory and index name components."""
