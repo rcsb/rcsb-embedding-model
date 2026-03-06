@@ -60,72 +60,37 @@ class EmbeddingClusterer:
         # Clamp max_neighbors to actual database size
         k = min(max_neighbors, n_chains)
 
-        # Check if index supports reconstruction (IndexFlatIP does, IndexHNSWFlat doesn't)
-        index_type = type(self.db.index).__name__
-        supports_reconstruction = 'Flat' in index_type and 'HNSW' not in index_type
+        # Get CPU index for reconstruction if using GPU
+        index_to_use = self.db.index
+        if self.db.is_gpu_index:
+            print("Moving GPU index to CPU for reconstruction...")
+            index_to_use = faiss.index_gpu_to_cpu(self.db.index)
 
         edges = []
         weights = []
 
-        if supports_reconstruction:
-            print(f"Index type {index_type} supports reconstruction - using incremental search...")
+        # Search incrementally (one query at a time) to avoid segfault with large batch searches
+        # Both IndexFlatIP and IndexHNSWFlat support reconstruction through their storage
+        print("Performing k-NN search (one query at a time)...")
+        for i in range(n_chains):
+            # Reconstruct single embedding
+            query_embedding = index_to_use.reconstruct(i)
 
-            # Get CPU index for reconstruction if needed
-            index_to_use = self.db.index
-            if self.db.is_gpu_index:
-                print("Moving GPU index to CPU for reconstruction...")
-                index_to_use = faiss.index_gpu_to_cpu(self.db.index)
+            # Ensure contiguous C-order array with correct shape
+            query_embedding = np.ascontiguousarray(query_embedding, dtype=np.float32).reshape(1, -1)
 
-            # Search incrementally to avoid segfault with large batch searches
-            print("Performing k-NN search (one query at a time)...")
-            for i in range(n_chains):
-                # Reconstruct single embedding
-                query_embedding = index_to_use.reconstruct(i)
+            # Search for k nearest neighbors
+            scores_i, indices_i = self.db.index.search(query_embedding, k)
 
-                # Ensure contiguous C-order array with correct shape
-                query_embedding = np.ascontiguousarray(query_embedding, dtype=np.float32).reshape(1, -1)
+            # Build edges from this query
+            for j, score in zip(indices_i[0], scores_i[0]):
+                # Skip self-loops and edges below threshold
+                if i < j and score >= threshold:  # i < j to avoid duplicate edges
+                    edges.append((i, j))
+                    weights.append(float(score))
 
-                # Search for k nearest neighbors
-                scores_i, indices_i = self.db.index.search(query_embedding, k)
-
-                # Build edges from this query
-                for j, score in zip(indices_i[0], scores_i[0]):
-                    # Skip self-loops and edges below threshold
-                    if i < j and score >= threshold:  # i < j to avoid duplicate edges
-                        edges.append((i, j))
-                        weights.append(float(score))
-
-                if (i + 1) % 100 == 0:
-                    print(f"  Processed {i + 1}/{n_chains} chains...")
-
-        else:
-            print(f"Index type {index_type} doesn't support reconstruction - using incremental search...")
-
-            # Use the search_by_chain_ids method to query each chain
-            print("Performing incremental k-NN search...")
-            for i, chain_id in enumerate(self.chain_ids):
-                # Search for neighbors of this chain
-                result_chain_ids, scores_list = self.db.search_by_chain_ids([chain_id], top_k=k)
-
-                if chain_id not in result_chain_ids:
-                    continue
-
-                matching_ids, scores_array = result_chain_ids[chain_id]
-
-                # Find indices of matching chains
-                for match_id, score in zip(matching_ids, scores_array):
-                    try:
-                        j = self.chain_ids.index(match_id)
-                        # Skip self-loops and edges below threshold
-                        if i < j and score >= threshold:  # i < j to avoid duplicate edges
-                            edges.append((i, j))
-                            weights.append(float(score))
-                    except ValueError:
-                        # Chain not found in list (shouldn't happen)
-                        continue
-
-                if (i + 1) % 100 == 0:
-                    print(f"  Processed {i + 1}/{n_chains} chains...")
+            if (i + 1) % 100 == 0:
+                print(f"  Processed {i + 1}/{n_chains} chains...")
 
         print(f"Created graph with {n_chains} nodes and {len(edges)} edges")
 
