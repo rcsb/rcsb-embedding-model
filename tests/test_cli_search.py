@@ -278,6 +278,52 @@ class TestCliSearch(unittest.TestCase):
         import torch
         self.assertTrue(torch.equal(all_chains["A"], chain_a_only["A"]))
 
+    def test_10_query_database_with_database(self):
+        """Test querying one database against another."""
+        from rcsb_embedding_model.cli.search import query_database_with_database
+
+        output_csv = os.path.join(self.__temp_dir, "database_to_database_results.csv")
+
+        query_database_with_database(
+            query_db_path=self.__db_path,
+            subject_db_path=self.__db_path,
+            top_k=3,
+            threshold=None,
+            output_csv=output_csv,
+            use_gpu_index=False
+        )
+
+        self.assertTrue(os.path.exists(output_csv))
+
+        with open(output_csv, 'r') as f:
+            lines = f.readlines()
+            self.assertGreater(len(lines), 1)
+
+    def test_11_structure_search_search_by_database(self):
+        """Test StructureSearch database-to-database search API."""
+        from pathlib import Path
+        from rcsb_embedding_model.search.structure_search import StructureSearch
+
+        db_path_obj = Path(self.__db_path)
+        db_dir = db_path_obj.parent
+        index_name = db_path_obj.name
+
+        searcher = StructureSearch(
+            db_path=str(db_dir),
+            index_name=index_name
+        )
+
+        results = searcher.search_by_database(
+            query_db_path=str(db_dir),
+            query_index_name=index_name,
+            top_k=2
+        )
+
+        self.assertGreater(len(results), 0)
+        for query_chain, (matching_ids, scores) in results.items():
+            self.assertGreater(len(matching_ids), 0)
+            self.assertEqual(len(matching_ids), len(scores))
+
 
 if __name__ == '__main__':
     unittest.main()
