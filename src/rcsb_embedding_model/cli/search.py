@@ -8,6 +8,7 @@ from rcsb_embedding_model import __version__
 from rcsb_embedding_model.types.api_types import StructureFormat
 from rcsb_embedding_model.search.database_builder import EmbeddingDatabaseBuilder
 from rcsb_embedding_model.search.structure_search import StructureSearch
+from rcsb_embedding_model.search.clustering import EmbeddingClusterer
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
@@ -268,6 +269,79 @@ def show_statistics(
     print(f"On GPU:           {stats['on_gpu']}")
     print(f"GPU available:    {stats['gpu_available']}")
     print("="*80 + "\n")
+
+
+@app.command(
+    name="cluster",
+    help="Cluster database embeddings using Leiden algorithm on similarity graph"
+)
+def cluster_database(
+        db_path: Annotated[str, typer.Option(
+            help='Path to the FAISS database'
+        )],
+        threshold: Annotated[float, typer.Option(
+            help='Similarity threshold for edge creation (0-1, where 1.0 = identical)'
+        )] = 0.8,
+        resolution: Annotated[float, typer.Option(
+            help='Leiden resolution parameter (higher = more clusters)'
+        )] = 1.0,
+        output: Annotated[str, typer.Option(
+            help='Path to save cluster assignments (CSV or JSON)'
+        )] = "clusters.csv",
+        max_neighbors: Annotated[int, typer.Option(
+            help='Maximum number of neighbors to consider per chain'
+        )] = 1000,
+        min_cluster_size: Annotated[Optional[int], typer.Option(
+            help='Minimum cluster size to include in output (filters smaller clusters)'
+        )] = None,
+        use_gpu_index: Annotated[bool, typer.Option(
+            help='Use GPU for FAISS operations (requires faiss-gpu)'
+        )] = False,
+        seed: Annotated[Optional[int], typer.Option(
+            help='Random seed for reproducibility'
+        )] = None
+):
+    """Cluster database embeddings using Leiden algorithm."""
+
+    # Parse db_path into directory and index name
+    db_dir, index_name = _parse_database_path(db_path)
+
+    if use_gpu_index:
+        print("GPU acceleration for FAISS operations: enabled")
+
+    # Initialize clusterer
+    print("Initializing clusterer...")
+    clusterer = EmbeddingClusterer(db_path=str(db_dir), index_name=index_name)
+    clusterer.load_database(use_gpu=use_gpu_index)
+
+    # Build similarity graph
+    clusterer.build_similarity_graph(
+        threshold=threshold,
+        max_neighbors=max_neighbors
+    )
+
+    # Perform clustering
+    clusterer.cluster_leiden(
+        resolution=resolution,
+        seed=seed
+    )
+
+    # Display statistics
+    clusterer.print_statistics()
+
+    # Determine output format from file extension
+    output_path = Path(output)
+    if output_path.suffix == '.json':
+        output_format = 'json'
+    else:
+        output_format = 'csv'
+
+    # Export results
+    clusterer.export_clusters(
+        output_file=output,
+        format=output_format,
+        min_cluster_size=min_cluster_size
+    )
 
 
 def version_callback(value: bool):

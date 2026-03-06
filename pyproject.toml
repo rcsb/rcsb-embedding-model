@@ -22,7 +22,9 @@ dependencies=[
     "hf-xet >= 1.1.10",
     "huggingface-hub >= 0.30.2",
     "httpx >= 0.28.1",
-    "faiss-cpu >= 1.7.0"
+    "faiss-cpu >= 1.7.0",
+    "igraph >= 0.11.0",
+    "leidenalg >= 0.10.0"
 ]
 
 [project.optional-dependencies]
