@@ -6,20 +6,6 @@ from typing import Dict, List, Tuple
 from rcsb_embedding_model.search.faiss_database import FaissEmbeddingDatabase
 
 
-def _load_leiden_dependencies():
-    """Load optional Leiden clustering dependencies."""
-    try:
-        igraph = importlib.import_module("igraph")
-        leidenalg = importlib.import_module("leidenalg")
-    except ModuleNotFoundError as exc:
-        raise ModuleNotFoundError(
-            "Database clustering requires optional dependencies 'igraph' and 'leidenalg'. "
-            "Install them with: pip install 'rcsb-embedding-model[cluster]'"
-        ) from exc
-
-    return igraph, leidenalg
-
-
 class DatabaseClusterer:
     """Cluster a FAISS embedding database using Leiden on an approximate kNN graph."""
 
@@ -168,7 +154,8 @@ class DatabaseClusterer:
             seed: int
     ) -> List[int]:
         """Run Leiden on a weighted similarity graph."""
-        igraph, leidenalg = _load_leiden_dependencies()
+        import igraph
+        import leidenalg
 
         graph = igraph.Graph(n=total_nodes, edges=edges, directed=False)
         graph.vs["name"] = self.db.chain_ids
