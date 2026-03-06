@@ -298,6 +298,37 @@ class FaissEmbeddingDatabase:
 
         return results_dict
 
+    def get_all_embeddings(self) -> np.ndarray:
+        """
+        Reconstruct all stored embeddings from the FAISS index.
+
+        Returns:
+            Array of shape (n_chains, dimension) with normalized protein embeddings.
+        """
+        if self.index is None:
+            raise ValueError("Database not loaded. Call load_database() first.")
+
+        n_embeddings = len(self.chain_ids)
+        if n_embeddings == 0:
+            return np.empty((0, self.dimension or 0), dtype=np.float32)
+
+        index = self.index
+        if self.is_gpu_index:
+            index = faiss.index_gpu_to_cpu(self.index)
+
+        if hasattr(index, "reconstruct_n"):
+            try:
+                embeddings = index.reconstruct_n(0, n_embeddings)
+                return np.asarray(embeddings, dtype=np.float32)
+            except RuntimeError:
+                pass
+
+        embeddings = np.empty((n_embeddings, self.dimension), dtype=np.float32)
+        for idx in range(n_embeddings):
+            embeddings[idx] = index.reconstruct(idx)
+
+        return embeddings
+
     def get_statistics(self) -> Dict:
         """Get database statistics."""
         if self.index is None:
