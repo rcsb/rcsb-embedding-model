@@ -3,8 +3,9 @@ import numpy as np
 import faiss
 import igraph as ig
 import leidenalg
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Optional
 from pathlib import Path
+from tqdm import tqdm
 
 from rcsb_embedding_model.search.faiss_database import FaissEmbeddingDatabase
 
@@ -74,7 +75,7 @@ class EmbeddingClusterer:
         # Search incrementally (one query at a time) to avoid segfault with large batch searches
         # Both IndexFlatIP and IndexHNSWFlat support reconstruction through their storage
         logging.info("Performing k-NN search (one query at a time)...")
-        for i in range(n_chains):
+        for i in tqdm(range(n_chains), desc="Processing chains", unit="chain"):
             # Reconstruct single embedding
             query_embedding = index_to_use.reconstruct(i)
 
@@ -90,9 +91,6 @@ class EmbeddingClusterer:
                 if i < j and score >= threshold:  # i < j to avoid duplicate edges
                     edges.append((i, j))
                     weights.append(float(score))
-
-            if (i + 1) % 100 == 0:
-                logging.info(f"Processed {i + 1}/{n_chains} chains...")
 
         logging.info(f"Created graph with {n_chains} nodes and {len(edges)} edges")
 
