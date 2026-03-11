@@ -1,4 +1,6 @@
+import os
 import sys
+import logging
 import typer
 
 from typing import Annotated, List
@@ -9,8 +11,12 @@ from rcsb_embedding_model.types.api_types import StructureFormat, Accelerator, S
     SrcAssemblyFrom, SrcTensorFrom, OutFormat
 from rcsb_embedding_model.utils.data import adapt_csv_to_embedding_chain_stream
 
-import os
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 
 app = typer.Typer(
     add_completion=False

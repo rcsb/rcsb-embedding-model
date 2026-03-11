@@ -1,4 +1,5 @@
 import os
+import logging
 import torch
 import typer
 from pathlib import Path
@@ -11,6 +12,11 @@ from rcsb_embedding_model.search.structure_search import StructureSearch
 from rcsb_embedding_model.search.clustering import EmbeddingClusterer
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 
 app = typer.Typer(
     add_completion=False,
