@@ -3,6 +3,7 @@ import warnings
 import torch
 from pathlib import Path
 from typing import List, Tuple, Dict
+from tqdm import tqdm
 
 from rcsb_embedding_model.rcsb_structure_embedding import RcsbStructureEmbedding
 from rcsb_embedding_model.search.faiss_database import FaissEmbeddingDatabase
@@ -128,16 +129,12 @@ class StructureSearch:
         query_db.load_database()
 
         logging.info(f"Query database contains {len(query_db.chain_ids)} chains")
-        logging.info(f"Querying all {len(query_db.chain_ids)} chains from query database...")
 
         results = {}
-        for chain_idx, query_chain_id in enumerate(query_db.chain_ids, 1):
-            query_embedding = torch.from_numpy(query_db.index.reconstruct(chain_idx - 1))
+        for chain_idx, query_chain_id in enumerate(tqdm(query_db.chain_ids, desc="Querying database")):
+            query_embedding = torch.from_numpy(query_db.index.reconstruct(chain_idx))
             matching_ids, scores = self.db.search(query_embedding, top_k=top_k)
             results[query_chain_id] = (matching_ids, scores)
-
-            if chain_idx % 100 == 0:
-                logging.info(f"Processed {chain_idx}/{len(query_db.chain_ids)} queries...")
 
         logging.info(f"Completed {len(results)} queries")
         return results

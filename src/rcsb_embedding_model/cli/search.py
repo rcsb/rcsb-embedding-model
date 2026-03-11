@@ -241,8 +241,9 @@ def query_database_with_database(
     # Filter by threshold if specified
     results = _filter_results_by_threshold(results, threshold)
 
-    # Display results
-    searcher.print_results(results)
+    # Display results only if not exporting to CSV
+    if not output_csv:
+        searcher.print_results(results)
 
     # Export if requested
     if output_csv:
