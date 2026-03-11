@@ -1,3 +1,4 @@
+import logging
 import numpy as np
 import faiss
 import igraph as ig
@@ -7,6 +8,7 @@ from pathlib import Path
 
 from rcsb_embedding_model.search.faiss_database import FaissEmbeddingDatabase
 
+logger = logging.getLogger(__name__)
 
 class EmbeddingClusterer:
     """Cluster protein structure embeddings using Leiden algorithm on similarity graphs."""
@@ -33,7 +35,7 @@ class EmbeddingClusterer:
         """
         self.db.load_database(use_gpu=use_gpu)
         self.chain_ids = self.db.chain_ids
-        print(f"Loaded database with {len(self.chain_ids)} chains")
+        logging.info(f"Loaded database with {len(self.chain_ids)} chains")
 
     def build_similarity_graph(
             self,
@@ -54,8 +56,8 @@ class EmbeddingClusterer:
             raise ValueError("Database not loaded. Call load_database() first.")
 
         n_chains = len(self.chain_ids)
-        print(f"\nBuilding similarity graph with threshold >= {threshold}")
-        print(f"Searching up to {max_neighbors} neighbors per chain...")
+        logging.info(f"\nBuilding similarity graph with threshold >= {threshold}")
+        logging.info(f"Searching up to {max_neighbors} neighbors per chain...")
 
         # Clamp max_neighbors to actual database size
         k = min(max_neighbors, n_chains)
@@ -63,7 +65,7 @@ class EmbeddingClusterer:
         # Get CPU index for reconstruction if using GPU
         index_to_use = self.db.index
         if self.db.is_gpu_index:
-            print("Moving GPU index to CPU for reconstruction...")
+            logging.info("Moving GPU index to CPU for reconstruction...")
             index_to_use = faiss.index_gpu_to_cpu(self.db.index)
 
         edges = []
@@ -71,7 +73,7 @@ class EmbeddingClusterer:
 
         # Search incrementally (one query at a time) to avoid segfault with large batch searches
         # Both IndexFlatIP and IndexHNSWFlat support reconstruction through their storage
-        print("Performing k-NN search (one query at a time)...")
+        logging.info("Performing k-NN search (one query at a time)...")
         for i in range(n_chains):
             # Reconstruct single embedding
             query_embedding = index_to_use.reconstruct(i)
@@ -90,9 +92,9 @@ class EmbeddingClusterer:
                     weights.append(float(score))
 
             if (i + 1) % 100 == 0:
-                print(f"  Processed {i + 1}/{n_chains} chains...")
+                logging.info(f"Processed {i + 1}/{n_chains} chains...")
 
-        print(f"Created graph with {n_chains} nodes and {len(edges)} edges")
+        logging.info(f"Created graph with {n_chains} nodes and {len(edges)} edges")
 
         # Create igraph from edge list
         self.graph = ig.Graph(n=n_chains, edges=edges, directed=False)
@@ -123,7 +125,7 @@ class EmbeddingClusterer:
         if self.graph is None:
             raise ValueError("Graph not built. Call build_similarity_graph() first.")
 
-        print(f"\nRunning Leiden clustering (resolution={resolution})...")
+        logging.info(f"Running Leiden clustering (resolution={resolution})...")
 
         # Use RBConfigurationVertexPartition with weights
         # Higher edge weights (higher similarity) encourage nodes to be in same cluster
@@ -137,7 +139,7 @@ class EmbeddingClusterer:
         )
 
         self.clusters = partition.membership
-        print(f"Found {len(set(self.clusters))} clusters")
+        logging.info(f"Found {len(set(self.clusters))} clusters")
 
         return self.clusters
 
@@ -219,13 +221,13 @@ class EmbeddingClusterer:
                 writer = csv.DictWriter(f, fieldnames=['chain_id', 'cluster_id', 'cluster_size'])
                 writer.writeheader()
                 writer.writerows(data)
-            print(f"\nCluster assignments exported to {output_file}")
+            logging.info(f"\nCluster assignments exported to {output_file}")
 
         elif format == 'json':
             import json
             with open(output_path, 'w') as f:
                 json.dump(data, f, indent=2)
-            print(f"\nCluster assignments exported to {output_file}")
+            logging.info(f"\nCluster assignments exported to {output_file}")
 
         else:
             raise ValueError(f"Unsupported format: {format}. Use 'csv' or 'json'.")
@@ -233,22 +235,18 @@ class EmbeddingClusterer:
         if min_cluster_size:
             filtered_count = len(data)
             total_count = len(self.clusters)
-            print(f"Exported {filtered_count}/{total_count} chains (min_cluster_size={min_cluster_size})")
+            logging.info(f"Exported {filtered_count}/{total_count} chains (min_cluster_size={min_cluster_size})")
 
     def print_statistics(self):
         """Print clustering statistics to console."""
         stats = self.get_cluster_statistics()
-
-        print("\n" + "="*80)
-        print("CLUSTERING STATISTICS")
-        print("="*80)
-        print(f"Total chains:        {stats['n_chains']}")
-        print(f"Number of clusters:  {stats['n_clusters']}")
-        print(f"Singleton clusters:  {stats['n_singletons']}")
-        print(f"Cluster size (min):  {stats['min_cluster_size']}")
-        print(f"Cluster size (max):  {stats['max_cluster_size']}")
-        print(f"Cluster size (mean): {stats['mean_cluster_size']:.2f}")
-        print(f"Cluster size (med):  {stats['median_cluster_size']:.1f}")
+        logging.info("CLUSTERING STATISTICS")
+        logging.info(f"Total chains:        {stats['n_chains']}")
+        logging.info(f"Number of clusters:  {stats['n_clusters']}")
+        logging.info(f"Singleton clusters:  {stats['n_singletons']}")
+        logging.info(f"Cluster size (min):  {stats['min_cluster_size']}")
+        logging.info(f"Cluster size (max):  {stats['max_cluster_size']}")
+        logging.info(f"Cluster size (mean): {stats['mean_cluster_size']:.2f}")
+        logging.info(f"Cluster size (med):  {stats['median_cluster_size']:.1f}")
         if stats['modularity'] is not None:
-            print(f"Modularity:          {stats['modularity']:.4f}")
-        print("="*80 + "\n")
+            logging.info(f"Modularity:          {stats['modularity']:.4f}")

@@ -1,3 +1,4 @@
+import logging
 import torch
 import warnings
 from pathlib import Path
@@ -8,6 +9,7 @@ from rcsb_embedding_model.rcsb_structure_embedding import RcsbStructureEmbedding
 from rcsb_embedding_model.types.api_types import StructureFormat
 from rcsb_embedding_model.search.faiss_database import FaissEmbeddingDatabase
 
+logger = logging.getLogger(__name__)
 
 class EmbeddingDatabaseBuilder:
     """Build a database of structure chain embeddings from a directory of structure files."""
@@ -131,9 +133,7 @@ class EmbeddingDatabaseBuilder:
         if db_dir == Path('.'):
             db_dir = Path.cwd()
 
-        print("\n" + "="*80)
-        print("Building embeddings and FAISS database")
-        print("="*80 + "\n")
+        logging.info("Building embeddings and FAISS database")
 
         db = FaissEmbeddingDatabase(db_path=str(db_dir), index_name=index_name)
         total_chains = 0
@@ -145,12 +145,10 @@ class EmbeddingDatabaseBuilder:
         ):
             if first_batch:
                 # Create database with first batch
-                # print(f"\nCreating FAISS database with first batch ({len(chain_ids_batch)} chains)...")
                 db.create_database(chain_ids=chain_ids_batch, embeddings=embeddings_batch, use_gpu=use_gpu_index)
                 first_batch = False
             else:
                 # Add subsequent batches to existing database
-                # print(f"\nAdding batch to database ({len(chain_ids_batch)} chains)...")
                 db.add_embeddings(chain_ids=chain_ids_batch, embeddings=embeddings_batch)
 
             total_chains += len(chain_ids_batch)
@@ -160,8 +158,6 @@ class EmbeddingDatabaseBuilder:
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
 
-        print("\n" + "="*80)
-        print("Batch database build complete!")
-        print("="*80)
-        print(f"Database location: {output_db}")
-        print(f"Total chains: {total_chains}")
+        logging.info("Batch database build complete!")
+        logging.info(f"Database location: {output_db}")
+        logging.info(f"Total chains: {total_chains}")

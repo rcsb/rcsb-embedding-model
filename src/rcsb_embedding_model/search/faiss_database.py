@@ -1,3 +1,4 @@
+import logging
 import faiss
 import torch
 import numpy as np
@@ -5,6 +6,7 @@ import pickle
 from pathlib import Path
 from typing import List, Dict, Tuple
 
+logger = logging.getLogger(__name__)
 
 def _has_gpu_support():
     """Check if FAISS has GPU support available."""
@@ -51,7 +53,6 @@ class FaissEmbeddingDatabase:
             raise ValueError("Number of chain_ids must match number of embeddings")
 
         # Convert embeddings to numpy array
-        # print("Converting embeddings to numpy array...")
         embedding_array = []
         for embedding in embeddings:
             if isinstance(embedding, torch.Tensor):
@@ -65,34 +66,25 @@ class FaissEmbeddingDatabase:
         self.dimension = embedding_array.shape[1]
         n_embeddings = embedding_array.shape[0]
 
-        # print(f"Creating FAISS index with {n_embeddings} embeddings of dimension {self.dimension}...")
-
         # Normalize embeddings for cosine similarity
         faiss.normalize_L2(embedding_array)
 
         # Choose index type based on dataset size
         if n_embeddings < 10000:
             # Small dataset: use exact search (IndexFlatIP)
-            # print("Using IndexFlatIP (exact search) for small dataset")
             self.index = faiss.IndexFlatIP(self.dimension)
         else:
             # Large dataset: use HNSW for approximate search
-            # print("Using IndexHNSWFlat (approximate search) for large dataset")
             self.index = faiss.IndexHNSWFlat(self.dimension, 32)
 
         # Move to GPU if requested and available
         if use_gpu:
             if _has_gpu_support():
-                # print(f"Moving index to GPU (detected {faiss.get_num_gpus()} GPU(s))...")
                 self.gpu_resources = faiss.StandardGpuResources()
                 # Allow up to 1GB of temporary memory for GPU operations
                 self.gpu_resources.setTempMemory(1024 * 1024 * 1024)
                 self.index = faiss.index_cpu_to_gpu(self.gpu_resources, 0, self.index)
                 self.is_gpu_index = True
-                # print("Index successfully moved to GPU")
-            # else:
-                # print("WARNING: GPU requested but not available. Using CPU instead.")
-                # print("To enable GPU support, install: pip install faiss-gpu")
 
         # Add vectors to index
         self.index.add(embedding_array)
@@ -101,7 +93,6 @@ class FaissEmbeddingDatabase:
         # Save to disk
         self._save()
 
-        # print(f"Database created successfully with {len(chain_ids)} chains!")
 
     def add_embeddings(
             self,
@@ -143,8 +134,6 @@ class FaissEmbeddingDatabase:
         # Save to disk
         self._save()
 
-        # print(f"Added {len(chain_ids)} chains to database (total: {len(self.chain_ids)} chains)")
-
     def load_database(self, use_gpu: bool = False):
         """
         Load an existing FAISS database.
@@ -167,7 +156,7 @@ class FaissEmbeddingDatabase:
             self.chain_ids = metadata['chain_ids']
             self.dimension = metadata['dimension']
 
-        print(f"Loaded database with {len(self.chain_ids)} chains")
+        logging.info(f"Loaded database with {len(self.chain_ids)} chains")
 
         # Move to GPU if requested
         if use_gpu:
@@ -181,35 +170,35 @@ class FaissEmbeddingDatabase:
             gpu_id: GPU device ID to use (default: 0)
         """
         if self.is_gpu_index:
-            print("Index is already on GPU")
+            logging.info("Index is already on GPU")
             return
 
         if not _has_gpu_support():
-            print("WARNING: GPU not available. Keeping index on CPU.")
-            print("To enable GPU support, install: pip install faiss-gpu")
+            logging.info("WARNING: GPU not available. Keeping index on CPU.")
+            logging.info("To enable GPU support, install: pip install faiss-gpu")
             return
 
         if self.index is None:
             raise ValueError("No index loaded. Call load_database() first.")
 
-        print(f"Moving index to GPU {gpu_id}...")
+        logging.info(f"Moving index to GPU {gpu_id}...")
         self.gpu_resources = faiss.StandardGpuResources()
         self.gpu_resources.setTempMemory(1024 * 1024 * 1024)  # 1GB temp memory
         self.index = faiss.index_cpu_to_gpu(self.gpu_resources, gpu_id, self.index)
         self.is_gpu_index = True
-        print("Index successfully moved to GPU")
+        logging.info("Index successfully moved to GPU")
 
     def move_to_cpu(self):
         """Move the index from GPU to CPU."""
         if not self.is_gpu_index:
-            print("Index is already on CPU")
+            logging.info("Index is already on CPU")
             return
 
-        print("Moving index to CPU...")
+        logging.info("Moving index to CPU...")
         self.index = faiss.index_gpu_to_cpu(self.index)
         self.is_gpu_index = False
         self.gpu_resources = None
-        print("Index successfully moved to CPU")
+        logging.info("Index successfully moved to CPU")
 
     def search(
             self,
@@ -278,7 +267,7 @@ class FaissEmbeddingDatabase:
             try:
                 # Find the index of this chain
                 if query_chain_id not in self.chain_ids:
-                    print(f"Chain {query_chain_id} not found in database")
+                    logging.info(f"Chain {query_chain_id} not found in database")
                     continue
 
                 chain_idx = self.chain_ids.index(query_chain_id)
@@ -293,7 +282,7 @@ class FaissEmbeddingDatabase:
                 results_dict[query_chain_id] = (result_chain_ids, scores[0].tolist())
 
             except Exception as e:
-                print(f"Error searching for {query_chain_id}: {e}")
+                logging.info(f"Error searching for {query_chain_id}: {e}")
                 continue
 
         return results_dict
@@ -337,5 +326,3 @@ class FaissEmbeddingDatabase:
         with open(metadata_file, 'wb') as f:
             pickle.dump(metadata, f)
 
-        # print(f"Saved index to {index_file}")
-        # print(f"Saved metadata to {metadata_file}")
