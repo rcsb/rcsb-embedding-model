@@ -57,7 +57,7 @@ class EmbeddingClusterer:
 
         n_chains = len(self.chain_ids)
         logging.info(f"\nBuilding similarity graph with threshold >= {threshold}")
-        logging.info(f"Searching up to {max_neighbors} neighbors per chain...")
+        logging.info(f"Searching up to {max_neighbors} neighbors per chain")
 
         # Clamp max_neighbors to actual database size
         k = min(max_neighbors, n_chains)
@@ -71,9 +71,9 @@ class EmbeddingClusterer:
         edges = []
         weights = []
 
-        # Search incrementally (one query at a time) to avoid segfault with large batch searches
+        # Search incrementally to avoid segfault with large batch searches
         # Both IndexFlatIP and IndexHNSWFlat support reconstruction through their storage
-        logging.info("Performing k-NN search (one query at a time)...")
+        logging.info("Performing k-NN search ...")
         for i in tqdm(range(n_chains), desc="Processing chains", unit="chain"):
             # Reconstruct single embedding
             query_embedding = index_to_use.reconstruct(i)
