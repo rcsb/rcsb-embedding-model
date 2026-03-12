@@ -36,7 +36,6 @@ class EmbeddingClusterer:
         """
         self.db.load_database(use_gpu=use_gpu)
         self.chain_ids = self.db.chain_ids
-        logging.info(f"Loaded database with {len(self.chain_ids)} chains")
 
     def build_similarity_graph(
             self,
