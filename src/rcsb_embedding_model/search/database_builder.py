@@ -81,6 +81,7 @@ class EmbeddingDatabaseBuilder:
                         with warnings.catch_warnings():
                             warnings.filterwarnings("ignore", category=UserWarning, module="biotite")
                             warnings.filterwarnings("ignore", category=FutureWarning, module="esm")
+                            warnings.filterwarnings("ignore", category=UserWarning, module="esm")
 
                             # Get residue-level embeddings by chain
                             chain_residue_embeddings = self.embedder.residue_embedding_by_chain(
