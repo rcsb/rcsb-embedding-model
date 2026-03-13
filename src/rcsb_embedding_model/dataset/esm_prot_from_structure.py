@@ -1,5 +1,6 @@
 
 import pandas as pd
+from tqdm import tqdm
 
 from rcsb_embedding_model.dataset.esm_prot_from_chain import EsmProtFromChain
 from rcsb_embedding_model.dataset.untils import get_structure_location
@@ -50,15 +51,17 @@ class EsmProtFromStructure(EsmProtFromChain):
             names=EsmProtFromStructure.COLUMNS
         )
         data = data.sort_values(by=data.columns[0])
-        for idx, row in data.iterrows():
-            src_name = row[EsmProtFromStructure.STREAM_NAME_ATTR]
-            src_structure = row[EsmProtFromStructure.STREAM_ATTR]
-            item_name = row[EsmProtFromStructure.ITEM_NAME_ATTR]
-            structure = self.__structure_provider.get_structure(
-                src_name=src_name,
-                src_structure=stringio_from_url(src_structure) if get_structure_location(src_structure) == StructureLocation.remote else src_structure,
-                structure_format=self.structure_format
-            )
-            for ch in get_protein_chains(structure, self.min_res_n):
-                chains.append((src_name, src_structure, ch, f"{item_name}.{ch}"))
+        with tqdm(data.iterrows(), total=len(data), desc="Loading structure chains") as pbar:
+            for idx, row in pbar:
+                src_name = row[EsmProtFromStructure.STREAM_NAME_ATTR]
+                pbar.set_postfix_str(src_name)
+                src_structure = row[EsmProtFromStructure.STREAM_ATTR]
+                item_name = row[EsmProtFromStructure.ITEM_NAME_ATTR]
+                structure = self.__structure_provider.get_structure(
+                    src_name=src_name,
+                    src_structure=stringio_from_url(src_structure) if get_structure_location(src_structure) == StructureLocation.remote else src_structure,
+                    structure_format=self.structure_format
+                )
+                for ch in get_protein_chains(structure, self.min_res_n):
+                    chains.append((src_name, src_structure, ch, f"{item_name}.{ch}"))
         return tuple(chains)
