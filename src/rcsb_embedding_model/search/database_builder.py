@@ -87,7 +87,7 @@ class EmbeddingDatabaseBuilder:
                 ],
                 src_location=SrcLocation.stream,
                 src_from=SrcProteinFrom.structure,
-                structure_format=StructureFormat.mmcif,
+                structure_format=self.structure_format,
                 min_res_n=self.min_res_n,
                 out_path=self.tmp_dir,
                 accelerator=self.accelerator,
