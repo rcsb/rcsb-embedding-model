@@ -49,6 +49,7 @@ class EsmProtFromStructure(IterableDataset):
             dtype=str,
             names=EsmProtFromStructure.COLUMNS
         )
+        self.data = self.data.sort_values(by=self.data.columns[0])
 
     def __iter__(self):
         # Handle multiple workers by splitting data across workers
