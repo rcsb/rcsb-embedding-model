@@ -53,7 +53,7 @@ def build_database(
         )] = False,
         accelerator: Annotated[Accelerator, typer.Option(
             help='Device used for inference.'
-        )] = Accelerator.auto,
+        )] = "auto",
         devices: Annotated[List[str], typer.Option(
             help='The devices to use. Can be set to a positive number or "auto". Repeat this argument to indicate multiple indices of devices. "auto" for automatic selection based on the chosen accelerator.'
         )] = tuple(['auto']),
