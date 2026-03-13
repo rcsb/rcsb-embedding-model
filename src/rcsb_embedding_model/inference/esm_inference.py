@@ -41,7 +41,10 @@ def predict(
         structure_format=structure_format,
         min_res_n=min_res_n
     )
-    logger.info(f"esm-inference set contains {len(inference_set)} samples")
+    if hasattr(inference_set, '__len__'):
+        logger.info(f"esm-inference set contains {len(inference_set)} samples")
+    else:
+        logger.info(f"esm-inference set running as iterator")
 
     inference_dataloader = DataLoader(
         dataset=inference_set,
