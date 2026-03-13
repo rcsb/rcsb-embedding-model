@@ -37,6 +37,15 @@ def collate_seq_embeddings(batch_list):
 
     return padded_batch, mask_batch
 
+def identity_collate(batch):
+    """Identity collate function for DataLoader."""
+    return batch
+
+def collate_embeddings(emb):
+    return (
+        collate_seq_embeddings([x for x, z in emb]),
+        tuple([z for x, z in emb])
+    )
 
 def stringio_from_url(url):
     return run_with_retries(
@@ -47,7 +56,6 @@ def stringio_from_url(url):
         backoff=2,
         exceptions=(RequestException, IOError)
     )
-
 
 def __stringio_from_url(url):
     try:

@@ -8,7 +8,7 @@ from rcsb_embedding_model.dataset.residue_embedding_from_tensor_file import Resi
 from rcsb_embedding_model.modules.chain_module import ChainModule
 from rcsb_embedding_model.types.api_types import Accelerator, Devices, Strategy, OptionalPath, FileOrStreamTuple, SrcLocation, \
     SrcTensorFrom, StructureFormat, OutFormat
-from rcsb_embedding_model.utils.data import collate_seq_embeddings
+from rcsb_embedding_model.utils.data import collate_seq_embeddings, collate_embeddings
 from rcsb_embedding_model.utils.model import get_aggregator_model
 from rcsb_embedding_model.writer.batch_writer import CsvBatchWriter, JsonStorage
 
@@ -50,10 +50,7 @@ def predict(
         dataset=inference_set,
         batch_size=batch_size,
         num_workers=num_workers,
-        collate_fn=lambda emb: (
-            collate_seq_embeddings([x for x, z in emb]),
-            tuple([z for x, z in emb])
-        )
+        collate_fn=collate_embeddings
     )
 
     logger.info(f"Loading rcsb-aggregator module")

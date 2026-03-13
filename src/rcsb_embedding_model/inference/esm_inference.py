@@ -8,6 +8,7 @@ from rcsb_embedding_model.dataset.esm_prot_from_chain import EsmProtFromChain
 from rcsb_embedding_model.modules.esm_module import EsmModule
 from rcsb_embedding_model.types.api_types import StructureFormat, Accelerator, Devices, Strategy, OptionalPath, \
     SrcProteinFrom, FileOrStreamTuple, SrcLocation, OutFormat
+from rcsb_embedding_model.utils.data import identity_collate
 from rcsb_embedding_model.utils.model import get_residue_model
 from rcsb_embedding_model.writer.batch_writer import TensorBatchWriter, JsonStorage
 
@@ -46,7 +47,7 @@ def predict(
         dataset=inference_set,
         batch_size=batch_size,
         num_workers=num_workers,
-        collate_fn=lambda _: _
+        collate_fn=identity_collate
     )
 
     logger.info(f"Loading rcsb-esm module")

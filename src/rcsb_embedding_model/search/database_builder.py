@@ -43,10 +43,10 @@ class EmbeddingDatabaseBuilder:
             file_extension: Optional[str] = None,
             devices='auto',
             batch_size_res=1,
-            num_workers_res=1,
+            num_workers_res=0,
             num_nodes_res=1,
             batch_size_chain=1,
-            num_workers_chain=1,
+            num_workers_chain=0,
             num_nodes_chain=1,
     ):
         """
@@ -119,10 +119,10 @@ class EmbeddingDatabaseBuilder:
             file_extension: Optional[str] = None,
             use_gpu_index: bool = False,
             batch_size_res=1,
-            num_workers_res=1,
+            num_workers_res=0,
             num_nodes_res=1,
             batch_size_chain=1,
-            num_workers_chain=1,
+            num_workers_chain=0,
             num_nodes_chain=1,
             devices='auto'
     ):
