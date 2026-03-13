@@ -6,7 +6,7 @@ from lightning import Trainer
 from rcsb_embedding_model.dataset.esm_prot_from_structure import EsmProtFromStructure
 from rcsb_embedding_model.dataset.esm_prot_from_chain import EsmProtFromChain
 from rcsb_embedding_model.modules.structure_module import StructureModule
-from rcsb_embedding_model.types.api_types import StructureFormat, Accelerator, Devices, OptionalPath, \
+from rcsb_embedding_model.types.api_types import StructureFormat, Accelerator, Devices, Strategy, OptionalPath, \
     SrcProteinFrom, FileOrStreamTuple, SrcLocation
 from rcsb_embedding_model.utils.model import get_residue_model, get_aggregator_model
 from rcsb_embedding_model.writer.batch_writer import JsonStorage
@@ -23,6 +23,7 @@ def predict(
         num_nodes: int = 1,
         accelerator: Accelerator = Accelerator.auto,
         devices: Devices = 'auto',
+        strategy: Strategy = 'auto',
         out_name: str = 'inference',
         out_path: OptionalPath = None
 ):
@@ -66,7 +67,7 @@ def predict(
         num_nodes=num_nodes,
         accelerator=accelerator,
         devices=devices,
-        strategy="ddp",
+        strategy=strategy,
         logger=False
     )
 

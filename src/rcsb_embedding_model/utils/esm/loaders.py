@@ -8,9 +8,21 @@ from esm.tokenization import TokenizerCollection, EsmSequenceTokenizer, Structur
 
 from huggingface_hub import  snapshot_download
 
+class DataRoot:
+    _instance = None
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+            cls._instance.path = Path(snapshot_download(repo_id="rcsb/rcsb-esm"))
+        return cls._instance
+
+    def get(self):
+        return self.path
+
+
 def data_root():
-    path = Path(snapshot_download(repo_id="rcsb/rcsb-esm"))
-    return path
+    return DataRoot().get()
 
 
 def structure_encoder(device: torch.device | str = "cpu"):

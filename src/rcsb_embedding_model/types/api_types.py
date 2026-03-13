@@ -30,6 +30,9 @@ class Accelerator(str, Enum):
     hpu = "hpu"
     auto = "auto"
 
+class Strategy(str, Enum):
+    ddp = "ddp"
+    auto = "auto"
 
 class SrcLocation(str, Enum):
     file = "file"

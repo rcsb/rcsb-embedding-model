@@ -3,10 +3,11 @@ import logging
 import torch
 import typer
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated, Optional, List
 
 from rcsb_embedding_model import __version__
-from rcsb_embedding_model.types.api_types import StructureFormat
+from rcsb_embedding_model.cli.args_utils import arg_devices
+from rcsb_embedding_model.types.api_types import StructureFormat, Accelerator
 from rcsb_embedding_model.search.database_builder import EmbeddingDatabaseBuilder
 from rcsb_embedding_model.search.structure_search import StructureSearch
 from rcsb_embedding_model.search.clustering import EmbeddingClusterer
@@ -35,6 +36,9 @@ def build_database(
         output_db: Annotated[str, typer.Option(
             help='Path to save the FAISS database'
         )],
+        tmp_dir: Annotated[str, typer.Option(
+            help='Temporal directory'
+        )],
         structure_format: Annotated[StructureFormat, typer.Option(
             help='Structure file format (mmcif, binarycif, or pdb)'
         )] = StructureFormat.mmcif,
@@ -44,15 +48,27 @@ def build_database(
         min_res: Annotated[int, typer.Option(
             help='Minimum residue length for chains'
         )] = 10,
-        max_res: Annotated[Optional[int], typer.Option(
-            help='Maximum residue length for structures (None for no limit)'
-        )] = None,
-        device: Annotated[str, typer.Option(
-            help='Device to use for embeddings (cuda, cpu, or auto)'
-        )] = "auto",
         use_gpu_index: Annotated[bool, typer.Option(
             help='Use GPU for FAISS index (requires faiss-gpu)'
-        )] = False
+        )] = False,
+        accelerator: Annotated[Accelerator, typer.Option(
+            help='Device used for inference.'
+        )] = Accelerator.auto,
+        devices: Annotated[List[str], typer.Option(
+            help='The devices to use. Can be set to a positive number or "auto". Repeat this argument to indicate multiple indices of devices. "auto" for automatic selection based on the chosen accelerator.'
+        )] = tuple(['auto']),
+        batch_size_res: Annotated[int, typer.Option(
+            help='Number of samples processed together in one iteration.'
+        )] = 1,
+        num_workers_res: Annotated[int, typer.Option(
+            help='Number of subprocesses to use for data loading.'
+        )] = 0,
+        batch_size_chain: Annotated[int, typer.Option(
+            help='Number of samples processed together in one iteration.'
+        )] = 1,
+        num_workers_chain: Annotated[int, typer.Option(
+            help='Number of subprocesses to use for data loading.'
+        )] = 0,
 ):
     """Build an embedding database from structure files."""
 
@@ -67,33 +83,33 @@ def build_database(
         index_name = "embeddings"
     if db_dir == Path('.'):
         db_dir = Path.cwd()  # Use current directory explicitly
+    output_db = str(db_dir / index_name)
 
-    # Determine device
-    if device == "auto":
-        torch_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    else:
-        torch_device = torch.device(device)
-
-    print(f"Using device for embeddings: {torch_device}")
+    logging.info(f"Using device for embeddings: {accelerator}")
     if use_gpu_index:
-        print("GPU acceleration for FAISS index: enabled")
+        logging.info("GPU acceleration for FAISS index: enabled")
 
     builder = EmbeddingDatabaseBuilder(
         structure_dir=structure_dir,
+        tmp_dir=tmp_dir,
         structure_format=structure_format,
         min_res=min_res,
-        max_res=max_res,
-        device=torch_device
+        accelerator=accelerator
     )
 
     builder.build_faiss_database(
         output_db=output_db,
+        devices=arg_devices(devices),
         file_extension=file_extension,
-        use_gpu_index=use_gpu_index
+        use_gpu_index=use_gpu_index,
+        batch_size_res=batch_size_res,
+        num_workers_res=num_workers_res,
+        batch_size_chain=batch_size_chain,
+        num_workers_chain=num_workers_chain
     )
 
-    print(f"\nYou can now search this database using:")
-    print(f"  search query --db-path {output_db} --query-structure <path_to_structure>")
+    logging.info(f"You can now search this database using:")
+    logging.info(f"   search query --db-path {output_db} --query-structure <path_to_structure>")
 
 
 @app.command(
@@ -146,12 +162,12 @@ def query_database(
     else:
         torch_device = torch.device(device)
 
-    print(f"Using device for embeddings: {torch_device}")
+    logging.info(f"Using device for embeddings: {torch_device}")
     if use_gpu_index:
-        print("GPU acceleration for FAISS search: enabled")
+        logging.info("GPU acceleration for FAISS search: enabled")
 
     # Initialize search
-    print("\nLoading database...")
+    logging.info("\nLoading database...")
     searcher = StructureSearch(
         db_path=str(db_dir),
         index_name=index_name,
@@ -163,10 +179,10 @@ def query_database(
 
     # Display database statistics
     stats = searcher.get_db_statistics()
-    print(f"Database contains {stats['total_chains']} chains")
+    logging.info(f"Database contains {stats['total_chains']} chains")
 
     # Perform search
-    print("\nPerforming search...")
+    logging.info("\nPerforming search...")
     results = searcher.search_by_structure(
         query_structure=query_structure,
         structure_format=structure_format,
@@ -216,10 +232,10 @@ def query_database_with_database(
     subject_db_dir, subject_index_name = _parse_database_path(subject_db_path)
 
     if use_gpu_index:
-        print("GPU acceleration for FAISS search: enabled")
+        logging.info("GPU acceleration for FAISS search: enabled")
 
     # Load subject database
-    print("\nLoading subject database...")
+    logging.info("\nLoading subject database...")
     searcher = StructureSearch(
         db_path=str(subject_db_dir),
         index_name=subject_index_name,
@@ -228,10 +244,10 @@ def query_database_with_database(
 
     # Display database statistics
     subject_stats = searcher.get_db_statistics()
-    print(f"Subject database contains {subject_stats['total_chains']} chains")
+    logging.info(f"Subject database contains {subject_stats['total_chains']} chains")
 
     # Perform database-to-database search
-    print("Performing search...")
+    logging.info("Performing search...")
     results = searcher.search_by_database(
         query_db_path=str(query_db_dir),
         query_index_name=query_index_name,
@@ -265,17 +281,16 @@ def show_statistics(
     searcher = StructureSearch(db_path=str(db_dir), index_name=index_name)
     stats = searcher.get_db_statistics()
 
-    print("\n" + "="*80)
-    print("DATABASE STATISTICS")
-    print("="*80)
-    print(f"Database path:    {stats['db_path']}")
-    print(f"Index name:       {stats['index_name']}")
-    print(f"Index type:       {stats['index_type']}")
-    print(f"Dimension:        {stats['dimension']}")
-    print(f"Total chains:     {stats['total_chains']}")
-    print(f"On GPU:           {stats['on_gpu']}")
-    print(f"GPU available:    {stats['gpu_available']}")
-    print("="*80 + "\n")
+    logging.info("DATABASE STATISTICS")
+    logging.info("="*80)
+    logging.info(f"Database path:    {stats['db_path']}")
+    logging.info(f"Index name:       {stats['index_name']}")
+    logging.info(f"Index type:       {stats['index_type']}")
+    logging.info(f"Dimension:        {stats['dimension']}")
+    logging.info(f"Total chains:     {stats['total_chains']}")
+    logging.info(f"On GPU:           {stats['on_gpu']}")
+    logging.info(f"GPU available:    {stats['gpu_available']}")
+    logging.info("="*80 + "\n")
 
 
 @app.command(
@@ -314,10 +329,10 @@ def cluster_database(
     db_dir, index_name = _parse_database_path(db_path)
 
     if use_gpu_index:
-        print("GPU acceleration for FAISS operations: enabled")
+        logging.info("GPU acceleration for FAISS operations: enabled")
 
     # Initialize clusterer
-    print("Initializing clusterer...")
+    logging.info("Initializing clusterer...")
     clusterer = EmbeddingClusterer(db_path=str(db_dir), index_name=index_name)
     clusterer.load_database(use_gpu=use_gpu_index)
 
@@ -388,7 +403,7 @@ def _filter_results_by_threshold(results, threshold: float | None):
     if threshold is None:
         return results
 
-    print(f"Filtering results with similarity score threshold >= {threshold}")
+    logging.info(f"Filtering results with similarity score threshold >= {threshold}")
     filtered_results = {}
     total_before = sum(len(ids) for ids, _ in results.values())
     for query_chain, (chain_ids, scores) in results.items():
@@ -399,7 +414,7 @@ def _filter_results_by_threshold(results, threshold: float | None):
         else:
             filtered_results[query_chain] = ([], [])
     total_after = sum(len(ids) for ids, _ in filtered_results.values())
-    print(f"Filtered from {total_before} to {total_after} results")
+    logging.info(f"Filtered from {total_before} to {total_after} results")
     return filtered_results
 
 

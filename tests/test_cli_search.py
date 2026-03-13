@@ -3,7 +3,7 @@ import shutil
 import unittest
 import tempfile
 
-from rcsb_embedding_model.types.api_types import StructureFormat
+from rcsb_embedding_model.types.api_types import StructureFormat, Accelerator
 
 
 class TestCliSearch(unittest.TestCase):
@@ -36,11 +36,11 @@ class TestCliSearch(unittest.TestCase):
         build_database(
             structure_dir=structure_dir,
             output_db=self.__db_path,
+            tmp_dir=self.__temp_dir,
             structure_format=StructureFormat.mmcif,
             file_extension=".cif",
             min_res=10,
-            max_res=None,
-            device="cpu",
+            accelerator='cpu',
             use_gpu_index=False
         )
 
@@ -151,13 +151,14 @@ class TestCliSearch(unittest.TestCase):
         builder = EmbeddingDatabaseBuilder(
             structure_dir=structure_dir,
             structure_format=StructureFormat.mmcif,
+            tmp_dir=self.__temp_dir,
             min_res=10,
-            max_res=None,
-            device="cpu"
+            accelerator="cpu"
         )
 
         builder.build_faiss_database(
             output_db=output_db,
+            devices='auto',
             file_extension=".cif",
             use_gpu_index=False
         )
