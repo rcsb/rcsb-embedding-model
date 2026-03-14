@@ -77,7 +77,6 @@ class EmbeddingDatabaseBuilder:
             raise ValueError(f"No structure files found with extension {file_extension} in {self.structure_dir}")
 
         with warnings.catch_warnings():
-            warnings.filterwarnings("ignore", category=UserWarning, module="biotite")
             warnings.filterwarnings("ignore", category=FutureWarning, module="esm")
             warnings.filterwarnings("ignore", category=UserWarning, module="esm")
             esm_predict(
