@@ -1,6 +1,7 @@
 import logging
 import torch
 import warnings
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -156,6 +157,7 @@ class EmbeddingDatabaseBuilder:
 
         db = FaissEmbeddingDatabase(db_path=str(db_dir), index_name=index_name)
 
+        start_time = time.time()
         chain_ids, embeddings = self.build_embeddings(
                 file_extension=file_extension,
                 devices=devices,
@@ -166,7 +168,13 @@ class EmbeddingDatabaseBuilder:
                 num_workers_chain=num_workers_chain,
                 num_nodes_chain=num_nodes_chain,
         )
+        embeddings_time = time.time() - start_time
+        logging.info(f"Creating embeddings took {embeddings_time:.2f} seconds")
+
+        start_time = time.time()
         db.create_database(chain_ids=chain_ids, embeddings=embeddings, use_gpu=use_gpu_index)
+        database_time = time.time() - start_time
+        logging.info(f"Creating database took {database_time:.2f} seconds")
 
         logging.info("Batch database build complete!")
         logging.info(f"Database location: {output_db}")
