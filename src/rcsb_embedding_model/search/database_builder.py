@@ -169,12 +169,12 @@ class EmbeddingDatabaseBuilder:
                 num_nodes_chain=num_nodes_chain,
         )
         embeddings_time = time.time() - start_time
-        logging.info(f"Creating embeddings took {embeddings_time:.2f} seconds")
+        logging.info(f"Creating embeddings completed in {embeddings_time:.2f} seconds")
 
         start_time = time.time()
         db.create_database(chain_ids=chain_ids, embeddings=embeddings, use_gpu=use_gpu_index)
         database_time = time.time() - start_time
-        logging.info(f"Creating database took {database_time:.2f} seconds")
+        logging.info(f"Creating database completed in {database_time:.2f} seconds")
 
         logging.info("Batch database build complete!")
         logging.info(f"Database location: {output_db}")
