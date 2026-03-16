@@ -7,7 +7,7 @@ from typing import Annotated, Optional, List
 
 from rcsb_embedding_model import __version__
 from rcsb_embedding_model.cli.args_utils import arg_devices
-from rcsb_embedding_model.types.api_types import StructureFormat, Accelerator
+from rcsb_embedding_model.types.api_types import StructureFormat, Accelerator, Strategy
 from rcsb_embedding_model.search.database_builder import EmbeddingDatabaseBuilder
 from rcsb_embedding_model.search.structure_search import StructureSearch
 from rcsb_embedding_model.search.clustering import EmbeddingClusterer
@@ -57,6 +57,9 @@ def build_database(
         devices: Annotated[List[str], typer.Option(
             help='The devices to use. Can be set to a positive number or "auto". Repeat this argument to indicate multiple indices of devices. "auto" for automatic selection based on the chosen accelerator.'
         )] = tuple(['auto']),
+        strategy: Annotated[Strategy, typer.Option(
+            help='Lightning strategy to control distribution of inference.'
+        )] = 'auto',
         batch_size_res: Annotated[int, typer.Option(
             help='Number of samples processed together in one iteration.'
         )] = 1,
