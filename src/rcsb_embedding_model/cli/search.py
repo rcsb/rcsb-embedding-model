@@ -119,9 +119,10 @@ def build_database(
         num_workers_chain=num_workers_chain,
         num_nodes_chain=num_nodes_chain
     )
-
-    logging.info(f"You can now search this database using:")
-    logging.info(f"   search query --db-path {output_db} --query-structure <path_to_structure>")
+    import torch.distributed as dist
+    if not (dist.is_available() and dist.is_initialized()) or dist.get_rank() == 0:
+        logging.info(f"You can now search this database using:")
+        logging.info(f"   search query --db-path {output_db} --query-structure <path_to_structure>")
 
 
 @app.command(
