@@ -81,7 +81,8 @@ class RcsbStructureEmbedding:
     def residue_embedding_by_chain(
             self,
             src_structure: StreamSrc,
-            structure_format: StructureFormat = StructureFormat.mmcif
+            structure_format: StructureFormat = StructureFormat.mmcif,
+            chain_id: str = None
     ):
         self.__check_residue_embedding()
         structure = get_structure_from_src(src_structure, structure_format)
@@ -95,6 +96,9 @@ class RcsbStructureEmbedding:
             if len(atom_res) == 0 or len(get_residues(atom_res)[0]) < self.min_res:
                 continue
             chain_id_value = atom_ch.chain_id[0]
+            # Skip chains that don't match the requested chain_id (if specified)
+            if chain_id is not None and chain_id_value != chain_id:
+                continue
             protein_chain = ProteinChain.from_atomarray(atom_ch)
             protein = ESMProtein.from_protein_chain(protein_chain)
             protein_tensor = self.__residue_embedding.encode(protein)

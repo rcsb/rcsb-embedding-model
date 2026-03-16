@@ -6,9 +6,9 @@ from lightning import Trainer
 from rcsb_embedding_model.dataset.residue_embedding_from_structure import ResidueEmbeddingFromStructure
 from rcsb_embedding_model.dataset.residue_embedding_from_tensor_file import ResidueEmbeddingFromTensorFile
 from rcsb_embedding_model.modules.chain_module import ChainModule
-from rcsb_embedding_model.types.api_types import Accelerator, Devices, OptionalPath, FileOrStreamTuple, SrcLocation, \
+from rcsb_embedding_model.types.api_types import Accelerator, Devices, Strategy, OptionalPath, FileOrStreamTuple, SrcLocation, \
     SrcTensorFrom, StructureFormat, OutFormat
-from rcsb_embedding_model.utils.data import collate_seq_embeddings
+from rcsb_embedding_model.utils.data import collate_seq_embeddings, collate_embeddings
 from rcsb_embedding_model.utils.model import get_aggregator_model
 from rcsb_embedding_model.writer.batch_writer import CsvBatchWriter, JsonStorage
 
@@ -23,8 +23,9 @@ def predict(
         batch_size: int = 1,
         num_workers: int = 0,
         num_nodes: int = 1,
-        accelerator: Accelerator = Accelerator.auto,
+        accelerator: Accelerator = 'auto',
         devices: Devices = 'auto',
+        strategy: Strategy = 'auto',
         out_format: OutFormat = OutFormat.separated,
         out_name: str = 'inference',
         out_path: OptionalPath = None,
@@ -49,10 +50,7 @@ def predict(
         dataset=inference_set,
         batch_size=batch_size,
         num_workers=num_workers,
-        collate_fn=lambda emb: (
-            collate_seq_embeddings([x for x, z in emb]),
-            tuple([z for x, z in emb])
-        )
+        collate_fn=collate_embeddings
     )
 
     logger.info(f"Loading rcsb-aggregator module")
@@ -70,7 +68,7 @@ def predict(
         num_nodes=num_nodes,
         accelerator=accelerator,
         devices=devices,
-        strategy="ddp",
+        strategy=strategy,
         logger=False
     )
 

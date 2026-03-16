@@ -6,8 +6,9 @@ from lightning import Trainer
 from rcsb_embedding_model.dataset.esm_prot_from_structure import EsmProtFromStructure
 from rcsb_embedding_model.dataset.esm_prot_from_chain import EsmProtFromChain
 from rcsb_embedding_model.modules.esm_module import EsmModule
-from rcsb_embedding_model.types.api_types import StructureFormat, Accelerator, Devices, OptionalPath, \
+from rcsb_embedding_model.types.api_types import StructureFormat, Accelerator, Devices, Strategy, OptionalPath, \
     SrcProteinFrom, FileOrStreamTuple, SrcLocation, OutFormat
+from rcsb_embedding_model.utils.data import identity_collate
 from rcsb_embedding_model.utils.model import get_residue_model
 from rcsb_embedding_model.writer.batch_writer import TensorBatchWriter, JsonStorage
 
@@ -21,8 +22,9 @@ def predict(
         batch_size: int = 1,
         num_workers: int = 0,
         num_nodes: int = 1,
-        accelerator: Accelerator = Accelerator.auto,
+        accelerator: Accelerator = 'auto',
         devices: Devices = 'auto',
+        strategy: Strategy = 'auto',
         out_format: OutFormat = OutFormat.separated,
         out_name: str = 'inference',
         out_path: OptionalPath = None
@@ -39,13 +41,16 @@ def predict(
         structure_format=structure_format,
         min_res_n=min_res_n
     )
-    logger.info(f"esm-inference set contains {len(inference_set)} samples")
+    if hasattr(inference_set, '__len__'):
+        logger.info(f"esm-inference set contains {len(inference_set)} samples")
+    else:
+        logger.info(f"esm-inference set running as iterator")
 
     inference_dataloader = DataLoader(
         dataset=inference_set,
         batch_size=batch_size,
         num_workers=num_workers,
-        collate_fn=lambda _: _
+        collate_fn=identity_collate
     )
 
     logger.info(f"Loading rcsb-esm module")
@@ -63,7 +68,7 @@ def predict(
         num_nodes=num_nodes,
         accelerator=accelerator,
         devices=devices,
-        strategy="ddp",
+        strategy=strategy,
         logger=False
     )
 

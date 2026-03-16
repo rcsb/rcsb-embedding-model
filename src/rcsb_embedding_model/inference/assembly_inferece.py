@@ -3,7 +3,7 @@ import sys
 
 from rcsb_embedding_model.dataset.resdiue_assembly_embedding_from_structure import ResidueAssemblyDatasetFromStructure
 from rcsb_embedding_model.dataset.residue_assembly_embedding_from_tensor_file import ResidueAssemblyEmbeddingFromTensorFile
-from rcsb_embedding_model.types.api_types import FileOrStreamTuple, SrcLocation, Accelerator, Devices, OptionalPath, \
+from rcsb_embedding_model.types.api_types import FileOrStreamTuple, SrcLocation, Accelerator, Devices, Strategy, OptionalPath, \
     EmbeddingPath, StructureFormat, SrcAssemblyFrom, OutFormat
 from rcsb_embedding_model.inference.chain_inference import predict as chain_predict
 
@@ -19,8 +19,9 @@ def predict(
         batch_size: int = 1,
         num_workers: int = 0,
         num_nodes: int = 1,
-        accelerator: Accelerator = Accelerator.auto,
+        accelerator: Accelerator = 'auto',
         devices: Devices = 'auto',
+        strategy: Strategy = 'auto',
         out_format: OutFormat = OutFormat.separated,
         out_name: str = 'inference',
         out_path: OptionalPath = None
@@ -53,6 +54,7 @@ def predict(
         num_nodes=num_nodes,
         accelerator=accelerator,
         devices=devices,
+        strategy=strategy,
         out_format=out_format,
         out_name=out_name,
         out_path=out_path,

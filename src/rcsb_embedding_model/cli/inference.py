@@ -1,4 +1,6 @@
+import os
 import sys
+import logging
 import typer
 
 from typing import Annotated, List
@@ -6,11 +8,15 @@ from typing import Annotated, List
 from rcsb_embedding_model import __version__
 from rcsb_embedding_model.cli.args_utils import arg_devices
 from rcsb_embedding_model.types.api_types import StructureFormat, Accelerator, SrcLocation, SrcProteinFrom, \
-    SrcAssemblyFrom, SrcTensorFrom, OutFormat
+    SrcAssemblyFrom, SrcTensorFrom, OutFormat, Strategy
 from rcsb_embedding_model.utils.data import adapt_csv_to_embedding_chain_stream
 
-import os
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 
 app = typer.Typer(
     add_completion=False
@@ -59,10 +65,13 @@ def residue_embedding(
         )] = 1,
         accelerator: Annotated[Accelerator, typer.Option(
             help='Device used for inference.'
-        )] = Accelerator.auto,
+        )] = 'auto',
         devices: Annotated[List[str], typer.Option(
             help='The devices to use. Can be set to a positive number or "auto". Repeat this argument to indicate multiple indices of devices. "auto" for automatic selection based on the chosen accelerator.'
-        )] = tuple(['auto'])
+        )] = tuple(['auto']),
+        strategy: Annotated[Strategy, typer.Option(
+            help='Lightning strategy to control distribution of inference.'
+        )] = 'auto'
 ):
     from rcsb_embedding_model.inference.esm_inference import predict
     predict(
@@ -78,7 +87,8 @@ def residue_embedding(
         devices=arg_devices(devices),
         out_format=output_format,
         out_name=output_name,
-        out_path=output_path
+        out_path=output_path,
+        strategy=strategy
     )
 
 
@@ -121,10 +131,13 @@ def structure_embedding(
         )] = 1,
         accelerator: Annotated[Accelerator, typer.Option(
             help='Device used for inference.'
-        )] = Accelerator.auto,
+        )] = 'auto',
         devices: Annotated[List[str], typer.Option(
             help='The devices to use. Can be set to a positive number or "auto". Repeat this argument to indicate multiple indices of devices. "auto" for automatic selection based on the chosen accelerator.'
-        )] = tuple(['auto'])
+        )] = tuple(['auto']),
+        strategy: Annotated[Strategy, typer.Option(
+            help='Lightning strategy to control distribution of inference.'
+        )] = 'auto'
 ):
     from rcsb_embedding_model.inference.structure_inference import predict
     predict(
@@ -139,7 +152,8 @@ def structure_embedding(
         accelerator=accelerator,
         devices=arg_devices(devices),
         out_path=output_path,
-        out_name=output_name
+        out_name=output_name,
+        strategy=strategy
     )
 
 
@@ -192,10 +206,13 @@ def chain_embedding(
         )] = 1,
         accelerator: Annotated[Accelerator, typer.Option(
             help='Device used for inference.'
-        )] = Accelerator.auto,
+        )] = 'auto',
         devices: Annotated[List[str], typer.Option(
             help='The devices to use. Can be set to a positive number or "auto". Repeat this argument to indicate multiple indices of devices. "auto" for automatic selection based on the chosen accelerator.'
-        )] = tuple(['auto'])
+        )] = tuple(['auto']),
+        strategy: Annotated[Strategy, typer.Option(
+            help='Lightning strategy to control distribution of inference.'
+        )] = 'auto'
 ):
     from rcsb_embedding_model.inference.chain_inference import predict
     predict(
@@ -212,7 +229,8 @@ def chain_embedding(
         devices=arg_devices(devices),
         out_path=output_path,
         out_format=output_format,
-        out_name=output_name
+        out_name=output_name,
+        strategy=strategy
     )
 
 @app.command(
@@ -267,10 +285,13 @@ def assembly_embedding(
         )] = 1,
         accelerator: Annotated[Accelerator, typer.Option(
             help='Device used for inference.'
-        )] = Accelerator.auto,
+        )] = 'auto',
         devices: Annotated[List[str], typer.Option(
             help='The devices to use. Can be set to a positive number or "auto". Repeat this argument to indicate multiple indices of devices. "auto" for automatic selection based on the chosen accelerator.'
-        )] = tuple(['auto'])
+        )] = tuple(['auto']),
+        strategy: Annotated[Strategy, typer.Option(
+            help='Lightning strategy to control distribution of inference.'
+        )] = 'auto'
 ):
     from rcsb_embedding_model.inference.assembly_inferece import predict
     predict(
@@ -288,7 +309,8 @@ def assembly_embedding(
         devices=arg_devices(devices),
         out_path=output_path,
         out_format=output_format,
-        out_name=output_name
+        out_name=output_name,
+        strategy=strategy
     )
 
 @app.command(
@@ -372,10 +394,13 @@ def complete_embedding(
         )] = 1,
         accelerator: Annotated[Accelerator, typer.Option(
             help='Device used for inference.'
-        )] = Accelerator.auto,
+        )] = 'auto',
         devices: Annotated[List[str], typer.Option(
             help='The devices to use. Can be set to a positive number or "auto". Repeat this argument to indicate multiple indices of devices. "auto" for automatic selection based on the chosen accelerator.'
-        )] = tuple(['auto'])
+        )] = tuple(['auto']),
+        strategy: Annotated[Strategy, typer.Option(
+            help='Lightning strategy to control distribution of inference.'
+        )] = 'auto'
 ):
     residue_embedding(
         src_file=src_chain_file,
@@ -388,6 +413,7 @@ def complete_embedding(
         num_nodes=num_nodes,
         accelerator=accelerator,
         devices=devices,
+        strategy=strategy
     )
     chain_embedding(
         src_file=src_chain_file,
@@ -401,7 +427,8 @@ def complete_embedding(
         num_workers=num_workers_chain,
         num_nodes=num_nodes,
         accelerator=accelerator,
-        devices=devices
+        devices=devices,
+        strategy=strategy
     )
     assembly_embedding(
         src_file=src_assembly_file,
@@ -416,7 +443,8 @@ def complete_embedding(
         num_workers=num_workers_assembly,
         num_nodes=num_nodes,
         accelerator=accelerator,
-        devices=devices
+        devices=devices,
+        strategy=strategy
     )
 
 @app.command(
