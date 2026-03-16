@@ -6,37 +6,39 @@ authors = [
 ]
 description = "Protein Embedding Model for Structure Search"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 classifiers = [
     "Programming Language :: Python :: 3",
     "Operating System :: OS Independent",
 ]
 license = {file = "LICENSE.md"}
-license-files = ["LICEN[CS]E*"]
+
 dependencies=[
-    "importlib-metadata >= 8.7.0",
-    "esm >= 3.2.0",
-    "biotite >= 1.5.0",
-    "lightning >= 2.5.0",
-    "typer >= 0.15.0",
-    "hf-xet >= 1.1.10",
-    "huggingface-hub >= 0.30.2",
-    "httpx >= 0.28.1",
-    "faiss-cpu >= 1.7.0",
-    "igraph >= 0.11.0",
-    "leidenalg >= 0.10.0"
+    "importlib-metadata==8.7.1",
+    "esm==3.2.3",
+    "biotite==1.6.0",
+    "lightning==2.6.1",
+    "typer==0.24.1",
+    "hf-xet==1.4.2",
+    "huggingface-hub==0.36.2",
+    "httpx==0.28.1",
+    "faiss-cpu==1.13.2",
+    "igraph==1.0.0",
+    "leidenalg==0.11.0"
 ]
 
 [project.urls]
 Homepage = "https://github.com/rcsb/rcsb-embedding-model"
 Issues = "https://github.com/rcsb/rcsb-embedding-model/issues"
 
-[build-system]
-requires = [
-    "hatchling >= 1.14.1"
+[dependency-groups]
+dev = [
+    "pytest==9.0.2",
 ]
 
-build-backend = "hatchling.build"
+[build-system]
+requires = ["uv_build>=0.10.9,<0.11.0"]
+build-backend = "uv_build"
 
 [project.scripts]
 inference = "rcsb_embedding_model.cli.inference:app"
