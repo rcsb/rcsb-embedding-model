@@ -101,19 +101,21 @@ class EmbeddingDatabaseBuilder:
             )
 
         esm_embedding_files = list(self.tmp_dir.glob(f"*pt"))
-        chain_embeddings = chain_predict(
-            src_stream=[
-                (esm_file, esm_file.stem)
-                for esm_file in esm_embedding_files
-            ],
-            src_location=SrcLocation.stream,
-            accelerator=self.accelerator,
-            batch_size=batch_size_chain,
-            num_workers=num_workers_chain,
-            num_nodes=num_nodes_chain,
-            devices=devices,
-            strategy=strategy
-        )
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=UserWarning, module="torch")
+            chain_embeddings = chain_predict(
+                src_stream=[
+                    (esm_file, esm_file.stem)
+                    for esm_file in esm_embedding_files
+                ],
+                src_location=SrcLocation.stream,
+                accelerator=self.accelerator,
+                batch_size=batch_size_chain,
+                num_workers=num_workers_chain,
+                num_nodes=num_nodes_chain,
+                devices=devices,
+                strategy=strategy
+            )
         return ([ch_id for _, chain_ids in chain_embeddings for ch_id in chain_ids],
                 [embedding for embedding_tensor, _ in chain_embeddings for embedding in torch.split(embedding_tensor, 1, dim=0)])
 
