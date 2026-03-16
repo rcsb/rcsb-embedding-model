@@ -177,14 +177,40 @@ class EmbeddingDatabaseBuilder:
         embeddings_time = time.time() - start_time
         logging.info(f"Creating embeddings completed in {embeddings_time:.2f} seconds")
 
-        start_time = time.time()
-        db.create_database(chain_ids=chain_ids, embeddings=embeddings, use_gpu=use_gpu_index)
-        database_time = time.time() - start_time
-        logging.info(f"Creating database completed in {database_time:.2f} seconds")
+        # Gather embeddings from all processes when using DDP
+        import torch.distributed as dist
+        is_distributed = dist.is_available() and dist.is_initialized()
 
-        logging.info("Batch database build complete!")
-        logging.info(f"Database location: {output_db}")
-        logging.info(f"Total chains: {len(db.chain_ids)}")
+        if is_distributed:
+            # Gather all chain_ids and embeddings from all ranks to rank 0
+            rank = dist.get_rank()
+            world_size = dist.get_world_size()
+
+            # Gather chain_ids (list of strings)
+            gathered_chain_ids = [None] * world_size if rank == 0 else None
+            dist.gather_object(chain_ids, gathered_chain_ids if rank == 0 else None, dst=0)
+
+            # Gather embeddings (list of tensors)
+            gathered_embeddings = [None] * world_size if rank == 0 else None
+            dist.gather_object(embeddings, gathered_embeddings if rank == 0 else None, dst=0)
+
+            if rank == 0:
+                # Flatten the gathered lists
+                chain_ids = [cid for rank_chain_ids in gathered_chain_ids for cid in rank_chain_ids]
+                embeddings = [emb for rank_embeddings in gathered_embeddings for emb in rank_embeddings]
+
+        # Only create database on rank 0 process
+        is_rank_zero = not is_distributed or dist.get_rank() == 0
+
+        if is_rank_zero:
+            start_time = time.time()
+            db.create_database(chain_ids=chain_ids, embeddings=embeddings, use_gpu=use_gpu_index)
+            database_time = time.time() - start_time
+            logging.info(f"Creating database completed in {database_time:.2f} seconds")
+
+            logging.info("Batch database build complete!")
+            logging.info(f"Database location: {output_db}")
+            logging.info(f"Total chains: {len(db.chain_ids)}")
 
         del chain_ids, embeddings
         if torch.cuda.is_available():
