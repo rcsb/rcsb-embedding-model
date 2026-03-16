@@ -43,6 +43,7 @@ class EmbeddingDatabaseBuilder:
             self,
             file_extension: Optional[str] = None,
             devices='auto',
+            strategy='auto',
             batch_size_res=1,
             num_workers_res=0,
             num_nodes_res=1,
@@ -56,6 +57,7 @@ class EmbeddingDatabaseBuilder:
         Args:
             file_extension: File extension filter (e.g., '.cif', '.pdb'). If None, uses structure_format default
             devices: Number of devices to use for inference
+            strategy: Lightning strategy to control distribution of inference
             batch_size_res: Number of chains to process residue embeddings per batch
             num_workers_res: Number of subprocesses to use for residue embedding data loading
             num_nodes_res: Number of nodes to use for residue embedding inference
@@ -94,7 +96,8 @@ class EmbeddingDatabaseBuilder:
                 batch_size=batch_size_res,
                 num_workers=num_workers_res,
                 num_nodes=num_nodes_res,
-                devices=devices
+                devices=devices,
+                strategy=strategy
             )
 
         esm_embedding_files = list(self.tmp_dir.glob(f"*pt"))
@@ -108,7 +111,8 @@ class EmbeddingDatabaseBuilder:
             batch_size=batch_size_chain,
             num_workers=num_workers_chain,
             num_nodes=num_nodes_chain,
-            devices=devices
+            devices=devices,
+            strategy=strategy
         )
         return ([ch_id for _, chain_ids in chain_embeddings for ch_id in chain_ids],
                 [embedding for embedding_tensor, _ in chain_embeddings for embedding in torch.split(embedding_tensor, 1, dim=0)])
@@ -124,7 +128,8 @@ class EmbeddingDatabaseBuilder:
             batch_size_chain=1,
             num_workers_chain=0,
             num_nodes_chain=1,
-            devices='auto'
+            devices='auto',
+            strategy='auto'
     ):
         """
         Build a FAISS database from structure files in batches.
@@ -136,11 +141,11 @@ class EmbeddingDatabaseBuilder:
             batch_size_res: Number of chains to process residue embeddings per batch
             num_workers_res: Number of subprocesses to use for residue embedding data loading
             num_nodes_res: Number of nodes to use for residue embedding inference
-            num_devices_res: Number of devices to use for residue embedding inference
             batch_size_chain: Number of chains to process chain embeddings per batch
             num_workers_chain: Number of subprocesses to use for chain embedding data loading
             num_nodes_chain: Number of nodes to use for chain embedding inference
-            num_devices_chain: Number of devices to use for chain embedding inference
+            devices: Number of devices to use for inference
+            strategy: Lightning strategy to control distribution of inference
         """
         # Parse output_db into directory and prefix
         output_db_path = Path(output_db)
@@ -161,6 +166,7 @@ class EmbeddingDatabaseBuilder:
         chain_ids, embeddings = self.build_embeddings(
                 file_extension=file_extension,
                 devices=devices,
+                strategy=strategy,
                 batch_size_res=batch_size_res,
                 num_workers_res=num_workers_res,
                 num_nodes_res=num_nodes_res,

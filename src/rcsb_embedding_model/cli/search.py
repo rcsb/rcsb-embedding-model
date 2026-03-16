@@ -109,6 +109,7 @@ def build_database(
     builder.build_faiss_database(
         output_db=output_db,
         devices=arg_devices(devices),
+        strategy=strategy,
         file_extension=file_extension,
         use_gpu_index=use_gpu_index,
         batch_size_res=batch_size_res,
