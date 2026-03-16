@@ -40,7 +40,7 @@ def predict(
         structure_format=structure_format,
         min_res_n=min_res_n
     )
-    logger.info(f"structure-inference set contains {len(inference_set)} samples")
+    logger.info(f"structure-inference set running as iterator")
 
     inference_dataloader = DataLoader(
         dataset=inference_set,
