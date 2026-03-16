@@ -1,5 +1,7 @@
+import logging
 
 import pandas as pd
+import torch
 from biotite.structure import chain_iter
 from esm.sdk.api import ESMProtein
 from esm.utils.structure.protein_chain import ProteinChain
@@ -11,6 +13,7 @@ from rcsb_embedding_model.utils.data import stringio_from_url
 from rcsb_embedding_model.utils.structure_parser import get_protein_chains, rename_atom_attr, filter_residues
 from rcsb_embedding_model.utils.structure_provider import StructureProvider
 
+logger = logging.getLogger(__name__)
 
 class EsmProtFromStructure(IterableDataset):
 
@@ -53,16 +56,35 @@ class EsmProtFromStructure(IterableDataset):
     def __iter__(self):
         # Handle multiple workers by splitting data across workers
         worker_info = get_worker_info()
-        if worker_info is None:
-            # Single-process data loading, return the full iterator
-            iter_data = self.data
+
+        # Get distributed info
+        if torch.distributed.is_available() and torch.distributed.is_initialized():
+            rank = torch.distributed.get_rank()
+            world_size = torch.distributed.get_world_size()
         else:
-            # In a worker process, split workload
-            per_worker = int(len(self.data) / worker_info.num_workers)
+            rank = 0
+            world_size = 1
+
+        if worker_info is None:
+            # Single worker: just handle DDP split
+            per_rank = int(len(self.data) / world_size)
+            iter_start = rank * per_rank
+            iter_end = iter_start + per_rank if rank < world_size - 1 else len(self.data)
+            iter_data = self.data.iloc[iter_start:iter_end]
+            logging.info(f"GPU {rank} processing {iter_start}:{iter_end} structures")
+        else:
+            # Multiple workers: split by rank first, then by worker
+            per_rank = int(len(self.data) / world_size)
+            rank_start = rank * per_rank
+            rank_end = rank_start + per_rank if rank < world_size - 1 else len(self.data)
+            rank_data = self.data.iloc[rank_start:rank_end]
+
+            per_worker = int(len(rank_data) / worker_info.num_workers)
             worker_id = worker_info.id
             iter_start = worker_id * per_worker
-            iter_end = iter_start + per_worker if worker_id < worker_info.num_workers - 1 else len(self.data)
-            iter_data = self.data.iloc[iter_start:iter_end]
+            iter_end = iter_start + per_worker if worker_id < worker_info.num_workers - 1 else len(rank_data)
+            iter_data = rank_data.iloc[iter_start:iter_end]
+            logging.info(f"GPU {rank} processing {rank_start}:{rank_end} worker {worker_id} processing {iter_start}:{iter_end} structures")
 
         # Iterate through structures and yield chains
         for idx, row in iter_data.iterrows():
