@@ -19,7 +19,7 @@ def predict(
         batch_size: int = 1,
         num_workers: int = 0,
         num_nodes: int = 1,
-        accelerator: Accelerator = Accelerator.auto,
+        accelerator: Accelerator = 'auto',
         devices: Devices = 'auto',
         strategy: Strategy = 'auto',
         out_format: OutFormat = OutFormat.separated,
