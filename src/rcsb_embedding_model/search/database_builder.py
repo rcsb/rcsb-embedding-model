@@ -7,7 +7,8 @@ from typing import Optional
 
 from rcsb_embedding_model.inference.esm_inference import predict as esm_predict
 from rcsb_embedding_model.inference.chain_inference import predict as chain_predict
-from rcsb_embedding_model.types.api_types import StructureFormat, SrcLocation, SrcProteinFrom, Accelerator
+from rcsb_embedding_model.inference.assembly_inferece import predict as assembly_predict
+from rcsb_embedding_model.types.api_types import StructureFormat, SrcLocation, SrcProteinFrom, Accelerator, Granularity, SrcAssemblyFrom
 from rcsb_embedding_model.search.faiss_database import FaissEmbeddingDatabase
 
 logger = logging.getLogger(__name__)
@@ -42,6 +43,7 @@ class EmbeddingDatabaseBuilder:
     def build_embeddings(
             self,
             file_extension: Optional[str] = None,
+            granularity: Granularity = 'chain',
             devices='auto',
             strategy='auto',
             batch_size_res=1,
@@ -56,6 +58,7 @@ class EmbeddingDatabaseBuilder:
 
         Args:
             file_extension: File extension filter (e.g., '.cif', '.pdb'). If None, uses structure_format default
+            granularity: Calculate embeddings for 'chain' or 'assembly' level
             devices: Number of devices to use for inference
             strategy: Lightning strategy to control distribution of inference
             batch_size_res: Number of chains to process residue embeddings per batch
@@ -103,7 +106,7 @@ class EmbeddingDatabaseBuilder:
         esm_embedding_files = list(self.tmp_dir.glob(f"*pt"))
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", category=UserWarning, module="torch")
-            chain_embeddings = chain_predict(
+            structure_embeddings = chain_predict(
                 src_stream=[
                     (esm_file, esm_file.stem)
                     for esm_file in esm_embedding_files
@@ -115,14 +118,29 @@ class EmbeddingDatabaseBuilder:
                 num_nodes=num_nodes_chain,
                 devices=devices,
                 strategy=strategy
+            ) if granularity == 'chain' else assembly_predict(
+                src_stream=[
+                    (str_file.stem, str_file, str_file.stem)
+                    for str_file in structure_files
+                ],
+                res_embedding_location=str(self.tmp_dir),
+                src_location=SrcLocation.stream,
+                src_from=SrcAssemblyFrom.structure,
+                accelerator=self.accelerator,
+                num_workers=num_workers_chain,
+                num_nodes=num_nodes_chain,
+                devices=devices,
+                strategy=strategy
             )
-        return ([ch_id for _, chain_ids in chain_embeddings for ch_id in chain_ids],
-                [embedding for embedding_tensor, _ in chain_embeddings for embedding in torch.split(embedding_tensor, 1, dim=0)])
+
+        return ([ch_id for _, chain_ids in structure_embeddings for ch_id in chain_ids],
+                [embedding for embedding_tensor, _ in structure_embeddings for embedding in torch.split(embedding_tensor, 1, dim=0)])
 
     def build_faiss_database(
             self,
             output_db: str,
             file_extension: Optional[str] = None,
+            granularity: Granularity = 'chain',
             use_gpu_index: bool = False,
             batch_size_res=1,
             num_workers_res=0,
@@ -139,6 +157,7 @@ class EmbeddingDatabaseBuilder:
         Args:
             output_db: Path to save the FAISS database (directory + prefix)
             file_extension: File extension filter (e.g., '.cif', '.pdb'). If None, uses structure_format default
+            granularity: Calculate embeddings for 'chain' or 'assembly' level
             use_gpu_index: Whether to use GPU for FAISS indexing
             batch_size_res: Number of chains to process residue embeddings per batch
             num_workers_res: Number of subprocesses to use for residue embedding data loading
@@ -167,6 +186,7 @@ class EmbeddingDatabaseBuilder:
         start_time = time.time()
         chain_ids, embeddings = self.build_embeddings(
                 file_extension=file_extension,
+                granularity=granularity,
                 devices=devices,
                 strategy=strategy,
                 batch_size_res=batch_size_res,

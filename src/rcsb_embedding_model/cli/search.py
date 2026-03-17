@@ -7,7 +7,7 @@ from typing import Annotated, Optional, List
 
 from rcsb_embedding_model import __version__
 from rcsb_embedding_model.cli.args_utils import arg_devices
-from rcsb_embedding_model.types.api_types import StructureFormat, Accelerator, Strategy
+from rcsb_embedding_model.types.api_types import StructureFormat, Accelerator, Strategy, Granularity
 from rcsb_embedding_model.search.database_builder import EmbeddingDatabaseBuilder
 from rcsb_embedding_model.search.structure_search import StructureSearch
 from rcsb_embedding_model.search.clustering import EmbeddingClusterer
@@ -42,6 +42,9 @@ def build_database(
         structure_format: Annotated[StructureFormat, typer.Option(
             help='Structure file format (mmcif, binarycif, or pdb)'
         )] = StructureFormat.mmcif,
+        granularity: Annotated[Granularity, typer.Option(
+            help='Calculate embeddings for "chain" or "assembly" level'
+        )] = 'chain',
         file_extension: Annotated[Optional[str], typer.Option(
             help='File extension to filter (e.g., .cif, .bcif, or .pdb). If not specified, uses default for format'
         )] = None,
@@ -108,6 +111,7 @@ def build_database(
 
     builder.build_faiss_database(
         output_db=output_db,
+        granularity=granularity,
         devices=arg_devices(devices),
         strategy=strategy,
         file_extension=file_extension,

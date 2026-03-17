@@ -22,6 +22,9 @@ class StructureFormat(str, Enum):
     mmcif = "mmcif"
     bciff = "binarycif"
 
+class Granularity(str, Enum):
+    chain = "chain"
+    assembly = "assembly"
 
 class Accelerator(str, Enum):
     cpu = "cpu"
