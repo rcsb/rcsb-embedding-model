@@ -15,7 +15,7 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format='%(funcName)20s() - %(message)s'
 )
 
 app = typer.Typer(
