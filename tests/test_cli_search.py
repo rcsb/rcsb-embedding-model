@@ -3,7 +3,7 @@ import shutil
 import unittest
 import tempfile
 
-from rcsb_embedding_model.types.api_types import StructureFormat, Accelerator
+from rcsb_embedding_model.types.api_types import StructureFormat
 
 
 class TestCliSearch(unittest.TestCase):
@@ -279,7 +279,39 @@ class TestCliSearch(unittest.TestCase):
         import torch
         self.assertTrue(torch.equal(all_chains["A"], chain_a_only["A"]))
 
-    def test_10_query_database_with_database(self):
+    def test_10_residue_embedding_by_assembly(self):
+        """Test residue_embedding_by_assembly with assembly_id parameter."""
+        from rcsb_embedding_model.rcsb_structure_embedding import RcsbStructureEmbedding
+
+        query_structure = f"{self.__test_path}/resources/pdb/1acb.cif"
+
+        embedder = RcsbStructureEmbedding(min_res=10)
+        embedder.load_models(device="cpu")
+
+        # Test getting asymmetric unit (no assembly_id provided)
+        asymmetric_unit = embedder.residue_embedding_by_assembly(
+            src_structure=query_structure,
+            structure_format=StructureFormat.mmcif
+        )
+        self.assertEqual(len(asymmetric_unit), 1)  # Should have only asymmetric unit
+        self.assertIn("0", asymmetric_unit)  # Key "0" represents asymmetric unit
+        self.assertGreater(len(asymmetric_unit["0"]), 1)  # 1acb has multiple chains
+
+        # Test getting only assembly 1
+        assembly_1_only = embedder.residue_embedding_by_assembly(
+            src_structure=query_structure,
+            structure_format=StructureFormat.mmcif,
+            assembly_id="1"
+        )
+        self.assertEqual(len(assembly_1_only), 1)
+        self.assertIn("1", assembly_1_only)
+
+        # Verify the asymmetric unit and assembly 1 have the same residue embeddings
+        import torch
+        self.assertTrue(torch.equal(asymmetric_unit["0"], assembly_1_only["1"]))
+
+
+    def test_11_query_database_with_database(self):
         """Test querying one database against another."""
         from rcsb_embedding_model.cli.search import query_database_with_database
 
@@ -300,7 +332,7 @@ class TestCliSearch(unittest.TestCase):
             lines = f.readlines()
             self.assertGreater(len(lines), 1)
 
-    def test_11_structure_search_search_by_database(self):
+    def test_12_structure_search_search_by_database(self):
         """Test StructureSearch database-to-database search API."""
         from pathlib import Path
         from rcsb_embedding_model.search.structure_search import StructureSearch
@@ -324,6 +356,65 @@ class TestCliSearch(unittest.TestCase):
         for query_chain, (matching_ids, scores) in results.items():
             self.assertGreater(len(matching_ids), 0)
             self.assertEqual(len(matching_ids), len(scores))
+
+    def test_13_build_database_assembly(self):
+        """Test building a database with assembly granularity."""
+        from rcsb_embedding_model.cli.search import build_database
+
+        # Use the test PDB files
+        structure_dir = f"{self.__test_path}/resources/pdb"
+        assembly_db_path = os.path.join(self.__temp_dir, "test_faiss_assembly")
+
+        build_database(
+            structure_dir=structure_dir,
+            output_db=assembly_db_path,
+            tmp_dir=self.__temp_dir,
+            structure_format=StructureFormat.mmcif,
+            file_extension=".cif",
+            min_res=10,
+            accelerator='cpu',
+            use_gpu_index=False,
+            granularity='assembly'
+        )
+
+        # Verify database files were created
+        from pathlib import Path
+        db_path = Path(assembly_db_path)
+        self.assertTrue((db_path.parent / f"{db_path.name}.index").exists())
+        self.assertTrue((db_path.parent / f"{db_path.name}.metadata").exists())
+
+    def test_14_query_database_assembly(self):
+        """Test querying the database with assembly granularity."""
+        from rcsb_embedding_model.cli.search import query_database
+
+        # Use the assembly database built in test_13
+        assembly_db_path = os.path.join(self.__temp_dir, "test_faiss_assembly")
+        query_structure = f"{self.__test_path}/resources/pdb/1acb.cif"
+        output_csv = os.path.join(self.__temp_dir, "search_results_assembly.csv")
+
+        query_database(
+            db_path=assembly_db_path,
+            query_structure=query_structure,
+            structure_format=StructureFormat.mmcif,
+            top_k=5,
+            threshold=None,
+            output_csv=output_csv,
+            min_res=10,
+            max_res=None,
+            device="cpu",
+            use_gpu_index=False,
+            granularity='assembly',
+            assembly_id='1'
+        )
+
+        # Verify CSV was created
+        self.assertTrue(os.path.exists(output_csv))
+
+        # Verify CSV contains results
+        with open(output_csv, 'r') as f:
+            lines = f.readlines()
+            # Should have header + at least some results
+            self.assertGreater(len(lines), 1)
 
 
 if __name__ == '__main__':

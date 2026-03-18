@@ -143,8 +143,14 @@ def query_database(
         structure_format: Annotated[StructureFormat, typer.Option(
             help='Structure file format (mmcif or pdb)'
         )] = StructureFormat.mmcif,
+        granularity: Annotated[Granularity, typer.Option(
+            help='Query database for "chain" or "assembly" embeddings'
+        )] = 'chain',
         chain_id: Annotated[Optional[str], typer.Option(
-            help='Specific chain to search (if not specified, searches all chains)'
+            help='When "granularity=chain", specific chain to search (if not specified, searches all chains)'
+        )] = None,
+        assembly_id: Annotated[Optional[str], typer.Option(
+            help='When "granularity=assembly", specific assembly to search (if not specified, searches by asymmetric unit)'
         )] = None,
         top_k: Annotated[int, typer.Option(
             help='Number of top results to return per chain'
@@ -203,7 +209,9 @@ def query_database(
     results = searcher.search_by_structure(
         query_structure=query_structure,
         structure_format=structure_format,
+        granularity=granularity,
         chain_id=chain_id,
+        assembly_id=assembly_id,
         top_k=top_k
     )
 

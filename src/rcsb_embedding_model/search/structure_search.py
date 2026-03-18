@@ -7,7 +7,7 @@ from tqdm import tqdm
 
 from rcsb_embedding_model.rcsb_structure_embedding import RcsbStructureEmbedding
 from rcsb_embedding_model.search.faiss_database import FaissEmbeddingDatabase
-from rcsb_embedding_model.types.api_types import StructureFormat
+from rcsb_embedding_model.types.api_types import StructureFormat, Granularity
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +55,9 @@ class StructureSearch:
             self,
             query_structure: str,
             structure_format: StructureFormat = StructureFormat.mmcif,
+            granularity: Granularity = 'chain',
             chain_id: str = None,
+            assembly_id: str = None,
             top_k: int = 10
     ) -> Dict[str, Tuple[List[str], List[float]]]:
         """
@@ -74,6 +76,9 @@ class StructureSearch:
         if not query_path.exists():
             raise ValueError(f"Query structure file does not exist: {query_structure}")
 
+        if granularity != 'chain' and granularity != 'assembly':
+            raise ValueError(f"Unknown granularity value {granularity}")
+
         structure_name = query_path.stem
         logging.info(f"Processing query structure: {structure_name}")
         embedder = self._get_embedder()
@@ -84,20 +89,26 @@ class StructureSearch:
             warnings.filterwarnings("ignore", category=UserWarning, module="esm")
             # Get residue-level embeddings for chains in the query structure
             # If chain_id is specified, only compute embeddings for that chain
-            chain_residue_embeddings = embedder.residue_embedding_by_chain(
+            residue_embeddings = embedder.residue_embedding_by_chain(
                 src_structure=query_structure,
                 structure_format=structure_format,
                 chain_id=chain_id
+            ) if granularity == 'chain' else embedder.residue_embedding_by_assembly(
+                src_structure=query_structure,
+                structure_format=structure_format,
+                assembly_id=assembly_id
             )
 
-        if not chain_residue_embeddings:
+        if not residue_embeddings:
             if chain_id:
                 raise ValueError(f"Chain {chain_id} not found or does not meet minimum residue requirements")
+            elif assembly_id:
+                raise ValueError(f"Assembly {assembly_id} not found or does not meet minimum residue requirements")
             else:
                 raise ValueError("No valid chains found in query structure")
 
         results = {}
-        for chain_id, residue_embedding in chain_residue_embeddings.items():
+        for chain_id, residue_embedding in residue_embeddings.items():
             logging.info(f"Searching with chain {chain_id} ({residue_embedding.shape[0]} residues)...")
             # Apply aggregator to get protein-level embedding
             protein_embedding = embedder.aggregator_embedding(residue_embedding)
