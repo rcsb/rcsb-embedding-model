@@ -72,14 +72,14 @@ def build_database(
         num_nodes_res: Annotated[int, typer.Option(
             help='Number of nodes to use for inference of residue embeddings.'
         )] = 1,
-        batch_size_chain: Annotated[int, typer.Option(
+        batch_size_aggregator: Annotated[int, typer.Option(
             help='Number of samples processed together in one iteration.'
         )] = 1,
-        num_workers_chain: Annotated[int, typer.Option(
+        num_workers_aggregator: Annotated[int, typer.Option(
             help='Number of subprocesses to use for data loading.'
         )] = 0,
-        num_nodes_chain: Annotated[int, typer.Option(
-            help='Number of nodes to use for inference of chain embeddings.'
+        num_nodes_aggregator: Annotated[int, typer.Option(
+            help='Number of nodes to use for inference of embeddings.'
         )] = 1
 ):
     """Build an embedding database from structure files."""
@@ -119,9 +119,9 @@ def build_database(
         batch_size_res=batch_size_res,
         num_workers_res=num_workers_res,
         num_nodes_res=num_nodes_res,
-        batch_size_chain=batch_size_chain,
-        num_workers_chain=num_workers_chain,
-        num_nodes_chain=num_nodes_chain
+        batch_size_chain=batch_size_aggregator,
+        num_workers_chain=num_workers_aggregator,
+        num_nodes_chain=num_nodes_aggregator
     )
     import torch.distributed as dist
     if not (dist.is_available() and dist.is_initialized()) or dist.get_rank() == 0:
