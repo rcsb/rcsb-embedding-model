@@ -108,13 +108,13 @@ class StructureSearch:
                 raise ValueError("No valid chains found in query structure")
 
         results = {}
-        for chain_id, residue_embedding in residue_embeddings.items():
-            logging.info(f"Searching with chain {chain_id} ({residue_embedding.shape[0]} residues)...")
+        for key, residue_embedding in residue_embeddings.items():
+            logging.info(f"Searching with {granularity} {key} ({residue_embedding.shape[0]} residues)...")
             # Apply aggregator to get protein-level embedding
             protein_embedding = embedder.aggregator_embedding(residue_embedding)
             matching_ids, scores = self.db.search(protein_embedding, top_k=top_k)
-            query_chain_id = f"{structure_name}:{chain_id}"
-            results[query_chain_id] = (matching_ids, scores)
+            query_embedding_id = f"{structure_name}{"." if granularity == 'chain' else "-"}{key}"
+            results[query_embedding_id] = (matching_ids, scores)
 
         return results
 
