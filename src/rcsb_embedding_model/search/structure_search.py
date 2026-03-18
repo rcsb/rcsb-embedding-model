@@ -109,7 +109,7 @@ class StructureSearch:
 
         results = {}
         for key, residue_embedding in residue_embeddings.items():
-            logging.info(f"Searching with {granularity} {key} ({residue_embedding.shape[0]} residues)...")
+            logging.info(f"Searching with {str(granularity)} {key} ({residue_embedding.shape[0]} residues)...")
             # Apply aggregator to get protein-level embedding
             protein_embedding = embedder.aggregator_embedding(residue_embedding)
             matching_ids, scores = self.db.search(protein_embedding, top_k=top_k)

@@ -293,7 +293,7 @@ class FaissEmbeddingDatabase:
             raise ValueError("Database not loaded. Call load_database() first.")
 
         return {
-            "total_chains": len(self.chain_ids),
+            "total_embeddings": len(self.chain_ids),
             "dimension": self.dimension,
             "index_name": self.index_name,
             "db_path": str(self.db_path),

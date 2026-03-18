@@ -14,7 +14,7 @@ from rcsb_embedding_model.search.clustering import EmbeddingClusterer
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
-logging.getLogger("pytorch_lightning").setLevel(logging.ERROR)
+logging.getLogger("lightning.pytorch").setLevel(logging.ERROR)
 logging.basicConfig(
     level=logging.INFO,
     format='%(message)s'
@@ -203,7 +203,7 @@ def query_database(
 
     # Display database statistics
     stats = searcher.get_db_statistics()
-    logging.info(f"Database contains {stats['total_chains']} chains")
+    logging.info(f"Database contains {stats['total_embeddings']} embeddings")
 
     # Perform search
     logging.info("\nPerforming search...")
@@ -270,7 +270,7 @@ def query_database_with_database(
 
     # Display database statistics
     subject_stats = searcher.get_db_statistics()
-    logging.info(f"Subject database contains {subject_stats['total_chains']} chains")
+    logging.info(f"Subject database contains {subject_stats['total_embeddings']} chains")
 
     # Perform database-to-database search
     logging.info("Performing search...")
@@ -313,7 +313,7 @@ def show_statistics(
     logging.info(f"Index name:       {stats['index_name']}")
     logging.info(f"Index type:       {stats['index_type']}")
     logging.info(f"Dimension:        {stats['dimension']}")
-    logging.info(f"Total embeddings: {stats['total_chains']}")
+    logging.info(f"Total embeddings: {stats['total_embeddings']}")
     logging.info(f"On GPU:           {stats['on_gpu']}")
     logging.info(f"GPU available:    {stats['gpu_available']}")
     logging.info("="*80 + "\n")

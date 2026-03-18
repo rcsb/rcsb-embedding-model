@@ -174,7 +174,7 @@ class TestCliSearch(unittest.TestCase):
         db = FaissEmbeddingDatabase(db_path=str(db_path), index_name=index_name)
         db.load_database()
         stats = db.get_statistics()
-        self.assertGreater(stats['total_chains'], 0)
+        self.assertGreater(stats['total_embeddings'], 0)
 
     def test_07_faiss_database_class(self):
         """Test FaissEmbeddingDatabase class directly."""
@@ -197,7 +197,7 @@ class TestCliSearch(unittest.TestCase):
 
         # Get stats
         stats = db2.get_statistics()
-        self.assertEqual(stats['total_chains'], 3)
+        self.assertEqual(stats['total_embeddings'], 3)
 
         # Search
         query_embedding = torch.randn(256)
@@ -227,7 +227,7 @@ class TestCliSearch(unittest.TestCase):
 
         # Get statistics
         stats = searcher.get_db_statistics()
-        self.assertGreater(stats['total_chains'], 0)
+        self.assertGreater(stats['total_embeddings'], 0)
 
         # Search by structure
         results = searcher.search_by_structure(
