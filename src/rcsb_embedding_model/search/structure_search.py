@@ -139,7 +139,7 @@ class StructureSearch:
         query_db = FaissEmbeddingDatabase(query_db_path, query_index_name)
         query_db.load_database()
 
-        logging.info(f"Query database contains {len(query_db.chain_ids)} chains")
+        logging.info(f"Query database contains {len(query_db.chain_ids)} embeddings")
 
         results = {}
         for chain_idx, query_chain_id in enumerate(tqdm(query_db.chain_ids, desc="Querying database")):

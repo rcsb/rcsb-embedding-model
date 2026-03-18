@@ -153,10 +153,10 @@ class FaissEmbeddingDatabase:
         # Load metadata
         with open(metadata_file, 'rb') as f:
             metadata = pickle.load(f)
-            self.chain_ids = metadata['chain_ids']
+            self.chain_ids = metadata['embedding_ids']
             self.dimension = metadata['dimension']
 
-        logging.info(f"Loaded database with {len(self.chain_ids)} chains")
+        logging.info(f"Loaded database with {len(self.chain_ids)} embeddings")
 
         # Move to GPU if requested
         if use_gpu:
@@ -320,7 +320,7 @@ class FaissEmbeddingDatabase:
 
         # Save metadata
         metadata = {
-            'chain_ids': self.chain_ids,
+            'embedding_ids': self.chain_ids,
             'dimension': self.dimension
         }
         with open(metadata_file, 'wb') as f:
