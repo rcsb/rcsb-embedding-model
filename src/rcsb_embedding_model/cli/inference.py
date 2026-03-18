@@ -13,6 +13,7 @@ from rcsb_embedding_model.utils.data import adapt_csv_to_embedding_chain_stream
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
+logging.getLogger("pytorch_lightning").setLevel(logging.ERROR)
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'

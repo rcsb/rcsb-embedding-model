@@ -14,6 +14,7 @@ from rcsb_embedding_model.search.clustering import EmbeddingClusterer
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
+logging.getLogger("pytorch_lightning").setLevel(logging.ERROR)
 logging.basicConfig(
     level=logging.INFO,
     format='%(message)s'
@@ -97,7 +98,7 @@ def build_database(
         db_dir = Path.cwd()  # Use current directory explicitly
     output_db = str(db_dir / index_name)
 
-    logging.info(f"Using device for embeddings: {accelerator}")
+    logging.info(f"Using device for embeddings: {str(accelerator)}")
     if use_gpu_index:
         logging.info("GPU acceleration for FAISS index: enabled")
 
@@ -185,7 +186,7 @@ def query_database(
     else:
         torch_device = torch.device(device)
 
-    logging.info(f"Using device for embeddings: {torch_device}")
+    logging.info(f"Using device for embeddings DB: {str(torch_device)}")
     if use_gpu_index:
         logging.info("GPU acceleration for FAISS search: enabled")
 
