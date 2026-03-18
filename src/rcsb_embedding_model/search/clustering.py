@@ -238,7 +238,7 @@ class EmbeddingClusterer:
         """Print clustering statistics to console."""
         stats = self.get_cluster_statistics()
         logging.info("CLUSTERING STATISTICS")
-        logging.info(f"Total chains:        {stats['n_chains']}")
+        logging.info(f"Total embeddings:    {stats['n_chains']}")
         logging.info(f"Number of clusters:  {stats['n_clusters']}")
         logging.info(f"Singleton clusters:  {stats['n_singletons']}")
         logging.info(f"Cluster size (min):  {stats['min_cluster_size']}")

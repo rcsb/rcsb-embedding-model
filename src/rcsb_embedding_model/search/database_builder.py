@@ -232,7 +232,7 @@ class EmbeddingDatabaseBuilder:
 
             logging.info("Batch database build complete!")
             logging.info(f"Database location: {output_db}")
-            logging.info(f"Total chains: {len(db.chain_ids)}")
+            logging.info(f"Total embeddings: {len(db.chain_ids)}")
 
         del chain_ids, embeddings
         if torch.cuda.is_available():

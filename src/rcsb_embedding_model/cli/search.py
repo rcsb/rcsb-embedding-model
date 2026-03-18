@@ -312,7 +312,7 @@ def show_statistics(
     logging.info(f"Index name:       {stats['index_name']}")
     logging.info(f"Index type:       {stats['index_type']}")
     logging.info(f"Dimension:        {stats['dimension']}")
-    logging.info(f"Total chains:     {stats['total_chains']}")
+    logging.info(f"Total embeddings: {stats['total_chains']}")
     logging.info(f"On GPU:           {stats['on_gpu']}")
     logging.info(f"GPU available:    {stats['gpu_available']}")
     logging.info("="*80 + "\n")
