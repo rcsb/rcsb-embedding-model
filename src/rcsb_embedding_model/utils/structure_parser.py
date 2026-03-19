@@ -15,7 +15,7 @@ def get_structure_from_src(
 ):
     try:
         with warnings.catch_warnings():
-            warnings.filterwarnings("ignore", category=UserWarning, module="biotite")
+            # warnings.filterwarnings("ignore", category=UserWarning, module="biotite")
             if structure_format == "pdb":
                 pdb_file = PDBFile.read(src_structure)
                 structure = __get_pdb_structure(pdb_file, assembly_id)

@@ -83,8 +83,8 @@ class EmbeddingDatabaseBuilder:
             raise ValueError(f"No structure files found with extension {file_extension} in {self.structure_dir}")
 
         with warnings.catch_warnings():
-            warnings.filterwarnings("ignore", category=FutureWarning, module="esm")
-            warnings.filterwarnings("ignore", category=UserWarning, module="esm")
+            # warnings.filterwarnings("ignore", category=FutureWarning, module="esm")
+            # warnings.filterwarnings("ignore", category=UserWarning, module="esm")
             esm_predict(
                 src_stream=[
                     (str_file.stem, str_file, str_file.stem)
@@ -105,7 +105,7 @@ class EmbeddingDatabaseBuilder:
 
         esm_embedding_files = list(self.tmp_dir.glob(f"*pt"))
         with warnings.catch_warnings():
-            warnings.filterwarnings("ignore", category=UserWarning, module="torch")
+            # warnings.filterwarnings("ignore", category=UserWarning, module="torch")
             structure_embeddings = chain_predict(
                 src_stream=[
                     (esm_file, esm_file.stem)

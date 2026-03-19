@@ -87,8 +87,8 @@ class StructureSearch:
 
         # Suppress biotite warnings during structure loading
         with warnings.catch_warnings():
-            warnings.filterwarnings("ignore", category=FutureWarning, module="esm")
-            warnings.filterwarnings("ignore", category=UserWarning, module="esm")
+            # warnings.filterwarnings("ignore", category=FutureWarning, module="esm")
+            # warnings.filterwarnings("ignore", category=UserWarning, module="esm")
             # Get residue-level embeddings for chains in the query structure
             # If chain_id is specified, only compute embeddings for that chain
             residue_embeddings = embedder.residue_embedding_by_chain(
