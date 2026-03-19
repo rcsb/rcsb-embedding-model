@@ -239,9 +239,10 @@ class FaissEmbeddingDatabase:
         scores, indices = self.index.search(query_embedding, top_k)
 
         # Get chain IDs for the results
-        result_chain_ids = [self.chain_ids[idx] for idx in indices[0]]
+        result_chain_ids = [self.chain_ids[idx] for idx in indices[0] if idx >= 0]
+        result_scores = [scores[0][idx] for idx, jdx in enumerate(indices[0]) if jdx >= 0]
 
-        return result_chain_ids, scores[0].tolist()
+        return result_chain_ids, result_scores
 
     def search_by_chain_ids(
             self,

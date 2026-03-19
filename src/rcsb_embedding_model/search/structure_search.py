@@ -66,7 +66,9 @@ class StructureSearch:
         Args:
             query_structure: Path to query structure file
             structure_format: Format of structure file
+            granularity: Level of granularity for search ('chain' or 'assembly')
             chain_id: Specific chain to search (if None, searches all chains)
+            assembly_id: Specific assembly to search (if None, searches by asymmetric unit)
             top_k: Number of top results per chain
 
         Returns:

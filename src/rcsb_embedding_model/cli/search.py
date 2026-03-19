@@ -191,7 +191,7 @@ def query_database(
         logging.info("GPU acceleration for FAISS search: enabled")
 
     # Initialize search
-    logging.info("\nLoading database...")
+    logging.info("Loading database...")
     searcher = StructureSearch(
         db_path=str(db_dir),
         index_name=index_name,
@@ -203,10 +203,9 @@ def query_database(
 
     # Display database statistics
     stats = searcher.get_db_statistics()
-    logging.info(f"Database contains {stats['total_embeddings']} embeddings")
 
     # Perform search
-    logging.info("\nPerforming search...")
+    logging.info("Performing search...")
     results = searcher.search_by_structure(
         query_structure=query_structure,
         structure_format=structure_format,
@@ -429,7 +428,7 @@ def _filter_results_by_threshold(results, threshold: float | None):
     if threshold is None:
         return results
 
-    logging.info(f"Filtering results with similarity score threshold >= {threshold}")
+    logging.debug(f"Filtering results with similarity score threshold >= {threshold}")
     filtered_results = {}
     total_before = sum(len(ids) for ids, _ in results.values())
     for query_chain, (chain_ids, scores) in results.items():
@@ -440,7 +439,7 @@ def _filter_results_by_threshold(results, threshold: float | None):
         else:
             filtered_results[query_chain] = ([], [])
     total_after = sum(len(ids) for ids, _ in filtered_results.values())
-    logging.info(f"Filtered from {total_before} to {total_after} results")
+    logging.debug(f"Filtered from {total_before} to {total_after} results")
     return filtered_results
 
 
