@@ -82,7 +82,7 @@ class StructureSearch:
             raise ValueError(f"Unknown granularity value {granularity}")
 
         structure_name = query_path.stem
-        logging.info(f"Processing query structure: {structure_name}")
+        logging.info(f"Processing residue embeddings: {structure_name}")
         embedder = self._get_embedder()
 
         # Suppress biotite warnings during structure loading
@@ -111,7 +111,7 @@ class StructureSearch:
 
         results = {}
         for key, residue_embedding in residue_embeddings.items():
-            logging.info(f"Searching with {str(granularity)} {key} ({residue_embedding.shape[0]} residues)...")
+            logging.info(f"Searching {structure_name} {granularity.value if hasattr(granularity, 'value') else granularity} {key} ({residue_embedding.shape[0]} residues)...")
             # Apply aggregator to get protein-level embedding
             protein_embedding = embedder.aggregator_embedding(residue_embedding)
             matching_ids, scores = self.db.search(protein_embedding, top_k=top_k)
@@ -164,7 +164,7 @@ class StructureSearch:
             if not matching_ids:
                 logging.info("No results found matching the criteria")
             else:
-                logging.info(f"{'Rank':<6} {'Chain ID':<40} {'Score':<10}")
+                logging.info(f"{'Rank':<6} {'Match':<40} {'Score':<10}")
                 for rank, (chain_id, score) in enumerate(zip(matching_ids, scores), 1):
                     logging.info(f"{rank:<6} {chain_id:<40} {score:<10.6f}")
 
@@ -184,7 +184,7 @@ class StructureSearch:
 
         with open(output_file, 'w', newline='') as f:
             writer = csv.writer(f)
-            writer.writerow(['Query Chain', 'Rank', 'Matching Chain', 'Score'])
+            writer.writerow(['Query', 'Rank', 'Match', 'Score'])
 
             for query_chain, (matching_ids, scores) in results.items():
                 for rank, (chain_id, score) in enumerate(zip(matching_ids, scores), 1):
