@@ -71,7 +71,7 @@ class EsmProtFromStructure(IterableDataset):
             iter_start = rank * per_rank
             iter_end = iter_start + per_rank if rank < world_size - 1 else len(self.data)
             iter_data = self.data.iloc[iter_start:iter_end]
-            logging.info(f"GPU {rank} processing {iter_start}:{iter_end} structures")
+            logging.debug(f"Rank {rank} processing {iter_start}:{iter_end} structures")
         else:
             # Multiple workers: split by rank first, then by worker
             per_rank = int(len(self.data) / world_size)
@@ -84,7 +84,7 @@ class EsmProtFromStructure(IterableDataset):
             iter_start = worker_id * per_worker
             iter_end = iter_start + per_worker if worker_id < worker_info.num_workers - 1 else len(rank_data)
             iter_data = rank_data.iloc[iter_start:iter_end]
-            logging.info(f"GPU {rank} processing {rank_start}:{rank_end} worker {worker_id} processing {iter_start}:{iter_end} structures")
+            logging.debug(f"Rank {rank} processing {rank_start}:{rank_end} worker {worker_id} processing {iter_start}:{iter_end} structures")
 
         # Iterate through structures and yield chains
         for idx, row in iter_data.iterrows():
