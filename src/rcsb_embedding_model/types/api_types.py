@@ -64,3 +64,8 @@ class SrcTensorFrom(str, Enum):
 class OutFormat(str, Enum):
     separated = "separated"
     grouped = "grouped"
+
+class LogLevel(str, Enum):
+    info = "info"
+    warn = "warn"
+    debug = "debug"

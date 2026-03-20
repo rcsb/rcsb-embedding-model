@@ -15,7 +15,8 @@ class StructureModule(LightningModule):
             aggregator_model
     ):
         super().__init__()
-        logger.info(f"Using device: {self.device}")
+        logger.info(f"ESM device: {res_model.device}")
+        logger.info(f"Aggregator device: {self.device}")
         self.esm3 = res_model
         self.aggregator =  aggregator_model
 

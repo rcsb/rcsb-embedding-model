@@ -6,19 +6,13 @@ from pathlib import Path
 from typing import Annotated, Optional, List
 
 from rcsb_embedding_model import __version__
-from rcsb_embedding_model.cli.args_utils import arg_devices
-from rcsb_embedding_model.types.api_types import StructureFormat, Accelerator, Strategy, Granularity
+from rcsb_embedding_model.cli.args_utils import arg_devices, set_log_level
+from rcsb_embedding_model.types.api_types import StructureFormat, Accelerator, Strategy, Granularity, LogLevel
 from rcsb_embedding_model.search.database_builder import EmbeddingDatabaseBuilder
 from rcsb_embedding_model.search.structure_search import StructureSearch
 from rcsb_embedding_model.search.clustering import EmbeddingClusterer
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
-
-logging.getLogger("lightning.pytorch").setLevel(logging.ERROR)
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(message)s'
-)
 
 app = typer.Typer(
     add_completion=False,
@@ -81,9 +75,14 @@ def build_database(
         )] = 0,
         num_nodes_aggregator: Annotated[int, typer.Option(
             help='Number of nodes to use for inference of embeddings.'
-        )] = 1
+        )] = 1,
+        log_level: Annotated[LogLevel, typer.Option(
+            help='Number of nodes to use for inference of embeddings.'
+        )] = 'info'
 ):
     """Build an embedding database from structure files."""
+
+    set_log_level(log_level)
 
     # Parse output_db into directory and prefix
     # Files will be saved as: {output_db}.index and {output_db}.metadata
@@ -98,7 +97,7 @@ def build_database(
         db_dir = Path.cwd()  # Use current directory explicitly
     output_db = str(db_dir / index_name)
 
-    logging.info(f"Using device for embeddings: {str(accelerator)}")
+    logging.info(f"Using device for embeddings: {str(accelerator.value)}")
     if use_gpu_index:
         logging.info("GPU acceleration for FAISS index: enabled")
 
@@ -173,9 +172,14 @@ def query_database(
         )] = "auto",
         use_gpu_index: Annotated[bool, typer.Option(
             help='Use GPU for FAISS search (requires faiss-gpu)'
-        )] = False
+        )] = False,
+        log_level: Annotated[LogLevel, typer.Option(
+            help='Number of nodes to use for inference of embeddings.'
+        )] = 'info'
 ):
     """Search database for similar structures."""
+
+    set_log_level(log_level)
 
     # Parse db_path into directory and index name
     db_dir, index_name = _parse_database_path(db_path)
@@ -248,9 +252,14 @@ def query_database_with_database(
         )] = None,
         use_gpu_index: Annotated[bool, typer.Option(
             help='Use GPU for FAISS search (requires faiss-gpu)'
-        )] = False
+        )] = False,
+        log_level: Annotated[LogLevel, typer.Option(
+            help='Number of nodes to use for inference of embeddings.'
+        )] = 'info'
 ):
     """Search subject database using all entries from query database."""
+
+    set_log_level(log_level)
 
     # Parse subject_db_path
     query_db_dir, query_index_name = _parse_database_path(query_db_path)
@@ -298,9 +307,15 @@ def query_database_with_database(
 def show_statistics(
         db_path: Annotated[str, typer.Option(
             help='Path to the FAISS database (directory + prefix, e.g., ./db/my_db)'
-        )]
+        )],
+        log_level: Annotated[LogLevel, typer.Option(
+            help='Number of nodes to use for inference of embeddings.'
+        )] = 'info'
 ):
     """Display database statistics."""
+
+    set_log_level(log_level)
+
     # Parse db_path into directory and index name
     db_dir, index_name = _parse_database_path(db_path)
     searcher = StructureSearch(db_path=str(db_dir), index_name=index_name)
@@ -346,9 +361,14 @@ def cluster_database(
         )] = False,
         seed: Annotated[Optional[int], typer.Option(
             help='Random seed for reproducibility'
-        )] = None
+        )] = None,
+        log_level: Annotated[LogLevel, typer.Option(
+            help='Number of nodes to use for inference of embeddings.'
+        )] = 'info'
 ):
     """Cluster database embeddings using Leiden algorithm."""
+
+    set_log_level(log_level)
 
     # Parse db_path into directory and index name
     db_dir, index_name = _parse_database_path(db_path)

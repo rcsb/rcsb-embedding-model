@@ -11,7 +11,7 @@ class ChainModule(LightningModule):
             model
     ):
         super().__init__()
-        logger.info(f"Using device: {self.device}")
+        logger.info(f"Aggregator device: {self.device}")
         self.aggregator = model
 
     def predict_step(self, batch, batch_idx):

@@ -82,56 +82,51 @@ class EmbeddingDatabaseBuilder:
         if not structure_files:
             raise ValueError(f"No structure files found with extension {file_extension} in {self.structure_dir}")
 
-        with warnings.catch_warnings():
-            # warnings.filterwarnings("ignore", category=FutureWarning, module="esm")
-            # warnings.filterwarnings("ignore", category=UserWarning, module="esm")
-            esm_predict(
-                src_stream=[
-                    (str_file.stem, str_file, str_file.stem)
-                    for str_file in structure_files
-                ],
-                src_location=SrcLocation.stream,
-                src_from=SrcProteinFrom.structure,
-                structure_format=self.structure_format,
-                min_res_n=self.min_res_n,
-                out_path=self.tmp_dir,
-                accelerator=self.accelerator,
-                batch_size=batch_size_res,
-                num_workers=num_workers_res,
-                num_nodes=num_nodes_res,
-                devices=devices,
-                strategy=strategy
-            )
+        esm_predict(
+            src_stream=[
+                (str_file.stem, str_file, str_file.stem)
+                for str_file in structure_files
+            ],
+            src_location=SrcLocation.stream,
+            src_from=SrcProteinFrom.structure,
+            structure_format=self.structure_format,
+            min_res_n=self.min_res_n,
+            out_path=self.tmp_dir,
+            accelerator=self.accelerator,
+            batch_size=batch_size_res,
+            num_workers=num_workers_res,
+            num_nodes=num_nodes_res,
+            devices=devices,
+            strategy=strategy
+        )
 
         esm_embedding_files = list(self.tmp_dir.glob(f"*pt"))
-        with warnings.catch_warnings():
-            # warnings.filterwarnings("ignore", category=UserWarning, module="torch")
-            structure_embeddings = chain_predict(
-                src_stream=[
-                    (esm_file, esm_file.stem)
-                    for esm_file in esm_embedding_files
-                ],
-                src_location=SrcLocation.stream,
-                accelerator=self.accelerator,
-                batch_size=batch_size_chain,
-                num_workers=num_workers_chain,
-                num_nodes=num_nodes_chain,
-                devices=devices,
-                strategy=strategy
-            ) if granularity == 'chain' else assembly_predict(
-                src_stream=[
-                    (str_file.stem, str_file, str_file.stem)
-                    for str_file in structure_files
-                ],
-                res_embedding_location=str(self.tmp_dir),
-                src_location=SrcLocation.stream,
-                src_from=SrcAssemblyFrom.structure,
-                accelerator=self.accelerator,
-                num_workers=num_workers_chain,
-                num_nodes=num_nodes_chain,
-                devices=devices,
-                strategy=strategy
-            )
+        structure_embeddings = chain_predict(
+            src_stream=[
+                (esm_file, esm_file.stem)
+                for esm_file in esm_embedding_files
+            ],
+            src_location=SrcLocation.stream,
+            accelerator=self.accelerator,
+            batch_size=batch_size_chain,
+            num_workers=num_workers_chain,
+            num_nodes=num_nodes_chain,
+            devices=devices,
+            strategy=strategy
+        ) if granularity == 'chain' else assembly_predict(
+            src_stream=[
+                (str_file.stem, str_file, str_file.stem)
+                for str_file in structure_files
+            ],
+            res_embedding_location=str(self.tmp_dir),
+            src_location=SrcLocation.stream,
+            src_from=SrcAssemblyFrom.structure,
+            accelerator=self.accelerator,
+            num_workers=num_workers_chain,
+            num_nodes=num_nodes_chain,
+            devices=devices,
+            strategy=strategy
+        )
 
         return ([ch_id for _, chain_ids in structure_embeddings for ch_id in chain_ids],
                 [embedding for embedding_tensor, _ in structure_embeddings for embedding in torch.split(embedding_tensor, 1, dim=0)])

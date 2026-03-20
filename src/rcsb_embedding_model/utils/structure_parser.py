@@ -14,19 +14,17 @@ def get_structure_from_src(
         assembly_id=None
 ):
     try:
-        with warnings.catch_warnings():
-            # warnings.filterwarnings("ignore", category=UserWarning, module="biotite")
-            if structure_format == "pdb":
-                pdb_file = PDBFile.read(src_structure)
-                structure = __get_pdb_structure(pdb_file, assembly_id)
-            elif structure_format == "mmcif":
-                cif_file = CIFFile.read(src_structure)
-                structure = __get_structure(cif_file, assembly_id)
-            elif structure_format == "binarycif":
-                cif_file = BinaryCIFFile.read(src_structure)
-                structure = __get_structure(cif_file, assembly_id)
-            else:
-                raise RuntimeError(f"Unknown file format {structure_format}")
+        if structure_format == "pdb":
+            pdb_file = PDBFile.read(src_structure)
+            structure = __get_pdb_structure(pdb_file, assembly_id)
+        elif structure_format == "mmcif":
+            cif_file = CIFFile.read(src_structure)
+            structure = __get_structure(cif_file, assembly_id)
+        elif structure_format == "binarycif":
+            cif_file = BinaryCIFFile.read(src_structure)
+            structure = __get_structure(cif_file, assembly_id)
+        else:
+            raise RuntimeError(f"Unknown file format {structure_format}")
     except Exception as e:
         raise RuntimeError(f"Error reading structure from {src_structure}: {e}")
 

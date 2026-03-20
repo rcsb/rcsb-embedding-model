@@ -85,21 +85,15 @@ class StructureSearch:
         logging.info(f"Processing residue embeddings: {structure_name}")
         embedder = self._get_embedder()
 
-        # Suppress biotite warnings during structure loading
-        with warnings.catch_warnings():
-            # warnings.filterwarnings("ignore", category=FutureWarning, module="esm")
-            # warnings.filterwarnings("ignore", category=UserWarning, module="esm")
-            # Get residue-level embeddings for chains in the query structure
-            # If chain_id is specified, only compute embeddings for that chain
-            residue_embeddings = embedder.residue_embedding_by_chain(
-                src_structure=query_structure,
-                structure_format=structure_format,
-                chain_id=chain_id
-            ) if granularity == 'chain' else embedder.residue_embedding_by_assembly(
-                src_structure=query_structure,
-                structure_format=structure_format,
-                assembly_id=assembly_id
-            )
+        residue_embeddings = embedder.residue_embedding_by_chain(
+            src_structure=query_structure,
+            structure_format=structure_format,
+            chain_id=chain_id
+        ) if granularity == 'chain' else embedder.residue_embedding_by_assembly(
+            src_structure=query_structure,
+            structure_format=structure_format,
+            assembly_id=assembly_id
+        )
 
         if not residue_embeddings:
             if chain_id:

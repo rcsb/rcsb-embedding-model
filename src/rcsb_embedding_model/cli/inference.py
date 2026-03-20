@@ -6,9 +6,9 @@ import typer
 from typing import Annotated, List
 
 from rcsb_embedding_model import __version__
-from rcsb_embedding_model.cli.args_utils import arg_devices
+from rcsb_embedding_model.cli.args_utils import arg_devices, set_log_level
 from rcsb_embedding_model.types.api_types import StructureFormat, Accelerator, SrcLocation, SrcProteinFrom, \
-    SrcAssemblyFrom, SrcTensorFrom, OutFormat, Strategy
+    SrcAssemblyFrom, SrcTensorFrom, OutFormat, Strategy, LogLevel
 from rcsb_embedding_model.utils.data import adapt_csv_to_embedding_chain_stream
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -72,8 +72,13 @@ def residue_embedding(
         )] = tuple(['auto']),
         strategy: Annotated[Strategy, typer.Option(
             help='Lightning strategy to control distribution of inference.'
-        )] = 'auto'
+        )] = 'auto',
+        log_level: Annotated[LogLevel, typer.Option(
+            help='Number of nodes to use for inference of embeddings.'
+        )] = 'info'
 ):
+    set_log_level(log_level)
+
     from rcsb_embedding_model.inference.esm_inference import predict
     predict(
         src_stream=src_file,
@@ -138,8 +143,13 @@ def structure_embedding(
         )] = tuple(['auto']),
         strategy: Annotated[Strategy, typer.Option(
             help='Lightning strategy to control distribution of inference.'
-        )] = 'auto'
+        )] = 'auto',
+        log_level: Annotated[LogLevel, typer.Option(
+            help='Number of nodes to use for inference of embeddings.'
+        )] = 'info'
 ):
+    set_log_level(log_level)
+
     from rcsb_embedding_model.inference.structure_inference import predict
     predict(
         src_stream=src_file,
@@ -213,8 +223,13 @@ def chain_embedding(
         )] = tuple(['auto']),
         strategy: Annotated[Strategy, typer.Option(
             help='Lightning strategy to control distribution of inference.'
-        )] = 'auto'
+        )] = 'auto',
+        log_level: Annotated[LogLevel, typer.Option(
+            help='Number of nodes to use for inference of embeddings.'
+        )] = 'info'
 ):
+    set_log_level(log_level)
+
     from rcsb_embedding_model.inference.chain_inference import predict
     predict(
         src_stream=adapt_csv_to_embedding_chain_stream(src_file, res_embedding_location),
@@ -292,8 +307,13 @@ def assembly_embedding(
         )] = tuple(['auto']),
         strategy: Annotated[Strategy, typer.Option(
             help='Lightning strategy to control distribution of inference.'
-        )] = 'auto'
+        )] = 'auto',
+        log_level: Annotated[LogLevel, typer.Option(
+            help='Number of nodes to use for inference of embeddings.'
+        )] = 'info'
 ):
+    set_log_level(log_level)
+
     from rcsb_embedding_model.inference.assembly_inferece import predict
     predict(
         src_stream=src_file,
@@ -401,8 +421,13 @@ def complete_embedding(
         )] = tuple(['auto']),
         strategy: Annotated[Strategy, typer.Option(
             help='Lightning strategy to control distribution of inference.'
-        )] = 'auto'
+        )] = 'auto',
+        log_level: Annotated[LogLevel, typer.Option(
+            help='Number of nodes to use for inference of embeddings.'
+        )] = 'info'
 ):
+    set_log_level(log_level)
+
     residue_embedding(
         src_file=src_chain_file,
         output_path=output_res_path,

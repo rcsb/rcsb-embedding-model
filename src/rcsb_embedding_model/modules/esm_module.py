@@ -12,7 +12,7 @@ class EsmModule(LightningModule):
             model
     ):
         super().__init__()
-        logger.info(f"Using device: {self.device}")
+        logger.info(f"ESM device: {model.device}")
         self.esm3 = model
 
     def predict_step(self, prot_batch, batch_idx):
