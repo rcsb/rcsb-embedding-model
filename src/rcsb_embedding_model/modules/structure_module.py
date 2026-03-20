@@ -15,10 +15,11 @@ class StructureModule(LightningModule):
             aggregator_model
     ):
         super().__init__()
-        logger.info(f"ESM device: {res_model.device}")
-        logger.info(f"Aggregator device: {self.device}")
         self.esm3 = res_model
         self.aggregator =  aggregator_model
+
+    def on_train_start(self):
+        logger.info(f"ESM/Aggregator device: {self.device}")
 
     def predict_step(self, prot_batch, batch_idx):
         prot_embeddings = []
