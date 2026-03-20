@@ -168,7 +168,7 @@ def query_database(
             help='Maximum residue length for structures (None for no limit)'
         )] = None,
         device: Annotated[str, typer.Option(
-            help='Device to use for embeddings (cuda, cpu, or auto)'
+            help='Device to use for embedding calculation (cuda, cpu, or auto)'
         )] = "auto",
         use_gpu_index: Annotated[bool, typer.Option(
             help='Use GPU for FAISS search (requires faiss-gpu)'
