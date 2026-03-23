@@ -42,16 +42,19 @@ pip install -e .
 
 **Requirements:**
 
-- Python ≥ 3.10
-- ESM >= 3.2.0
-- Lightning ≥ 2.5.0
-- Typer ≥ 0.15.0
+- Python ≥ 3.12
+- ESM 3.2.3
+- Lightning 2.6.1
+- Typer 0.24.1
+- Biotite 1.6.0
+- FAISS 1.13.2
+- igraph 1.0.0
+- leidenalg 0.11.0
 - PyTorch with CUDA support (recommended for GPU acceleration)
 
 **Optional Dependencies:**
 
-- `faiss-gpu` for GPU-accelerated similarity search
-- `igraph` and `leidenalg` for clustering functionality
+- `faiss-gpu` for GPU-accelerated similarity search (instead of `faiss-cpu`)
 
 ### Download Pre-trained Models
 
