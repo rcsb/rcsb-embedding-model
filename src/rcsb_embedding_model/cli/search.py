@@ -97,7 +97,7 @@ def build_database(
         db_dir = Path.cwd()  # Use current directory explicitly
     output_db = str(db_dir / index_name)
 
-    logging.info(f"Using device for embeddings: {str(accelerator.value)}")
+    logging.info(f"Using device for embeddings: {str(accelerator.value) if hasattr(accelerator, 'value') else accelerator}")
     if use_gpu_index:
         logging.info("GPU acceleration for FAISS index: enabled")
 
