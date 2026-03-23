@@ -576,7 +576,7 @@ pytest
 
 ## Citation
 
-Segura, J., et al. (2024). *Multi-scale structural similarity embedding search across entire proteomes*. (https://doi.org/10.1093/bioinformatics/btag058)
+Segura, J., et al. (2026). *Multi-scale structural similarity embedding search across entire proteomes*. (https://doi.org/10.1093/bioinformatics/btag058)
 
 ---
 
