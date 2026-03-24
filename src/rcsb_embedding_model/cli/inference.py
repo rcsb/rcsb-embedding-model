@@ -13,14 +13,9 @@ from rcsb_embedding_model.utils.data import adapt_csv_to_embedding_chain_stream
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
-logging.getLogger("lightning.pytorch").setLevel(logging.ERROR)
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-
 app = typer.Typer(
-    add_completion=False
+    add_completion=False,
+    help=f"RCSB Embedding Model CLI. Version: {__version__}"
 )
 
 
@@ -77,9 +72,9 @@ def residue_embedding(
             help='Number of nodes to use for inference of embeddings.'
         )] = 'info'
 ):
+    from rcsb_embedding_model.inference.esm_inference import predict
     set_log_level(log_level)
 
-    from rcsb_embedding_model.inference.esm_inference import predict
     predict(
         src_stream=src_file,
         src_location=SrcLocation.file,
@@ -148,9 +143,9 @@ def structure_embedding(
             help='Number of nodes to use for inference of embeddings.'
         )] = 'info'
 ):
+    from rcsb_embedding_model.inference.structure_inference import predict
     set_log_level(log_level)
 
-    from rcsb_embedding_model.inference.structure_inference import predict
     predict(
         src_stream=src_file,
         src_location=SrcLocation.file,
@@ -228,9 +223,9 @@ def chain_embedding(
             help='Number of nodes to use for inference of embeddings.'
         )] = 'info'
 ):
+    from rcsb_embedding_model.inference.chain_inference import predict
     set_log_level(log_level)
 
-    from rcsb_embedding_model.inference.chain_inference import predict
     predict(
         src_stream=adapt_csv_to_embedding_chain_stream(src_file, res_embedding_location),
         res_embedding_location=res_embedding_location,
@@ -312,9 +307,9 @@ def assembly_embedding(
             help='Number of nodes to use for inference of embeddings.'
         )] = 'info'
 ):
+    from rcsb_embedding_model.inference.assembly_inferece import predict
     set_log_level(log_level)
 
-    from rcsb_embedding_model.inference.assembly_inferece import predict
     predict(
         src_stream=src_file,
         res_embedding_location=res_embedding_location,
@@ -426,7 +421,6 @@ def complete_embedding(
             help='Number of nodes to use for inference of embeddings.'
         )] = 'info'
 ):
-    set_log_level(log_level)
 
     residue_embedding(
         src_file=src_chain_file,
@@ -439,7 +433,8 @@ def complete_embedding(
         num_nodes=num_nodes,
         accelerator=accelerator,
         devices=devices,
-        strategy=strategy
+        strategy=strategy,
+        log_level=log_level
     )
     chain_embedding(
         src_file=src_chain_file,
@@ -454,7 +449,8 @@ def complete_embedding(
         num_nodes=num_nodes,
         accelerator=accelerator,
         devices=devices,
-        strategy=strategy
+        strategy=strategy,
+        log_level=log_level
     )
     assembly_embedding(
         src_file=src_assembly_file,
@@ -470,7 +466,8 @@ def complete_embedding(
         num_nodes=num_nodes,
         accelerator=accelerator,
         devices=devices,
-        strategy=strategy
+        strategy=strategy,
+        log_level=log_level
     )
 
 @app.command(

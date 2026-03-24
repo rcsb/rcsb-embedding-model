@@ -16,7 +16,7 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 app = typer.Typer(
     add_completion=False,
-    help="3D structure search using embeddings and FAISS"
+    help=f"3D structure search using embeddings and FAISS. Version: {__version__}"
 )
 
 
