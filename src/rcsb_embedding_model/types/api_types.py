@@ -1,20 +1,16 @@
 from enum import Enum
-from typing import NewType, Union, IO, Tuple, List, Optional
+from typing import IO, Tuple, List, Optional, Literal
 
 from typer import FileText
 
-StreamSrc = NewType('StreamSrc', Union[FileText, IO])
-StreamTuple = NewType('StreamTuple', Union[
-    Tuple[str, StreamSrc, str, str],
-    Tuple[str, StreamSrc, str],
-    Tuple[str, str]
-])
-FileOrStreamTuple = NewType('FileOrStreamTuple', Union[FileText, StreamTuple])
+StreamSrc = FileText | IO
+StreamTuple = Tuple[str, StreamSrc, str, str] | Tuple[str, StreamSrc, str] | Tuple[str, str]
+FileOrStreamTuple = FileText | StreamTuple
 
-Devices = NewType('Devices', Union[int, List[int], "auto"])
+Devices = int | List[int] | Literal["auto"]
 
-EmbeddingPath = Union[str, FileText]
-OptionalPath = NewType('OptionalPath', Optional[FileText])
+EmbeddingPath = str | FileText
+OptionalPath = Optional[FileText]
 
 
 class StructureFormat(str, Enum):

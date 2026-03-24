@@ -37,8 +37,10 @@ dev = [
 ]
 
 [build-system]
-requires = ["uv_build>=0.10.9,<0.11.0"]
-build-backend = "uv_build"
+requires = [
+    "hatchling >= 1.14.1"
+]
+build-backend = "hatchling.build"
 
 [project.scripts]
 inference = "rcsb_embedding_model.cli.inference:app"
