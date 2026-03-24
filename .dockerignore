@@ -23,6 +23,7 @@ node_modules/
 /compose.yaml
 /justfile
 /mkdocs.yaml
+/uv.lock
 
 # Keep README.md (needed for build)
 !/README.md
