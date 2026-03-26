@@ -44,9 +44,9 @@ jobs:
 
   lint:
     name: "Lint Dockerfile"
-    uses: rcsb/devops-cicd-github-actions/.github/workflows/lint_docker.yaml
+    uses: rcsb/devops-cicd-github-actions/.github/workflows/lint_docker.yaml@master
     with:
-      dockerfile_location: ${{ inputs.dockerfile_location }}
+      dockerfile_location: ${{ inputs.dockerfile_location || 'Dockerfile' }}
 
   hatch-build:
     name: Build to PyPI

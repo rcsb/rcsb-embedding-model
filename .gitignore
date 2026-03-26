@@ -4,3 +4,4 @@
 /.pypi.rc
 __pycache__
 /tests/resources/tmp
+/.claude
