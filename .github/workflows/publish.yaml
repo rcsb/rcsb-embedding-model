@@ -9,7 +9,16 @@ on:
     types: [published]
 
 jobs:
+
+  docker-lint:
+    name: "Lint Dockerfile"
+    uses: rcsb/devops-cicd-github-actions/.github/workflows/lint_docker.yaml@master
+    with:
+      dockerfile_location: 'Dockerfile'
+
   hatch-test:
+    needs:
+      - docker-lint
     name: Test on Python ${{ matrix.python-version }}
     runs-on: ["self-hosted", "buildchain"]
     timeout-minutes: 20
@@ -36,17 +45,10 @@ jobs:
       - name: Run tests
         run: hatch test
 
-  lint:
-    needs:
-      - hatch-test
-    name: "Lint Dockerfile"
-    uses: rcsb/devops-cicd-github-actions/.github/workflows/lint_docker.yaml@master
-    with:
-      dockerfile_location: ${{ inputs.dockerfile_location || 'Dockerfile' }}
-
   hatch-build:
     name: Build to PyPI
-    needs: hatch-test
+    needs:
+      - hatch-test
     runs-on: ubuntu-latest
     if: github.event_name == 'release'
     steps:

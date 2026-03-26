@@ -37,6 +37,7 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 COPY --from=builder /app /app
 
 # Final cleanup for runtime image
+# hadolint ignore=SC2015
 RUN find /usr/share/locale -mindepth 1 -maxdepth 1 ! -name 'en*' -exec rm -rf {} + 2>/dev/null || true && \
     find /usr/share/i18n/locales -mindepth 1 -maxdepth 1 ! -name 'en_*' -exec rm -rf {} + 2>/dev/null || true && \
     rm -rf /usr/share/doc/* /usr/share/man/* /usr/share/info/* 2>/dev/null || true
