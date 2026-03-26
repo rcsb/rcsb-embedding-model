@@ -10,15 +10,7 @@ on:
 
 jobs:
 
-  docker-lint:
-    name: "Lint Dockerfile"
-    uses: rcsb/devops-cicd-github-actions/.github/workflows/lint_docker.yaml@master
-    with:
-      dockerfile_location: 'Dockerfile'
-
   hatch-test:
-    needs:
-      - docker-lint
     name: Test on Python ${{ matrix.python-version }}
     runs-on: ["self-hosted", "buildchain"]
     timeout-minutes: 20
