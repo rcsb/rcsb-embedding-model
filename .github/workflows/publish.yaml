@@ -72,12 +72,18 @@ jobs:
           name: python-package-distributions
           path: dist/
 
+  push-image:
+    needs:
+      - hatch-build
+    name: Push image to harbor
+    uses: ./.github/workflows/_workflow-docker.yaml
+
   publish-to-pypi:
     name: >-
       Publish Python 🐍 distribution 📦 to PyPI
     if: github.event_name == 'release'
     needs:
-      - hatch-build
+      - push-image
     runs-on: ubuntu-latest
     environment:
       name: pypi
@@ -93,9 +99,3 @@ jobs:
           path: dist/
       - name: Publish distribution 📦 to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
-
-  push-image:
-    needs:
-      - hatch-test
-    name: Push image to harbor
-    uses: ./.github/workflows/_workflow-docker.yaml
