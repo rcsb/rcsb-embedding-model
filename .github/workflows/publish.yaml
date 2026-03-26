@@ -1,6 +1,12 @@
 name: CI Pipeline
 
 on:
+  workflow_call:
+    inputs:
+      dockerfile_location:
+        type: string
+        default: "Dockerfile"
+        description: "The location of the Dockerfile relative to the root of the repository."
   push:
     branches: [master]
   pull_request:
@@ -35,6 +41,12 @@ jobs:
 
       - name: Run tests
         run: hatch test
+
+  lint:
+    name: "Lint Dockerfile"
+    uses: rcsb/devops-cicd-github-actions/.github/workflows/lint_docker.yaml
+    with:
+      dockerfile_location: ${{ inputs.dockerfile_location }}
 
   hatch-build:
     name: Build to PyPI
