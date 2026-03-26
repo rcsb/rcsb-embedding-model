@@ -8,6 +8,7 @@ COPY pyproject.toml README.md LICENSE.md ./
 COPY src/ ./src/
 
 # Install build dependencies, build, strip, and cleanup in one layer
+# hadolint ignore=DL3008
 RUN apt-get update && \
     apt-get install -y --no-install-recommends gcc g++ binutils && \
     pip install --no-cache-dir -e . && \
