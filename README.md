@@ -17,7 +17,9 @@ If you are interested in training the model with a new dataset, visit the [rcsb-
 ## Features
 
 - **Residue-level embeddings** computed using the ESM3 protein language model  
-- **Structure-level embeddings** aggregated via a transformer-based aggregator network  
+- **Structure-level embeddings** aggregated via a transformer-based aggregator network 
+- **Fast and efficient** FAISS-based similarity search
+- **Structural clustering** using the Leiden algorithm for biological assembly identification
 - **Command-line interface** implemented with Typer for high-throughput inference workflows  
 - **Python API** for interactive embedding computation and integration into analysis pipelines  
 - **High-performance inference** leveraging PyTorch Lightning, with multi-node and multi-GPU support  
