@@ -134,6 +134,80 @@ class FaissEmbeddingDatabase:
         # Save to disk
         self._save()
 
+    def update_embeddings(
+            self,
+            chain_ids: List[str],
+            embeddings: List[torch.Tensor],
+            use_gpu: bool = False
+    ):
+        """
+        Update an existing FAISS database: add new embeddings and replace existing ones by ID.
+
+        Args:
+            chain_ids: List of chain identifiers (format: "structure_name:chain_id")
+            embeddings: List of embedding tensors (one per chain)
+            use_gpu: Whether to use GPU for indexing (if available)
+        """
+        if self.index is None:
+            raise ValueError("Database not initialized. Call load_database() first.")
+
+        if len(chain_ids) != len(embeddings):
+            raise ValueError("Number of chain_ids must match number of embeddings")
+
+        new_ids_set = set(chain_ids)
+        replaced_ids = new_ids_set & set(self.chain_ids)
+        added_ids = new_ids_set - replaced_ids
+
+        # Reconstruct existing vectors that are NOT being replaced
+        kept_ids = []
+        kept_vectors = []
+        for i, existing_id in enumerate(self.chain_ids):
+            if existing_id not in new_ids_set:
+                kept_ids.append(existing_id)
+                kept_vectors.append(self.index.reconstruct(i))
+
+        # Convert new embeddings to numpy
+        new_vectors = []
+        for embedding in embeddings:
+            if isinstance(embedding, torch.Tensor):
+                embedding = embedding.detach().cpu().numpy()
+            if embedding.ndim > 1:
+                embedding = np.mean(embedding, axis=0)
+            new_vectors.append(embedding)
+
+        # Combine kept + new
+        all_ids = kept_ids + list(chain_ids)
+        all_vectors = kept_vectors + new_vectors
+        embedding_array = np.array(all_vectors, dtype=np.float32)
+
+        # Normalize for cosine similarity
+        faiss.normalize_L2(embedding_array)
+
+        n_embeddings = embedding_array.shape[0]
+
+        # Rebuild index using same logic as create_database
+        if n_embeddings < 10000:
+            self.index = faiss.IndexFlatIP(self.dimension)
+        else:
+            self.index = faiss.IndexHNSWFlat(self.dimension, 32)
+
+        if use_gpu:
+            if _has_gpu_support():
+                self.gpu_resources = faiss.StandardGpuResources()
+                self.gpu_resources.setTempMemory(1024 * 1024 * 1024)
+                self.index = faiss.index_cpu_to_gpu(self.gpu_resources, 0, self.index)
+                self.is_gpu_index = True
+
+        self.index.add(embedding_array)
+        self.chain_ids = all_ids
+
+        self._save()
+
+        logger.info(
+            f"Database updated: {len(replaced_ids)} replaced, {len(added_ids)} added, "
+            f"{len(self.chain_ids)} total embeddings"
+        )
+
     def load_database(self, use_gpu: bool = False):
         """
         Load an existing FAISS database.

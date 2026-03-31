@@ -417,5 +417,67 @@ class TestCliSearch(unittest.TestCase):
             self.assertGreater(len(lines), 1)
 
 
+    def test_15_update_database(self):
+        """Test updating an existing database with new/replacement embeddings."""
+        from rcsb_embedding_model.search.faiss_database import FaissEmbeddingDatabase
+        from rcsb_embedding_model.cli.search import update_database
+        from pathlib import Path
+
+        # Get initial database stats (built by test_01)
+        db_path_obj = Path(self.__db_path)
+        db = FaissEmbeddingDatabase(db_path=str(db_path_obj.parent), index_name=db_path_obj.name)
+        db.load_database()
+        initial_count = len(db.chain_ids)
+        initial_ids = set(db.chain_ids)
+        self.assertGreater(initial_count, 0)
+
+        # Update with the same structure files (should replace, count stays the same)
+        structure_dir = f"{self.__test_path}/resources/pdb"
+        update_database(
+            structure_dir=structure_dir,
+            output_db=self.__db_path,
+            tmp_dir=self.__temp_dir,
+            structure_format=StructureFormat.mmcif,
+            file_extension=".cif",
+            min_res=10,
+            accelerator='cpu',
+            use_gpu_index=False
+        )
+
+        db2 = FaissEmbeddingDatabase(db_path=str(db_path_obj.parent), index_name=db_path_obj.name)
+        db2.load_database()
+        self.assertEqual(len(db2.chain_ids), initial_count)
+        self.assertEqual(set(db2.chain_ids), initial_ids)
+
+    def test_16_update_database_unit(self):
+        """Test update_embeddings directly with synthetic data."""
+        from rcsb_embedding_model.search.faiss_database import FaissEmbeddingDatabase
+        import torch
+
+        db_path = os.path.join(self.__temp_dir, "test_update_unit")
+        db = FaissEmbeddingDatabase(db_path=db_path, index_name="test_update")
+
+        # Create initial database
+        chain_ids = ["s1:A", "s2:A", "s3:B"]
+        embeddings = [torch.randn(256) for _ in range(3)]
+        db.create_database(chain_ids=chain_ids, embeddings=embeddings)
+
+        # Reload and update: replace s1:A and add s4:C
+        db2 = FaissEmbeddingDatabase(db_path=db_path, index_name="test_update")
+        db2.load_database()
+        new_chain_ids = ["s1:A", "s4:C"]
+        new_embeddings = [torch.randn(256) for _ in range(2)]
+        db2.update_embeddings(chain_ids=new_chain_ids, embeddings=new_embeddings)
+
+        # Verify: 3 original - 1 replaced + 2 new = 4 total
+        db3 = FaissEmbeddingDatabase(db_path=db_path, index_name="test_update")
+        db3.load_database()
+        self.assertEqual(len(db3.chain_ids), 4)
+        self.assertIn("s1:A", db3.chain_ids)
+        self.assertIn("s2:A", db3.chain_ids)
+        self.assertIn("s3:B", db3.chain_ids)
+        self.assertIn("s4:C", db3.chain_ids)
+
+
 if __name__ == '__main__':
     unittest.main()

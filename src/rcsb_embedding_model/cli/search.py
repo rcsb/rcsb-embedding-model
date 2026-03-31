@@ -130,6 +130,112 @@ def build_database(
 
 
 @app.command(
+    name="update-db",
+    help="Update an existing embedding database with new or replacement structure files"
+)
+def update_database(
+        structure_dir: Annotated[str, typer.Option(
+            help='Directory containing new or updated structure files'
+        )],
+        output_db: Annotated[str, typer.Option(
+            help='Path to the existing FAISS database to update'
+        )],
+        tmp_dir: Annotated[str, typer.Option(
+            help='Temporal directory'
+        )],
+        structure_format: Annotated[StructureFormat, typer.Option(
+            help='Structure file format (mmcif, binarycif, or pdb)'
+        )] = StructureFormat.mmcif,
+        granularity: Annotated[Granularity, typer.Option(
+            help='Calculate embeddings for "chain" or "assembly" level'
+        )] = 'chain',
+        file_extension: Annotated[Optional[str], typer.Option(
+            help='File extension to filter (e.g., .cif, .bcif, or .pdb). If not specified, uses default for format'
+        )] = None,
+        min_res: Annotated[int, typer.Option(
+            help='Minimum residue length for chains'
+        )] = 10,
+        use_gpu_index: Annotated[bool, typer.Option(
+            help='Use GPU for FAISS index (requires faiss-gpu)'
+        )] = False,
+        accelerator: Annotated[Accelerator, typer.Option(
+            help='Device used for inference.'
+        )] = "auto",
+        devices: Annotated[List[str], typer.Option(
+            help='The devices to use. Can be set to a positive number or "auto". Repeat this argument to indicate multiple indices of devices. "auto" for automatic selection based on the chosen accelerator.'
+        )] = tuple(['auto']),
+        strategy: Annotated[Strategy, typer.Option(
+            help='Lightning strategy to control distribution of inference.'
+        )] = 'auto',
+        batch_size_res: Annotated[int, typer.Option(
+            help='Number of samples processed together in one iteration.'
+        )] = 1,
+        num_workers_res: Annotated[int, typer.Option(
+            help='Number of subprocesses to use for data loading.'
+        )] = 0,
+        num_nodes_res: Annotated[int, typer.Option(
+            help='Number of nodes to use for inference of residue embeddings.'
+        )] = 1,
+        batch_size_aggregator: Annotated[int, typer.Option(
+            help='Number of samples processed together in one iteration.'
+        )] = 1,
+        num_workers_aggregator: Annotated[int, typer.Option(
+            help='Number of subprocesses to use for data loading.'
+        )] = 0,
+        num_nodes_aggregator: Annotated[int, typer.Option(
+            help='Number of nodes to use for inference of embeddings.'
+        )] = 1,
+        log_level: Annotated[LogLevel, typer.Option(
+            help='Number of nodes to use for inference of embeddings.'
+        )] = 'info'
+):
+    """Update an existing embedding database with new or replacement structure files."""
+
+    set_log_level(log_level)
+
+    # Parse output_db into directory and prefix
+    output_db_path = Path(output_db)
+    db_dir = output_db_path.parent
+    index_name = output_db_path.name
+
+    if not index_name:
+        index_name = "embeddings"
+    if db_dir == Path('.'):
+        db_dir = Path.cwd()
+    output_db = str(db_dir / index_name)
+
+    logging.info(f"Using device for embeddings: {str(accelerator.value) if hasattr(accelerator, 'value') else accelerator}")
+    if use_gpu_index:
+        logging.info("GPU acceleration for FAISS index: enabled")
+
+    builder = EmbeddingDatabaseBuilder(
+        structure_dir=structure_dir,
+        tmp_dir=tmp_dir,
+        structure_format=structure_format,
+        min_res=min_res,
+        accelerator=accelerator
+    )
+
+    builder.update_faiss_database(
+        output_db=output_db,
+        granularity=granularity,
+        devices=arg_devices(devices),
+        strategy=strategy,
+        file_extension=file_extension,
+        use_gpu_index=use_gpu_index,
+        batch_size_res=batch_size_res,
+        num_workers_res=num_workers_res,
+        num_nodes_res=num_nodes_res,
+        batch_size_chain=batch_size_aggregator,
+        num_workers_chain=num_workers_aggregator,
+        num_nodes_chain=num_nodes_aggregator
+    )
+    import torch.distributed as dist
+    if not (dist.is_available() and dist.is_initialized()) or dist.get_rank() == 0:
+        logging.info(f"Database updated successfully: {output_db}")
+
+
+@app.command(
     name="query",
     help="Search the database for similar structures"
 )

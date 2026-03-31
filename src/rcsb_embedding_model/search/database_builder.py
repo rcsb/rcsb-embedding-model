@@ -1,6 +1,5 @@
 import logging
 import torch
-import warnings
 import time
 from pathlib import Path
 from typing import Optional
@@ -226,6 +225,111 @@ class EmbeddingDatabaseBuilder:
             logging.info(f"Creating database completed in {database_time:.2f} seconds")
 
             logging.info("Batch database build complete!")
+            logging.info(f"Database location: {output_db}")
+            logging.info(f"Total embeddings: {len(db.chain_ids)}")
+
+        del chain_ids, embeddings
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+    def update_faiss_database(
+            self,
+            output_db: str,
+            file_extension: Optional[str] = None,
+            granularity: Granularity = 'chain',
+            use_gpu_index: bool = False,
+            batch_size_res=1,
+            num_workers_res=0,
+            num_nodes_res=1,
+            batch_size_chain=1,
+            num_workers_chain=0,
+            num_nodes_chain=1,
+            devices='auto',
+            strategy='auto'
+    ):
+        """
+        Update an existing FAISS database with new or replacement embeddings.
+
+        New embeddings are added to the database. If any of the new IDs match
+        existing entries, their vectors are replaced.
+
+        Args:
+            output_db: Path to the existing FAISS database (directory + prefix)
+            file_extension: File extension filter (e.g., '.cif', '.pdb'). If None, uses structure_format default
+            granularity: Calculate embeddings for 'chain' or 'assembly' level
+            use_gpu_index: Whether to use GPU for FAISS indexing
+            batch_size_res: Number of chains to process residue embeddings per batch
+            num_workers_res: Number of subprocesses to use for residue embedding data loading
+            num_nodes_res: Number of nodes to use for residue embedding inference
+            batch_size_chain: Number of chains to process chain embeddings per batch
+            num_workers_chain: Number of subprocesses to use for chain embedding data loading
+            num_nodes_chain: Number of nodes to use for chain embedding inference
+            devices: Number of devices to use for inference
+            strategy: Lightning strategy to control distribution of inference
+        """
+        # Parse output_db into directory and prefix
+        output_db_path = Path(output_db)
+        db_dir = output_db_path.parent
+        index_name = output_db_path.name
+
+        if not index_name:
+            index_name = "embeddings"
+        if db_dir == Path('.'):
+            db_dir = Path.cwd()
+
+        logging.info("Loading existing FAISS database for update")
+
+        db = FaissEmbeddingDatabase(db_path=str(db_dir), index_name=index_name)
+        db.load_database()
+
+        existing_count = len(db.chain_ids)
+        logging.info(f"Existing database contains {existing_count} embeddings")
+
+        logging.info("Building new embeddings")
+
+        start_time = time.time()
+        chain_ids, embeddings = self.build_embeddings(
+            file_extension=file_extension,
+            granularity=granularity,
+            devices=devices,
+            strategy=strategy,
+            batch_size_res=batch_size_res,
+            num_workers_res=num_workers_res,
+            num_nodes_res=num_nodes_res,
+            batch_size_chain=batch_size_chain,
+            num_workers_chain=num_workers_chain,
+            num_nodes_chain=num_nodes_chain,
+        )
+        embeddings_time = time.time() - start_time
+        logging.info(f"Creating embeddings completed in {embeddings_time:.2f} seconds")
+
+        # Gather embeddings from all processes when using DDP
+        import torch.distributed as dist
+        is_distributed = dist.is_available() and dist.is_initialized()
+
+        if is_distributed:
+            rank = dist.get_rank()
+            world_size = dist.get_world_size()
+
+            gathered_chain_ids = [None] * world_size if rank == 0 else None
+            dist.gather_object(chain_ids, gathered_chain_ids if rank == 0 else None, dst=0)
+
+            gathered_embeddings = [None] * world_size if rank == 0 else None
+            dist.gather_object(embeddings, gathered_embeddings if rank == 0 else None, dst=0)
+
+            if rank == 0:
+                chain_ids = [cid for rank_chain_ids in gathered_chain_ids for cid in rank_chain_ids]
+                embeddings = [emb for rank_embeddings in gathered_embeddings for emb in rank_embeddings]
+
+        is_rank_zero = not is_distributed or dist.get_rank() == 0
+
+        if is_rank_zero:
+            start_time = time.time()
+            db.update_embeddings(chain_ids=chain_ids, embeddings=embeddings, use_gpu=use_gpu_index)
+            database_time = time.time() - start_time
+            logging.info(f"Updating database completed in {database_time:.2f} seconds")
+
+            logging.info("Database update complete!")
             logging.info(f"Database location: {output_db}")
             logging.info(f"Total embeddings: {len(db.chain_ids)}")
 
