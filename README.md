@@ -1,17 +1,17 @@
-# RCSB Embedding Model
+# FoldMatch
 
 **Version** 0.1.0
 
 
 ## Overview
 
-RCSB Embedding Model is a neural network architecture designed to encode macromolecular 3D structures into fixed-length vector embeddings for efficient large-scale structure similarity search.
+FoldMatch is a Python toolkit to encode macromolecular 3D structures into fixed-length vector embeddings for efficient large-scale structure similarity search.
 
 Reference: [Multi-scale structural similarity embedding search across entire proteomes](https://doi.org/10.1093/bioinformatics/btag058).
 
-A web-based implementation using this model for structure similarity search is available at [rcsb-embedding-search](http://embedding-search.rcsb.org).
+A web-based implementation using this tool for structure similarity search is available at [rcsb-embedding-search](http://embedding-search.rcsb.org).
 
-If you are interested in training the model with a new dataset, visit the [rcsb-embedding-search repository](https://github.com/bioinsilico/rcsb-embedding-search), which provides scripts and documentation for training.
+If you are interested in training a new model with a new structure dataset, visit the [rcsb-embedding-search repository](https://github.com/bioinsilico/rcsb-embedding-search), which provides scripts and documentation for training.
 
 
 ## Features
@@ -31,14 +31,14 @@ If you are interested in training the model with a new dataset, visit the [rcsb-
 ### From PyPI
 
 ```bash
-pip install rcsb-embedding-model
+pip install foldmatch
 ```
 
 ### From Source (Development)
 
 ```bash
-git clone https://github.com/rcsb/rcsb-embedding-model.git
-cd rcsb-embedding-model
+git clone https://github.com/rcsb/foldmatch.git
+cd foldmatch
 pip install -e .
 ```
 
@@ -334,10 +334,10 @@ The `RcsbStructureEmbedding` class provides methods for computing embeddings pro
 ### Basic Usage
 
 ```python
-from rcsb_embedding_model import RcsbStructureEmbedding
+from foldmatch import FoldMatch
 
 # Initialize model
-model = RcsbStructureEmbedding(min_res=10, max_res=5000)
+model = FoldMatch(min_res=10, max_res=5000)
 
 # Load models (optional - loads automatically on first use)
 model.load_models()  # Auto-detects CUDA
@@ -511,11 +511,11 @@ structure_emb = model.structure_embedding(
 ### Complete Example
 
 ```python
-from rcsb_embedding_model import RcsbStructureEmbedding
+from foldmatch import FoldMatch
 import torch
 
 # Initialize
-model = RcsbStructureEmbedding(min_res=10, max_res=5000)
+model = FoldMatch(min_res=10, max_res=5000)
 
 # Option 1: Full structure embedding (one-shot)
 embedding = model.structure_embedding(

@@ -1,7 +1,7 @@
 import os.path
 import unittest
 
-from rcsb_embedding_model.types.api_types import SrcLocation, SrcProteinFrom, StructureFormat, \
+from foldmatch.types.api_types import SrcLocation, SrcProteinFrom, StructureFormat, \
     Accelerator, SrcAssemblyFrom
 
 
@@ -10,7 +10,7 @@ class TestRemoteInference(unittest.TestCase):
     __test_path = os.path.dirname(__file__)
 
     def test_esm_inference_from_structure(self):
-        from rcsb_embedding_model.inference.esm_inference import predict
+        from foldmatch.inference.esm_inference import predict
 
         esm_embeddings = predict(
             src_stream=[
@@ -29,7 +29,7 @@ class TestRemoteInference(unittest.TestCase):
             self.assertEqual(tuple(esm_embeddings[idx][0][0].shape), shape)
 
     def test_esm_inference_from_bcif_gz(self):
-        from rcsb_embedding_model.inference.esm_inference import predict
+        from foldmatch.inference.esm_inference import predict
 
         esm_embeddings = predict(
             src_stream=[
@@ -49,7 +49,7 @@ class TestRemoteInference(unittest.TestCase):
 
 
     def test_esm_inference_from_csv_bcif_gz(self):
-        from rcsb_embedding_model.inference.esm_inference import predict
+        from foldmatch.inference.esm_inference import predict
 
         esm_embeddings = predict(
             src_stream=f"{self.__test_path}/resources/src_stream/instance.csv",
@@ -66,7 +66,7 @@ class TestRemoteInference(unittest.TestCase):
 
 
     def test_esm_inference_from_cif_gz(self):
-        from rcsb_embedding_model.inference.esm_inference import predict
+        from foldmatch.inference.esm_inference import predict
 
         esm_embeddings = predict(
             src_stream=[
@@ -86,7 +86,7 @@ class TestRemoteInference(unittest.TestCase):
 
 
     def test_assembly_inference_from_structure(self):
-        from rcsb_embedding_model.inference.assembly_inferece import predict
+        from foldmatch.inference.assembly_inferece import predict
 
         assembly_embeddings = predict(
             src_stream=[

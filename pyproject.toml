@@ -1,6 +1,6 @@
 [project]
-name = "rcsb-embedding-model"
-version = "0.0.51"
+name = "foldmatch"
+version = "0.1.0"
 authors = [
     { name="Joan Segura", email="joan.segura@rcsb.org" },
 ]
@@ -28,8 +28,8 @@ dependencies=[
 ]
 
 [project.urls]
-Homepage = "https://github.com/rcsb/rcsb-embedding-model"
-Issues = "https://github.com/rcsb/rcsb-embedding-model/issues"
+Homepage = "https://github.com/rcsb/foldmatch"
+Issues = "https://github.com/rcsb/foldmatch/issues"
 
 [dependency-groups]
 dev = [
@@ -43,5 +43,5 @@ requires = [
 build-backend = "hatchling.build"
 
 [project.scripts]
-inference = "rcsb_embedding_model.cli.inference:app"
-search = "rcsb_embedding_model.cli.search:app"
+fm-inference = "foldmatch.cli.inference:app"
+fm-search = "foldmatch.cli.search:app"

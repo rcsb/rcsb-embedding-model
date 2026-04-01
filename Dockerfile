@@ -42,4 +42,4 @@ RUN find /usr/share/locale -mindepth 1 -maxdepth 1 ! -name 'en*' -exec rm -rf {}
     find /usr/share/i18n/locales -mindepth 1 -maxdepth 1 ! -name 'en_*' -exec rm -rf {} + 2>/dev/null || true && \
     rm -rf /usr/share/doc/* /usr/share/man/* /usr/share/info/* 2>/dev/null || true
 
-ENTRYPOINT ["inference"]
+ENTRYPOINT ["fm-inference"]
