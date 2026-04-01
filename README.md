@@ -63,7 +63,7 @@ pip install -e .
 Before using the package, download the pre-trained ESM3 and aggregator models:
 
 ```bash
-inference download-models
+fm-inference download-models
 ```
 
 ---
@@ -78,16 +78,16 @@ The package provides two main interfaces:
 
 ## Command-Line Interface (CLI)
 
-The CLI provides two main command groups: `inference` for computing embeddings and `search` for similarity search operations.
+The CLI provides two main command groups: `fm-inference` for computing embeddings and `fm-search` for similarity search operations.
 
 ### Inference Commands
 
-#### `inference residue-embedding`
+#### `fm-inference residue-embedding`
 
 Calculate residue-level embeddings using ESM3. Outputs are stored as PyTorch tensor files.
 
 ```bash
-inference residue-embedding \
+fm-inference residue-embedding \
   --src-file data/structures.csv \
   --output-path results/residue_embeddings \
   --structure-format mmcif \
@@ -111,12 +111,12 @@ inference residue-embedding \
 
 ---
 
-#### `inference structure-embedding`
+#### `fm-inference structure-embedding`
 
 Calculate complete structure embeddings (residue + aggregator) from structural files. Outputs stored as a single DataFrame.
 
 ```bash
-inference structure-embedding \
+fm-inference structure-embedding \
   --src-file data/structures.csv \
   --output-path results/structure_embeddings \
   --output-name embeddings \
@@ -130,12 +130,12 @@ inference structure-embedding \
 
 ---
 
-#### `inference chain-embedding`
+#### `fm-inference chain-embedding`
 
 Aggregate residue embeddings into chain-level embeddings. Requires pre-computed residue embeddings.
 
 ```bash
-inference chain-embedding \
+fm-inference chain-embedding \
   --src-file data/structures.csv \
   --res-embedding-location results/residue_embeddings \
   --output-path results/chain_embeddings \
@@ -148,12 +148,12 @@ inference chain-embedding \
 
 ---
 
-#### `inference assembly-embedding`
+#### `fm-inference assembly-embedding`
 
 Aggregate residue embeddings into assembly-level embeddings.
 
 ```bash
-inference assembly-embedding \
+fm-inference assembly-embedding \
   --src-file data/assemblies.csv \
   --res-embedding-location results/residue_embeddings \
   --output-path results/assembly_embeddings \
@@ -169,12 +169,12 @@ inference assembly-embedding \
 
 ---
 
-#### `inference complete-embedding`
+#### `fm-inference complete-embedding`
 
 End-to-end pipeline: compute residue, chain, and assembly embeddings in one command.
 
 ```bash
-inference complete-embedding \
+fm-inference complete-embedding \
   --src-chain-file data/chains.csv \
   --src-assembly-file data/assemblies.csv \
   --output-res-path results/residues \
@@ -195,24 +195,24 @@ inference complete-embedding \
 
 ---
 
-#### `inference download-models`
+#### `fm-inference download-models`
 
 Download ESM3 and aggregator models from Hugging Face.
 
 ```bash
-inference download-models
+fm-inference download-models
 ```
 
 ---
 
 ### Search Commands
 
-#### `search build-db`
+#### `fm-search build-db`
 
 Build a FAISS database from structure files for similarity search.
 
 ```bash
-search build-db \
+fm-search build-db \
   --structure-dir data/pdb_files \
   --output-db databases/my_structures \
   --tmp-dir tmp \
@@ -236,12 +236,12 @@ search build-db \
 
 ---
 
-#### `search query`
+#### `fm-search query`
 
 Search the database for structures similar to a query structure.
 
 ```bash
-search query \
+fm-search query \
   --db-path databases/my_structures \
   --query-structure query.cif \
   --structure-format mmcif \
@@ -268,12 +268,12 @@ search query \
 
 ---
 
-#### `search query-db`
+#### `fm-search query-db`
 
 Compare all entries from a query database against a subject database.
 
 ```bash
-search query-db \
+fm-search query-db \
   --query-db-path databases/query_set \
   --subject-db-path databases/target_set \
   --top-k 100 \
@@ -291,22 +291,22 @@ search query-db \
 
 ---
 
-#### `search stats`
+#### `fm-search stats`
 
 Display database statistics.
 
 ```bash
-search stats --db-path databases/my_structures
+fm-search stats --db-path databases/my_structures
 ```
 
 ---
 
-#### `search cluster`
+#### `fm-search cluster`
 
 Cluster database embeddings using the Leiden algorithm.
 
 ```bash
-search cluster \
+fm-search cluster \
   --db-path databases/my_structures \
   --threshold 0.8 \
   --resolution 1.0 \
