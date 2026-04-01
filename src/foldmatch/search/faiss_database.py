@@ -75,7 +75,7 @@ class FaissEmbeddingDatabase:
             self.index = faiss.IndexFlatIP(self.dimension)
         else:
             # Large dataset: use HNSW for approximate search
-            self.index = faiss.IndexHNSWFlat(self.dimension, 32)
+            self.index = faiss.IndexHNSWFlat(self.dimension, 32, faiss.METRIC_INNER_PRODUCT)
 
         # Move to GPU if requested and available
         if use_gpu:
@@ -189,7 +189,7 @@ class FaissEmbeddingDatabase:
         if n_embeddings < 10000:
             self.index = faiss.IndexFlatIP(self.dimension)
         else:
-            self.index = faiss.IndexHNSWFlat(self.dimension, 32)
+            self.index = faiss.IndexHNSWFlat(self.dimension, 32, faiss.METRIC_INNER_PRODUCT)
 
         if use_gpu:
             if _has_gpu_support():
