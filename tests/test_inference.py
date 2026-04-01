@@ -1,7 +1,7 @@
 import os
 import unittest
 
-from rcsb_embedding_model.types.api_types import Accelerator, SrcProteinFrom, SrcLocation, \
+from foldmatch.types.api_types import Accelerator, SrcProteinFrom, SrcLocation, \
     StructureFormat, SrcAssemblyFrom, SrcTensorFrom
 
 
@@ -10,7 +10,7 @@ class TestInference(unittest.TestCase):
     __test_path = os.path.dirname(__file__)
 
     def test_esm_inference_from_chain(self):
-        from rcsb_embedding_model.inference.esm_inference import predict
+        from foldmatch.inference.esm_inference import predict
         esm_embeddings = predict(
             src_stream=[
                 ("1acb", f"{self.__test_path}/resources/pdb/1acb.cif", "A", "1acb.A"),
@@ -28,7 +28,7 @@ class TestInference(unittest.TestCase):
         self.assertEqual(tuple(esm_embeddings[1][0][0].shape), (116, 1536))
 
     def test_esm_inference_from_structure(self):
-        from rcsb_embedding_model.inference.esm_inference import predict
+        from foldmatch.inference.esm_inference import predict
 
         esm_embeddings = predict(
             src_stream=[
@@ -50,7 +50,7 @@ class TestInference(unittest.TestCase):
         self.assertEqual(tuple(esm_embeddings[4][0][0].shape), (168, 1536))
 
     def test_chain_inference_from_tensor_files(self):
-        from rcsb_embedding_model.inference.chain_inference import predict
+        from foldmatch.inference.chain_inference import predict
         chain_embeddings = predict(
             src_stream=[
                 (f"{self.__test_path}/resources/embeddings/1acb.A.pt", "1acb.A"),
@@ -71,7 +71,7 @@ class TestInference(unittest.TestCase):
         self.assertEqual(tuple(chain_embeddings[4][0][0].shape), (1536,))
 
     def test_chain_inference_from_structure(self):
-        from rcsb_embedding_model.inference.chain_inference import predict
+        from foldmatch.inference.chain_inference import predict
         chain_embeddings = predict(
             src_stream=[
                 ("1acb", f"{self.__test_path}/resources/pdb/1acb.cif", "1acb"),
@@ -93,7 +93,7 @@ class TestInference(unittest.TestCase):
         self.assertEqual(tuple(chain_embeddings[4][0][0].shape), (1536,))
 
     def test_structure_inference_from_chain(self):
-        from rcsb_embedding_model.inference.structure_inference import predict
+        from foldmatch.inference.structure_inference import predict
 
         chain_embeddings = predict(
             src_stream=[
@@ -112,7 +112,7 @@ class TestInference(unittest.TestCase):
         self.assertEqual(tuple(chain_embeddings[1][0][0].shape), (1536,))
 
     def test_structure_inference_from_structure(self):
-        from rcsb_embedding_model.inference.structure_inference import predict
+        from foldmatch.inference.structure_inference import predict
 
         chain_embeddings = predict(
             src_stream=[
@@ -134,7 +134,7 @@ class TestInference(unittest.TestCase):
         self.assertEqual(tuple(chain_embeddings[4][0][0].shape), (1536,))
 
     def test_assembly_inference_from_tensor_files(self):
-        from rcsb_embedding_model.inference.assembly_inferece import predict
+        from foldmatch.inference.assembly_inferece import predict
 
         assembly_embedding = predict(
             src_stream=[
@@ -153,7 +153,7 @@ class TestInference(unittest.TestCase):
         self.assertEqual(tuple(assembly_embedding[1][0][0].shape), (1536,))
 
     def test_assembly_inference_from_structure(self):
-        from rcsb_embedding_model.inference.assembly_inferece import predict
+        from foldmatch.inference.assembly_inferece import predict
 
         assembly_embedding = predict(
             src_stream=[

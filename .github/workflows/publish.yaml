@@ -79,7 +79,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: pypi
-      url: https://pypi.org/p/rcsb-embedding-model
+      url: https://pypi.org/p/foldmatch
     permissions:
       id-token: write
 
