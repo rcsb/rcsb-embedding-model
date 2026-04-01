@@ -3,14 +3,14 @@ import os
 import shutil
 import unittest
 
-from rcsb_embedding_model.types.api_types import OutFormat, StructureFormat, Accelerator
+from foldmatch.types.api_types import OutFormat, StructureFormat, Accelerator
 
 class TestCliInference(unittest.TestCase):
     __test_path = os.path.dirname(__file__)
 
     def test_complete_inference(self):
         _remove_files_in_directory(f"{self.__test_path}/resources/tmp")
-        from rcsb_embedding_model.cli.inference import complete_embedding
+        from foldmatch.cli.inference import complete_embedding
         complete_embedding(
             src_chain_file=f"{self.__test_path}/resources/src_stream/instance-complete-test.csv",
             src_assembly_file=f"{self.__test_path}/resources/src_stream/assembly-complete-test.csv",

@@ -1,6 +1,6 @@
 import argparse
 
-from rcsb_embedding_model import RcsbStructureEmbedding
+from foldmatch import FoldMatch
 
 if __name__ == "__main__":
 
@@ -10,7 +10,7 @@ if __name__ == "__main__":
     parser.add_argument('--chain', type=str)
     args = parser.parse_args()
 
-    model = RcsbStructureEmbedding()
+    model = FoldMatch()
     res_embedding = model.residue_embedding(
         src_structure=args.file,
         src_format=args.file_format,

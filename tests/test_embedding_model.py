@@ -1,8 +1,8 @@
 import os
 import unittest
 
-from rcsb_embedding_model import RcsbStructureEmbedding
-from rcsb_embedding_model.types.api_types import StructureFormat
+from foldmatch import FoldMatch
+from foldmatch.types.api_types import StructureFormat
 
 
 class TestEmbeddingModel(unittest.TestCase):
@@ -11,7 +11,7 @@ class TestEmbeddingModel(unittest.TestCase):
 
     def test_residue_embedding(self):
 
-        model = RcsbStructureEmbedding()
+        model = FoldMatch()
         res_embedding = model.residue_embedding(
             src_structure=f"{self.__test_path}/resources/pdb/1acb.cif",
             structure_format=StructureFormat.mmcif,
@@ -21,7 +21,7 @@ class TestEmbeddingModel(unittest.TestCase):
 
     def test_sequence_embedding(self):
 
-        model = RcsbStructureEmbedding()
+        model = FoldMatch()
         res_embedding = model.sequence_embedding(
             sequence="CGVPAIQPVLSGLSRIVNGEEAVPGSWPWQVSLQDKTGFHFCGGSLINENWVVTAAHCGVTTSDVVVAGEFDQGSSSEKIQKLKIAKVFKNSK"
                      "YNSLTINNDITLLKLSTAASFSQTVSAVCLPSASDDFAAGTTCVTTGWGLTRYTNANTPDRLQQASLPLLSNTNCKKYWGTKIKDAMICAGAS"
@@ -31,7 +31,7 @@ class TestEmbeddingModel(unittest.TestCase):
 
     def test_aggregator_embedding(self):
 
-        model = RcsbStructureEmbedding()
+        model = FoldMatch()
         res_embedding = model.residue_embedding(
             src_structure=f"{self.__test_path}/resources/pdb/1acb.cif",
             structure_format=StructureFormat.mmcif,

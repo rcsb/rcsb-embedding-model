@@ -3,7 +3,7 @@ import shutil
 import unittest
 import tempfile
 
-from rcsb_embedding_model.types.api_types import StructureFormat
+from foldmatch.types.api_types import StructureFormat
 
 
 class TestCliSearch(unittest.TestCase):
@@ -28,7 +28,7 @@ class TestCliSearch(unittest.TestCase):
 
     def test_01_build_database(self):
         """Test building a database from structure files."""
-        from rcsb_embedding_model.cli.search import build_database
+        from foldmatch.cli.search import build_database
 
         # Use the test PDB files
         structure_dir = f"{self.__test_path}/resources/pdb"
@@ -52,7 +52,7 @@ class TestCliSearch(unittest.TestCase):
 
     def test_02_query_database(self):
         """Test querying the database with a structure."""
-        from rcsb_embedding_model.cli.search import query_database
+        from foldmatch.cli.search import query_database
 
         # Use one of the test structures as the query
         query_structure = f"{self.__test_path}/resources/pdb/1acb.cif"
@@ -83,7 +83,7 @@ class TestCliSearch(unittest.TestCase):
 
     def test_03_query_with_threshold(self):
         """Test querying with a similarity score threshold."""
-        from rcsb_embedding_model.cli.search import query_database
+        from foldmatch.cli.search import query_database
 
         query_structure = f"{self.__test_path}/resources/pdb/1acb.cif"
         output_csv = os.path.join(self.__temp_dir, "search_results_threshold.csv")
@@ -107,7 +107,7 @@ class TestCliSearch(unittest.TestCase):
 
     def test_04_query_specific_chain(self):
         """Test querying with a specific chain ID."""
-        from rcsb_embedding_model.cli.search import query_database
+        from foldmatch.cli.search import query_database
 
         query_structure = f"{self.__test_path}/resources/pdb/1acb.cif"
         output_csv = os.path.join(self.__temp_dir, "search_results_chain.csv")
@@ -131,7 +131,7 @@ class TestCliSearch(unittest.TestCase):
 
     def test_05_stats(self):
         """Test getting database statistics."""
-        from rcsb_embedding_model.cli.search import show_statistics
+        from foldmatch.cli.search import show_statistics
 
         # This should run without errors
         show_statistics(
@@ -140,8 +140,8 @@ class TestCliSearch(unittest.TestCase):
 
     def test_06_database_builder_class(self):
         """Test EmbeddingDatabaseBuilder class directly."""
-        from rcsb_embedding_model.search.database_builder import EmbeddingDatabaseBuilder
-        from rcsb_embedding_model.search.faiss_database import FaissEmbeddingDatabase
+        from foldmatch.search.database_builder import EmbeddingDatabaseBuilder
+        from foldmatch.search.faiss_database import FaissEmbeddingDatabase
 
         structure_dir = f"{self.__test_path}/resources/pdb"
 
@@ -178,7 +178,7 @@ class TestCliSearch(unittest.TestCase):
 
     def test_07_faiss_database_class(self):
         """Test FaissEmbeddingDatabase class directly."""
-        from rcsb_embedding_model.search.faiss_database import FaissEmbeddingDatabase
+        from foldmatch.search.faiss_database import FaissEmbeddingDatabase
         import torch
 
         db_path = os.path.join(self.__temp_dir, "test_chroma_direct")
@@ -207,7 +207,7 @@ class TestCliSearch(unittest.TestCase):
 
     def test_08_structure_search_class(self):
         """Test StructureSearch class directly."""
-        from rcsb_embedding_model.search.structure_search import StructureSearch
+        from foldmatch.search.structure_search import StructureSearch
         from pathlib import Path
 
         query_structure = f"{self.__test_path}/resources/pdb/2uzi.cif"
@@ -250,11 +250,11 @@ class TestCliSearch(unittest.TestCase):
 
     def test_09_residue_embedding_by_chain_filter(self):
         """Test residue_embedding_by_chain with chain_id parameter."""
-        from rcsb_embedding_model.rcsb_structure_embedding import RcsbStructureEmbedding
+        from foldmatch.foldmatch import FoldMatch
 
         query_structure = f"{self.__test_path}/resources/pdb/1acb.cif"
 
-        embedder = RcsbStructureEmbedding(min_res=10)
+        embedder = FoldMatch(min_res=10)
         embedder.load_models(device="cpu")
 
         # Test getting all chains
@@ -281,11 +281,11 @@ class TestCliSearch(unittest.TestCase):
 
     def test_10_residue_embedding_by_assembly(self):
         """Test residue_embedding_by_assembly with assembly_id parameter."""
-        from rcsb_embedding_model.rcsb_structure_embedding import RcsbStructureEmbedding
+        from foldmatch.foldmatch import FoldMatch
 
         query_structure = f"{self.__test_path}/resources/pdb/1acb.cif"
 
-        embedder = RcsbStructureEmbedding(min_res=10)
+        embedder = FoldMatch(min_res=10)
         embedder.load_models(device="cpu")
 
         # Test getting asymmetric unit (no assembly_id provided)
@@ -313,7 +313,7 @@ class TestCliSearch(unittest.TestCase):
 
     def test_11_query_database_with_database(self):
         """Test querying one database against another."""
-        from rcsb_embedding_model.cli.search import query_database_with_database
+        from foldmatch.cli.search import query_database_with_database
 
         output_csv = os.path.join(self.__temp_dir, "database_to_database_results.csv")
 
@@ -335,7 +335,7 @@ class TestCliSearch(unittest.TestCase):
     def test_12_structure_search_search_by_database(self):
         """Test StructureSearch database-to-database search API."""
         from pathlib import Path
-        from rcsb_embedding_model.search.structure_search import StructureSearch
+        from foldmatch.search.structure_search import StructureSearch
 
         db_path_obj = Path(self.__db_path)
         db_dir = db_path_obj.parent
@@ -359,7 +359,7 @@ class TestCliSearch(unittest.TestCase):
 
     def test_13_build_database_assembly(self):
         """Test building a database with assembly granularity."""
-        from rcsb_embedding_model.cli.search import build_database
+        from foldmatch.cli.search import build_database
 
         # Use the test PDB files
         structure_dir = f"{self.__test_path}/resources/pdb"
@@ -385,7 +385,7 @@ class TestCliSearch(unittest.TestCase):
 
     def test_14_query_database_assembly(self):
         """Test querying the database with assembly granularity."""
-        from rcsb_embedding_model.cli.search import query_database
+        from foldmatch.cli.search import query_database
 
         # Use the assembly database built in test_13
         assembly_db_path = os.path.join(self.__temp_dir, "test_faiss_assembly")
@@ -419,8 +419,8 @@ class TestCliSearch(unittest.TestCase):
 
     def test_15_update_database(self):
         """Test updating an existing database with new/replacement embeddings."""
-        from rcsb_embedding_model.search.faiss_database import FaissEmbeddingDatabase
-        from rcsb_embedding_model.cli.search import update_database
+        from foldmatch.search.faiss_database import FaissEmbeddingDatabase
+        from foldmatch.cli.search import update_database
         from pathlib import Path
 
         # Get initial database stats (built by test_01)
@@ -451,7 +451,7 @@ class TestCliSearch(unittest.TestCase):
 
     def test_16_update_database_unit(self):
         """Test update_embeddings directly with synthetic data."""
-        from rcsb_embedding_model.search.faiss_database import FaissEmbeddingDatabase
+        from foldmatch.search.faiss_database import FaissEmbeddingDatabase
         import torch
 
         db_path = os.path.join(self.__temp_dir, "test_update_unit")
