@@ -236,6 +236,37 @@ fm-search build-db \
 
 ---
 
+#### `fm-search update-db`
+
+Update an existing FAISS database with new or replacement structure files. Structures with IDs already present in the database are replaced; new IDs are added. The FAISS index is fully rebuilt after merging.
+
+```bash
+fm-search update-db \
+  --structure-dir data/new_structures \
+  --output-db databases/my_structures \
+  --tmp-dir tmp \
+  --structure-format mmcif \
+  --granularity chain \
+  --min-res 10 \
+  --batch-size-res 8
+```
+
+**Key Options:**
+- `--structure-dir`: Directory containing new or updated structure files
+- `--output-db`: Path to the existing FAISS database to update
+- `--tmp-dir`: Temporary directory for intermediate files
+- `--structure-format`: `mmcif`, `binarycif`, or `pdb`
+- `--granularity`: `chain` or `assembly` level embeddings
+- `--file-extension`: Filter files by extension (e.g., `.cif`, `.bcif`, `.pdb`)
+- `--min-res`: Minimum residue count (default: 10)
+- `--use-gpu-index`: Use GPU for FAISS index construction
+- `--accelerator`, `--devices`, `--strategy`: Inference device settings
+- `--batch-size-res`, `--num-workers-res`, `--num-nodes-res`: Residue embedding settings
+- `--batch-size-aggregator`, `--num-workers-aggregator`, `--num-nodes-aggregator`: Aggregator settings
+- `--log-level`: Logging level - `info`, `warn`, or `debug` (default: `info`)
+
+---
+
 #### `fm-search query`
 
 Search the database for structures similar to a query structure.
