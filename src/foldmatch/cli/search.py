@@ -247,7 +247,7 @@ def query_database(
             help='Path to query structure file.'
         )],
         structure_format: Annotated[StructureFormat, typer.Option(
-            help='Structure file format (mmcif or pdb)'
+            help='Structure file format (mmcif, binarycif or pdb)'
         )] = StructureFormat.mmcif,
         granularity: Annotated[Granularity, typer.Option(
             help='Query database for "chain" or "assembly" embeddings.'
