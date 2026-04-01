@@ -126,7 +126,7 @@ def build_database(
     import torch.distributed as dist
     if not (dist.is_available() and dist.is_initialized()) or dist.get_rank() == 0:
         logging.info(f"You can now search this database using:")
-        logging.info(f"   search query --db-path {output_db} --query-structure <path_to_structure>")
+        logging.info(f"   fm-search query --db-path {output_db} --query-structure <path_to_structure>")
 
 
 @app.command(
