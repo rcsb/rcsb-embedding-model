@@ -517,6 +517,53 @@ def cluster_database(
     )
 
 
+@app.command(
+    name="similarity-graph",
+    help="Build a similarity graph from database embeddings and export it in GraphML format."
+)
+def similarity_graph(
+        db_path: Annotated[str, typer.Option(
+            help='Path to the FAISS database.'
+        )],
+        threshold: Annotated[float, typer.Option(
+            help='Similarity threshold for edge creation (0-1, where 1.0 = identical).'
+        )] = 0.8,
+        output: Annotated[str, typer.Option(
+            help='Path to save the similarity graph (GraphML format).'
+        )] = "similarity_graph.graphml",
+        max_neighbors: Annotated[int, typer.Option(
+            help='Maximum number of neighbors to consider per chain.'
+        )] = 1000,
+        use_gpu_index: Annotated[bool, typer.Option(
+            help='Use GPU for FAISS operations (requires faiss-gpu).'
+        )] = False,
+        log_level: Annotated[LogLevel, typer.Option(
+            help='Logging verbosity level.'
+        )] = 'info'
+):
+    """Build and export a similarity graph from database embeddings."""
+
+    set_log_level(log_level)
+
+    db_dir, index_name = _parse_database_path(db_path)
+
+    if use_gpu_index:
+        logging.info("GPU acceleration for FAISS operations: enabled")
+
+    logging.info("Initializing clusterer...")
+    clusterer = EmbeddingClusterer(db_path=str(db_dir), index_name=index_name)
+    clusterer.load_database(use_gpu=use_gpu_index)
+
+    graph = clusterer.build_similarity_graph(
+        threshold=threshold,
+        max_neighbors=max_neighbors
+    )
+
+    output_path = Path(output)
+    graph.write_graphml(str(output_path))
+    logging.info(f"Similarity graph saved to {output_path}")
+
+
 def version_callback(value: bool):
     if value:
         typer.echo(f"{__version__}")

@@ -1,6 +1,6 @@
 # FoldMatch
 
-**Version** 0.1.2
+**Version** 0.2.0
 
 
 ## Overview
@@ -355,6 +355,35 @@ fm-search cluster \
 - `--min-cluster-size`: Filter out smaller clusters (optional)
 - `--use-gpu-index`: Use GPU for FAISS operations
 - `--seed`: Random seed for reproducibility (optional)
+
+---
+
+#### `fm-search similarity-graph`
+
+Build a similarity graph from database embeddings and export it in [GraphML](http://graphml.graphdrawing.org/) format. Each node represents a chain (identified by its chain ID) and each edge carries a `weight` attribute with the cosine similarity score between the two connected chains.
+
+```bash
+fm-search similarity-graph \
+  --db-path databases/my_structures \
+  --threshold 0.8 \
+  --output similarity_graph.graphml \
+  --max-neighbors 1000
+```
+
+**Key Options:**
+- `--db-path`: Database path
+- `--threshold`: Minimum similarity score to create an edge (default: 0.8)
+- `--output`: Output GraphML file (default: `similarity_graph.graphml`)
+- `--max-neighbors`: Maximum neighbors per chain considered during k-NN search (default: 1000)
+- `--use-gpu-index`: Use GPU for FAISS operations
+- `--log-level`: Logging verbosity level (default: `info`)
+
+The resulting GraphML file can be loaded directly into tools such as [Gephi](https://gephi.org/), [Cytoscape](https://cytoscape.org/), or Python's [NetworkX](https://networkx.org/):
+
+```python
+import networkx as nx
+G = nx.read_graphml("similarity_graph.graphml")
+```
 
 ---
 
