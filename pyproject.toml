@@ -43,5 +43,6 @@ requires = [
 build-backend = "hatchling.build"
 
 [project.scripts]
-fm-inference = "foldmatch.cli.inference:app"
+inference = "foldmatch.cli.inference:app"
+fm-embedding = "foldmatch.cli.embedding:app"
 fm-search = "foldmatch.cli.search:app"

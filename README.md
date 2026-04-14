@@ -78,17 +78,17 @@ The package provides two main interfaces:
 
 ## Command-Line Interface (CLI)
 
-The CLI provides two main command groups: `fm-inference` for computing embeddings and `fm-search` for similarity search operations.
+The CLI provides three main command groups: `fm-embedding` for computing embeddings from a folder of structure files, `fm-inference` for computing embeddings from CSV file lists, and `fm-search` for similarity search operations.
 
-### Inference Commands
+### Embedding Commands
 
-#### `fm-inference residue-embedding`
+#### `fm-embedding residue`
 
-Calculate residue-level embeddings using ESM3. Outputs are stored as PyTorch tensor files.
+Calculate residue-level embeddings using ESM3 from a folder of structure files. All chains in each structure are processed. Outputs are stored as PyTorch tensor files.
 
 ```bash
-fm-inference residue-embedding \
-  --src-file data/structures.csv \
+fm-embedding residue \
+  --src-folder data/structures \
   --output-path results/residue_embeddings \
   --structure-format mmcif \
   --batch-size 8 \
@@ -96,7 +96,7 @@ fm-inference residue-embedding \
 ```
 
 **Key Options:**
-- `--src-file`: CSV file with 4 columns: Structure Name | File Path/URL | Chain ID | Output Name
+- `--src-folder`: Folder containing structure files (`.cif`, `.pdb`, or `.bcif`, including `.gz` variants)
 - `--output-path`: Directory to store tensor files
 - `--output-format`: `separated` (individual files) or `grouped` (single JSON)
 - `--output-name`: Filename when using `grouped` format (default: `inference`)
@@ -111,96 +111,80 @@ fm-inference residue-embedding \
 
 ---
 
-#### `fm-inference structure-embedding`
+#### `fm-embedding chain`
 
-Calculate complete structure embeddings (residue + aggregator) from structural files. Outputs stored as a single DataFrame.
-
-```bash
-fm-inference structure-embedding \
-  --src-file data/structures.csv \
-  --output-path results/structure_embeddings \
-  --output-name embeddings \
-  --batch-size 4 \
-  --devices 0 --devices 1
-```
-
-**Key Options:**
-- Same as `residue-embedding`, plus:
-- `--output-name`: Output DataFrame filename (default: `inference`)
-
----
-
-#### `fm-inference chain-embedding`
-
-Aggregate residue embeddings into chain-level embeddings. Requires pre-computed residue embeddings.
+Compute chain-level embeddings from a folder of structure files. By default, residue embeddings are computed as a first step and stored in `--res-embedding-location`, then aggregated into chain embeddings. Use `--no-compute-residue-embedding` to skip the residue step and use pre-computed residue embeddings.
 
 ```bash
-fm-inference chain-embedding \
-  --src-file data/structures.csv \
+# End-to-end: compute residue + chain embeddings
+fm-embedding chain \
+  --src-folder data/structures \
   --res-embedding-location results/residue_embeddings \
   --output-path results/chain_embeddings \
+  --batch-size 4
+
+# Using pre-computed residue embeddings
+fm-embedding chain \
+  --src-folder data/structures \
+  --res-embedding-location results/residue_embeddings \
+  --output-path results/chain_embeddings \
+  --no-compute-residue-embedding \
   --batch-size 4
 ```
 
 **Key Options:**
-- `--res-embedding-location`: Directory containing residue embedding tensor files
-- All other options similar to `residue-embedding`
+- `--src-folder`: Folder containing structure files
+- `--res-embedding-location`: Directory for residue embedding tensor files (output when computing, input for chain aggregation)
+- `--output-path`: Directory to store chain embedding CSV files
+- `--compute-residue-embedding` / `--no-compute-residue-embedding`: Compute residue embeddings first (default: enabled)
+- `--output-format`: `separated` (individual files) or `grouped` (single JSON)
+- `--output-name`: Filename when using `grouped` format (default: `inference`)
+- All other options similar to `fm-embedding residue`
 
 ---
 
-#### `fm-inference assembly-embedding`
+#### `fm-embedding assembly`
 
-Aggregate residue embeddings into assembly-level embeddings.
+Compute assembly-level embeddings from a folder of structure files. By default, residue embeddings are computed as a first step and stored in `--res-embedding-location`, then aggregated into assembly embeddings. Use `--no-compute-residue-embedding` to skip the residue step and use pre-computed residue embeddings.
 
 ```bash
-fm-inference assembly-embedding \
-  --src-file data/assemblies.csv \
+# End-to-end: compute residue + assembly embeddings
+fm-embedding assembly \
+  --src-folder data/structures \
   --res-embedding-location results/residue_embeddings \
   --output-path results/assembly_embeddings \
+  --min-res-n 10 \
+  --max-res-n 10000
+
+# Using pre-computed residue embeddings
+fm-embedding assembly \
+  --src-folder data/structures \
+  --res-embedding-location results/residue_embeddings \
+  --output-path results/assembly_embeddings \
+  --no-compute-residue-embedding \
   --min-res-n 10 \
   --max-res-n 10000
 ```
 
 **Key Options:**
-- `--src-file`: CSV with columns: Structure Name | File Path/URL | Assembly ID | Output Name
-- `--res-embedding-location`: Directory with pre-computed residue embeddings
+- `--src-folder`: Folder containing structure files
+- `--res-embedding-location`: Directory for residue embedding tensor files (output when computing, input for assembly aggregation)
+- `--output-path`: Directory to store assembly embedding CSV files
+- `--compute-residue-embedding` / `--no-compute-residue-embedding`: Compute residue embeddings first (default: enabled)
+- `--output-format`: `separated` (individual files) or `grouped` (single JSON)
+- `--output-name`: Filename when using `grouped` format (default: `inference`)
 - `--min-res-n`: Minimum residues per chain (default: 0)
 - `--max-res-n`: Maximum total residues for assembly (default: unlimited)
+- All other options similar to `fm-embedding residue`
 
 ---
 
-#### `fm-inference complete-embedding`
-
-End-to-end pipeline: compute residue, chain, and assembly embeddings in one command.
-
-```bash
-fm-inference complete-embedding \
-  --src-chain-file data/chains.csv \
-  --src-assembly-file data/assemblies.csv \
-  --output-res-path results/residues \
-  --output-chain-path results/chains \
-  --output-assembly-path results/assemblies \
-  --batch-size-res 8 \
-  --batch-size-chain 4 \
-  --batch-size-assembly 2
-```
-
-**Key Options:**
-- `--src-chain-file`: Chain input CSV
-- `--src-assembly-file`: Assembly input CSV
-- `--output-res-path`, `--output-chain-path`, `--output-assembly-path`: Output directories
-- `--batch-size-res`, `--num-workers-res`, `--num-nodes-res`: Residue embedding settings
-- `--batch-size-chain`, `--num-workers-chain`: Chain embedding settings
-- `--batch-size-assembly`, `--num-workers-assembly`, `--num-nodes-assembly`: Assembly settings
-
----
-
-#### `fm-inference download-models`
+#### `fm-embedding download-models`
 
 Download ESM3 and aggregator models from Hugging Face.
 
 ```bash
-fm-inference download-models
+fm-embedding download-models
 ```
 
 ---
