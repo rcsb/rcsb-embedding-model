@@ -16,7 +16,8 @@ If you are interested in training a new model with a new structure dataset, visi
 
 ## Features
 
-- **Residue-level embeddings** computed using the ESM3 protein language model  
+- **Residue-level embeddings** computed using the ESM3 protein language model
+- **Sequence-based embeddings** from FASTA files without requiring 3D structures
 - **Structure-level embeddings** aggregated via a transformer-based aggregator network 
 - **Fast and efficient** FAISS-based similarity search
 - **Structural clustering** using the Leiden algorithm for biological assembly identification
@@ -78,7 +79,7 @@ The package provides two main interfaces:
 
 ## Command-Line Interface (CLI)
 
-The CLI provides three main command groups: `fm-embedding` for computing embeddings from a folder of structure files, `fm-inference` for computing embeddings from CSV file lists, and `fm-search` for similarity search operations.
+The CLI provides four main command groups: `fm-embedding` for computing embeddings from a folder of structure files, `fm-sequence` for computing embeddings from protein sequences in FASTA files, `fm-inference` for computing embeddings from CSV file lists, and `fm-search` for similarity search operations.
 
 ### Embedding Commands
 
@@ -186,6 +187,78 @@ Download ESM3 and aggregator models from Hugging Face.
 
 ```bash
 fm-embedding download-models
+```
+
+---
+
+### Sequence Commands
+
+#### `fm-sequence residue-embedding`
+
+Calculate residue-level ESM embeddings from protein sequences in a FASTA file. No 3D structure information is required. Outputs are stored as PyTorch tensor files (default) or CSV files.
+
+```bash
+fm-sequence residue \
+  --fasta-file sequences.fasta \
+  --output-path results/residue_embeddings \
+  --batch-size 8 \
+  --devices auto
+```
+
+**Key Options:**
+- `--fasta-file`: FASTA file containing protein sequences
+- `--output-path`: Directory to store embedding files
+- `--output-format`: `separated` (individual files) or `grouped` (single JSON)
+- `--output-name`: Filename when using `grouped` format (default: `inference`)
+- `--write-csv` / `--no-write-csv`: Write embeddings as CSV files instead of tensor files when using `separated` format (default: disabled)
+- `--min-res-n`: Minimum residue count for sequence filtering (default: 0)
+- `--batch-size`: Batch size for processing (default: 1)
+- `--num-workers`: Data loader workers (default: 0)
+- `--num-nodes`: Number of nodes for distributed inference (default: 1)
+- `--accelerator`: Device type - `auto`, `cpu`, `cuda`, `gpu` (default: `auto`)
+- `--devices`: Device indices (can specify multiple with `--devices 0 --devices 1`) or `auto`
+- `--strategy`: Lightning distribution strategy (default: `auto`)
+
+---
+
+#### `fm-sequence chain-embedding`
+
+Compute chain-level embeddings from protein sequences in a FASTA file. By default, residue embeddings are computed as a first step and stored in `--res-embedding-location`, then aggregated into chain embeddings using the transformer-based aggregator. Use `--no-compute-residue-embedding` to skip the residue step and use pre-computed residue embeddings.
+
+```bash
+# End-to-end: compute residue + chain embeddings
+fm-sequence chain \
+  --fasta-file sequences.fasta \
+  --res-embedding-location results/residue_embeddings \
+  --output-path results/chain_embeddings \
+  --batch-size 4
+
+# Using pre-computed residue embeddings
+fm-sequence chain \
+  --fasta-file sequences.fasta \
+  --res-embedding-location results/residue_embeddings \
+  --output-path results/chain_embeddings \
+  --no-compute-residue-embedding \
+  --batch-size 4
+```
+
+**Key Options:**
+- `--fasta-file`: FASTA file containing protein sequences
+- `--res-embedding-location`: Directory for residue embedding tensor files (output when computing, input for chain aggregation)
+- `--output-path`: Directory to store chain embedding CSV files
+- `--compute-residue-embedding` / `--no-compute-residue-embedding`: Compute residue embeddings first (default: enabled)
+- `--output-format`: `separated` (individual files) or `grouped` (single JSON)
+- `--output-name`: Filename when using `grouped` format (default: `inference`)
+- All other options similar to `fm-sequence residue-embedding`
+
+---
+
+#### `fm-sequence download-models`
+
+Download ESM3 and aggregator models from Hugging Face.
+
+```bash
+fm-sequence download-models
 ```
 
 ---
