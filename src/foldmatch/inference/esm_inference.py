@@ -10,7 +10,7 @@ from foldmatch.types.api_types import StructureFormat, Accelerator, Devices, Str
     SrcProteinFrom, FileOrStreamTuple, SrcLocation, OutFormat
 from foldmatch.utils.data import identity_collate
 from foldmatch.utils.model import get_residue_model
-from foldmatch.writer.batch_writer import TensorBatchWriter, JsonStorage
+from foldmatch.writer.batch_writer import TensorBatchWriter, CsvBatchWriter, JsonStorage
 
 
 def predict(
@@ -27,7 +27,8 @@ def predict(
         strategy: Strategy = 'auto',
         out_format: OutFormat = OutFormat.separated,
         out_name: str = 'inference',
-        out_path: OptionalPath = None
+        out_path: OptionalPath = None,
+        write_csv: bool = False
 ):
     logger = logging.getLogger(__name__)
 
@@ -62,7 +63,15 @@ def predict(
     )
     logger.info(f"rcsb-esm module ready")
 
-    inference_writer = (JsonStorage(out_path, out_name) if out_format == OutFormat.grouped else TensorBatchWriter(out_path)) if out_path is not None else None
+    if out_path is not None:
+        if out_format == OutFormat.grouped:
+            inference_writer = JsonStorage(out_path, out_name)
+        elif write_csv:
+            inference_writer = CsvBatchWriter(out_path)
+        else:
+            inference_writer = TensorBatchWriter(out_path)
+    else:
+        inference_writer = None
     trainer = Trainer(
         callbacks=[inference_writer] if inference_writer is not None else None,
         num_nodes=num_nodes,

@@ -84,7 +84,7 @@ The CLI provides three main command groups: `fm-embedding` for computing embeddi
 
 #### `fm-embedding residue`
 
-Calculate residue-level embeddings using ESM3 from a folder of structure files. All chains in each structure are processed. Outputs are stored as PyTorch tensor files.
+Calculate residue-level embeddings using ESM3 from a folder of structure files. All chains in each structure are processed. Outputs are stored as PyTorch tensor files (default) or CSV files.
 
 ```bash
 fm-embedding residue \
@@ -97,9 +97,10 @@ fm-embedding residue \
 
 **Key Options:**
 - `--src-folder`: Folder containing structure files (`.cif`, `.pdb`, or `.bcif`, including `.gz` variants)
-- `--output-path`: Directory to store tensor files
+- `--output-path`: Directory to store embedding files
 - `--output-format`: `separated` (individual files) or `grouped` (single JSON)
 - `--output-name`: Filename when using `grouped` format (default: `inference`)
+- `--write-csv` / `--no-write-csv`: Write embeddings as CSV files instead of tensor files when using `separated` format (default: disabled)
 - `--structure-format`: `mmcif`, `binarycif`, or `pdb`
 - `--min-res-n`: Minimum residue count for chain filtering (default: 0)
 - `--batch-size`: Batch size for processing (default: 1)

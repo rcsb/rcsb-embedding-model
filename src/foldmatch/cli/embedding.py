@@ -51,7 +51,7 @@ def scan_structure_folder(folder_path, structure_format):
 
 @app.command(
     name="residue",
-    help="Calculate residue level embeddings of protein structures from a folder of structure files. Predictions are stored as torch tensor files."
+    help="Calculate residue level embeddings of protein structures from a folder of structure files. Predictions are stored as torch tensor files or csv files."
 )
 def residue_embedding(
         src_folder: Annotated[str, typer.Option(
@@ -98,6 +98,9 @@ def residue_embedding(
         strategy: Annotated[Strategy, typer.Option(
             help='Lightning strategy to control distribution of inference.'
         )] = 'auto',
+        write_csv: Annotated[bool, typer.Option(
+            help='If output-format=separated, write residue embeddings as csv files instead of torch tensor files.'
+        )] = False,
         log_level: Annotated[LogLevel, typer.Option(
             help='Logging level.'
         )] = 'info'
@@ -120,7 +123,8 @@ def residue_embedding(
         out_format=output_format,
         out_name=output_name,
         out_path=output_path,
-        strategy=strategy
+        strategy=strategy,
+        write_csv=write_csv
     )
 
 
