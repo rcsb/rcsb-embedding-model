@@ -23,7 +23,7 @@ def predict(
         out_format: OutFormat = OutFormat.separated,
         out_name: str = 'inference',
         out_path: OptionalPath = None,
-        write_csv: bool = False
+        write_tensor: bool = False
 ):
     logger = logging.getLogger(__name__)
 
@@ -52,10 +52,10 @@ def predict(
     if out_path is not None:
         if out_format == OutFormat.grouped:
             inference_writer = JsonStorage(out_path, out_name)
-        elif write_csv:
-            inference_writer = CsvBatchWriter(out_path)
-        else:
+        elif write_tensor:
             inference_writer = TensorBatchWriter(out_path)
+        else:
+            inference_writer = CsvBatchWriter(out_path)
     else:
         inference_writer = None
     trainer = Trainer(

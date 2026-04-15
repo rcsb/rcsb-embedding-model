@@ -89,7 +89,8 @@ def residue_embedding(
         out_format=output_format,
         out_name=output_name,
         out_path=output_path,
-        strategy=strategy
+        strategy=strategy,
+        write_tensor=True
     )
 
 

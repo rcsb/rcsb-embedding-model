@@ -47,14 +47,14 @@ class TestCliEmbedding(unittest.TestCase):
             num_workers=0,
             num_nodes=1,
             accelerator=Accelerator.cpu,
-            write_csv=False
+            write_tensor=False
         )
-        # 1acb has 2 chains (A, B), 2uzi has 3 chains (A, B, C) = 5 tensor files
-        self.assertTrue(os.path.exists(f"{self.__test_path}/resources/tmp/1acb.A.pt"))
-        self.assertTrue(os.path.exists(f"{self.__test_path}/resources/tmp/1acb.B.pt"))
-        self.assertTrue(os.path.exists(f"{self.__test_path}/resources/tmp/2uzi.A.pt"))
-        self.assertTrue(os.path.exists(f"{self.__test_path}/resources/tmp/2uzi.B.pt"))
-        self.assertTrue(os.path.exists(f"{self.__test_path}/resources/tmp/2uzi.C.pt"))
+        # 1acb has 2 chains (A, B), 2uzi has 3 chains (A, B, C) = 5 csv files
+        self.assertTrue(os.path.exists(f"{self.__test_path}/resources/tmp/1acb.A.csv"))
+        self.assertTrue(os.path.exists(f"{self.__test_path}/resources/tmp/1acb.B.csv"))
+        self.assertTrue(os.path.exists(f"{self.__test_path}/resources/tmp/2uzi.A.csv"))
+        self.assertTrue(os.path.exists(f"{self.__test_path}/resources/tmp/2uzi.B.csv"))
+        self.assertTrue(os.path.exists(f"{self.__test_path}/resources/tmp/2uzi.C.csv"))
 
     def test_chain_embedding_with_precomputed_residues(self):
         _remove_files_in_directory(f"{self.__test_path}/resources/tmp")

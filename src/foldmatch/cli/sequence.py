@@ -72,8 +72,8 @@ def residue_embedding(
         strategy: Annotated[Strategy, typer.Option(
             help='Lightning strategy to control distribution of inference.'
         )] = 'auto',
-        write_csv: Annotated[bool, typer.Option(
-            help='If output-format=separated, write residue embeddings as csv files instead of torch tensor files.'
+        write_tensor: Annotated[bool, typer.Option(
+            help='If output-format=separated, write residue embeddings as torch tensor (.pt) files instead of csv files.'
         )] = False,
         log_level: Annotated[LogLevel, typer.Option(
             help='Logging level.'
@@ -94,7 +94,7 @@ def residue_embedding(
         out_name=output_name,
         out_path=output_path,
         strategy=strategy,
-        write_csv=write_csv
+        write_tensor=write_tensor
     )
 
 
@@ -176,7 +176,8 @@ def chain_embedding(
             devices=dev,
             out_format=OutFormat.separated,
             out_path=res_embedding_location,
-            strategy=strategy
+            strategy=strategy,
+            write_tensor=True
         )
 
     src_stream = scan_fasta_sequences(fasta_file, res_embedding_location)

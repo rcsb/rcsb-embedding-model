@@ -10,7 +10,7 @@ from foldmatch.types.api_types import Accelerator, Devices, Strategy, OptionalPa
     SrcTensorFrom, StructureFormat, OutFormat
 from foldmatch.utils.data import collate_seq_embeddings, collate_embeddings
 from foldmatch.utils.model import get_aggregator_model
-from foldmatch.writer.batch_writer import CsvBatchWriter, JsonStorage
+from foldmatch.writer.batch_writer import CsvBatchWriter, TensorBatchWriter, JsonStorage
 
 
 def predict(
@@ -29,7 +29,8 @@ def predict(
         out_format: OutFormat = OutFormat.separated,
         out_name: str = 'inference',
         out_path: OptionalPath = None,
-        inference_set=None
+        inference_set=None,
+        write_tensor: bool = False
 ):
     logger = logging.getLogger(__name__)
 
@@ -62,7 +63,15 @@ def predict(
     )
     logger.info(f"rcsb-aggregator module ready")
 
-    inference_writer = (JsonStorage(out_path, out_name) if out_format == OutFormat.grouped else CsvBatchWriter(out_path)) if out_path is not None else None
+    if out_path is not None:
+        if out_format == OutFormat.grouped:
+            inference_writer = JsonStorage(out_path, out_name)
+        elif write_tensor:
+            inference_writer = TensorBatchWriter(out_path)
+        else:
+            inference_writer = CsvBatchWriter(out_path)
+    else:
+        inference_writer = None
     trainer = Trainer(
         callbacks=[inference_writer] if inference_writer is not None else None,
         num_nodes=num_nodes,

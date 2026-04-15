@@ -24,7 +24,8 @@ def predict(
         strategy: Strategy = 'auto',
         out_format: OutFormat = OutFormat.separated,
         out_name: str = 'inference',
-        out_path: OptionalPath = None
+        out_path: OptionalPath = None,
+        write_tensor: bool = False
 ):
     logger = logging.getLogger(__name__)
 
@@ -58,5 +59,6 @@ def predict(
         out_format=out_format,
         out_name=out_name,
         out_path=out_path,
-        inference_set=inference_set
+        inference_set=inference_set,
+        write_tensor=write_tensor
     )

@@ -98,8 +98,8 @@ def residue_embedding(
         strategy: Annotated[Strategy, typer.Option(
             help='Lightning strategy to control distribution of inference.'
         )] = 'auto',
-        write_csv: Annotated[bool, typer.Option(
-            help='If output-format=separated, write residue embeddings as csv files instead of torch tensor files.'
+        write_tensor: Annotated[bool, typer.Option(
+            help='If output-format=separated, write residue embeddings as torch tensor (.pt) files instead of csv files.'
         )] = False,
         log_level: Annotated[LogLevel, typer.Option(
             help='Logging level.'
@@ -124,7 +124,7 @@ def residue_embedding(
         out_name=output_name,
         out_path=output_path,
         strategy=strategy,
-        write_csv=write_csv
+        write_tensor=write_tensor
     )
 
 
@@ -187,6 +187,9 @@ def chain_embedding(
         compute_residue_embedding: Annotated[bool, typer.Option(
             help='Compute residue level embeddings as a first step. When enabled, residue embeddings are stored in res-embedding-location before computing chain embeddings.'
         )] = True,
+        write_tensor: Annotated[bool, typer.Option(
+            help='If output-format=separated, write chain embeddings as torch tensor (.pt) files instead of csv files.'
+        )] = False,
         log_level: Annotated[LogLevel, typer.Option(
             help='Logging level.'
         )] = 'info'
@@ -211,7 +214,8 @@ def chain_embedding(
             devices=arg_devices(devices),
             out_format=OutFormat.separated,
             out_path=res_embedding_location,
-            strategy=strategy
+            strategy=strategy,
+            write_tensor=True
         )
 
     predict(
@@ -229,7 +233,8 @@ def chain_embedding(
         out_path=output_path,
         out_format=output_format,
         out_name=output_name,
-        strategy=strategy
+        strategy=strategy,
+        write_tensor=write_tensor
     )
 
 
@@ -295,6 +300,9 @@ def assembly_embedding(
         compute_residue_embedding: Annotated[bool, typer.Option(
             help='Compute residue level embeddings as a first step. When enabled, residue embeddings are stored in res-embedding-location before computing assembly embeddings.'
         )] = True,
+        write_tensor: Annotated[bool, typer.Option(
+            help='If output-format=separated, write assembly embeddings as torch tensor (.pt) files instead of csv files.'
+        )] = False,
         log_level: Annotated[LogLevel, typer.Option(
             help='Logging level.'
         )] = 'info'
@@ -319,7 +327,8 @@ def assembly_embedding(
             devices=arg_devices(devices),
             out_format=OutFormat.separated,
             out_path=res_embedding_location,
-            strategy=strategy
+            strategy=strategy,
+            write_tensor=True
         )
 
     predict(
@@ -338,7 +347,8 @@ def assembly_embedding(
         out_path=output_path,
         out_format=output_format,
         out_name=output_name,
-        strategy=strategy
+        strategy=strategy,
+        write_tensor=write_tensor
     )
 
 @app.command(

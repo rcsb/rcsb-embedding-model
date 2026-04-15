@@ -96,7 +96,8 @@ class EmbeddingDatabaseBuilder:
             num_workers=num_workers_res,
             num_nodes=num_nodes_res,
             devices=devices,
-            strategy=strategy
+            strategy=strategy,
+            write_tensor=True
         )
 
         esm_embedding_files = list(self.tmp_dir.glob(f"*pt"))
