@@ -59,16 +59,6 @@ pip install -e .
 
 - `faiss-gpu` for GPU-accelerated similarity search (instead of `faiss-cpu`)
 
-### Download Pre-trained Models
-
-Before using the package, download the pre-trained ESM3 and aggregator models:
-
-```bash
-fm-inference download-models
-```
-
----
-
 ## Usage
 
 The package provides two main interfaces:
@@ -193,7 +183,7 @@ fm-embedding download-models
 
 ### Sequence Commands
 
-#### `fm-sequence residue-embedding`
+#### `fm-sequence residue`
 
 Calculate residue-level ESM embeddings from protein sequences in a FASTA file. No 3D structure information is required. Outputs are stored as PyTorch tensor files (default) or CSV files.
 
@@ -221,7 +211,7 @@ fm-sequence residue \
 
 ---
 
-#### `fm-sequence chain-embedding`
+#### `fm-sequence chain`
 
 Compute chain-level embeddings from protein sequences in a FASTA file. By default, residue embeddings are computed as a first step and stored in `--res-embedding-location`, then aggregated into chain embeddings using the transformer-based aggregator. Use `--no-compute-residue-embedding` to skip the residue step and use pre-computed residue embeddings.
 
