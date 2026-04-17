@@ -69,7 +69,7 @@ The package provides two main interfaces:
 
 ## Command-Line Interface (CLI)
 
-The CLI provides four main command groups: `fm-embedding` for computing embeddings from a folder of structure files, `fm-sequence` for computing embeddings from protein sequences in FASTA files, `fm-inference` for computing embeddings from CSV file lists, and `fm-search` for building, updating, and querying FAISS databases for similarity search.
+The CLI provides four main command groups: `fm-embedding` for computing embeddings from a folder of structure files, `fm-sequence` for computing embeddings from protein sequences in FASTA files, and `fm-search` for building, updating, and querying FAISS databases for similarity search.
 
 ### Embedding Commands
 
