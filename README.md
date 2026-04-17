@@ -355,7 +355,7 @@ fm-search update embeddings \
 
 ---
 
-#### `fm-search build sequneces`
+#### `fm-search build sequences`
 
 Build a FAISS database from protein sequences in a FASTA file. Residue embeddings are computed first using ESM3, then aggregated into chain embeddings. The FASTA sequence names are used as embedding IDs.
 
