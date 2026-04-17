@@ -28,12 +28,12 @@ class TestCliSearch(unittest.TestCase):
 
     def test_01_build_database(self):
         """Test building a database from structure files."""
-        from foldmatch.cli.search import build_database
+        from foldmatch.cli.search import build_database_from_structures
 
         # Use the test PDB files
         structure_dir = f"{self.__test_path}/resources/pdb"
 
-        build_database(
+        build_database_from_structures(
             structure_dir=structure_dir,
             output_db=self.__db_path,
             tmp_dir=self.__temp_dir,
@@ -359,13 +359,13 @@ class TestCliSearch(unittest.TestCase):
 
     def test_13_build_database_assembly(self):
         """Test building a database with assembly granularity."""
-        from foldmatch.cli.search import build_database
+        from foldmatch.cli.search import build_database_from_structures
 
         # Use the test PDB files
         structure_dir = f"{self.__test_path}/resources/pdb"
         assembly_db_path = os.path.join(self.__temp_dir, "test_faiss_assembly")
 
-        build_database(
+        build_database_from_structures(
             structure_dir=structure_dir,
             output_db=assembly_db_path,
             tmp_dir=self.__temp_dir,
@@ -420,7 +420,7 @@ class TestCliSearch(unittest.TestCase):
     def test_15_update_database(self):
         """Test updating an existing database with new/replacement embeddings."""
         from foldmatch.search.faiss_database import FaissEmbeddingDatabase
-        from foldmatch.cli.search import update_database
+        from foldmatch.cli.search import update_database_from_structures
         from pathlib import Path
 
         # Get initial database stats (built by test_01)
@@ -433,7 +433,7 @@ class TestCliSearch(unittest.TestCase):
 
         # Update with the same structure files (should replace, count stays the same)
         structure_dir = f"{self.__test_path}/resources/pdb"
-        update_database(
+        update_database_from_structures(
             structure_dir=structure_dir,
             output_db=self.__db_path,
             tmp_dir=self.__temp_dir,
@@ -477,6 +477,144 @@ class TestCliSearch(unittest.TestCase):
         self.assertIn("s2:A", db3.chain_ids)
         self.assertIn("s3:B", db3.chain_ids)
         self.assertIn("s4:C", db3.chain_ids)
+
+
+    def test_17_build_database_from_embeddings(self):
+        """Test building a database from pre-computed embedding .pt files."""
+        from foldmatch.cli.search import build_database_from_embeddings
+
+        embedding_dir = f"{self.__test_path}/resources/embeddings"
+        output_db = os.path.join(self.__temp_dir, "test_from_embeddings")
+
+        build_database_from_embeddings(
+            embedding_dir=embedding_dir,
+            output_db=output_db,
+            file_extension=".pt",
+            use_gpu_index=False
+        )
+
+        from pathlib import Path
+        from foldmatch.search.faiss_database import FaissEmbeddingDatabase
+
+        db_path = Path(output_db)
+        self.assertTrue((db_path.parent / f"{db_path.name}.index").exists())
+        self.assertTrue((db_path.parent / f"{db_path.name}.metadata").exists())
+
+        db = FaissEmbeddingDatabase(db_path=str(db_path.parent), index_name=db_path.name)
+        db.load_database()
+        self.assertEqual(len(db.chain_ids), 5)
+
+    def test_18_build_database_from_fasta(self):
+        """Test building a database from a FASTA file."""
+        from foldmatch.cli.search import build_database_from_fasta
+
+        fasta_file = f"{self.__test_path}/resources/fasta/test_sequences.fasta"
+        output_db = os.path.join(self.__temp_dir, "test_from_fasta")
+
+        build_database_from_fasta(
+            fasta_file=fasta_file,
+            output_db=output_db,
+            tmp_dir=self.__temp_dir,
+            accelerator='cpu',
+            use_gpu_index=False,
+            compute_residue_embedding=True
+        )
+
+        from pathlib import Path
+        from foldmatch.search.faiss_database import FaissEmbeddingDatabase
+
+        db_path = Path(output_db)
+        self.assertTrue((db_path.parent / f"{db_path.name}.index").exists())
+        self.assertTrue((db_path.parent / f"{db_path.name}.metadata").exists())
+
+        db = FaissEmbeddingDatabase(db_path=str(db_path.parent), index_name=db_path.name)
+        db.load_database()
+        self.assertEqual(len(db.chain_ids), 2)
+
+    def test_19_update_database_from_embeddings(self):
+        """Test updating an existing database with pre-computed embedding files."""
+        from foldmatch.cli.search import build_database_from_embeddings, update_database_from_embeddings
+        from foldmatch.search.faiss_database import FaissEmbeddingDatabase
+        from pathlib import Path
+        import torch
+
+        embedding_dir = f"{self.__test_path}/resources/embeddings"
+        output_db = os.path.join(self.__temp_dir, "test_update_from_embeddings")
+
+        # Build initial database from .pt files (5 embeddings)
+        build_database_from_embeddings(
+            embedding_dir=embedding_dir,
+            output_db=output_db,
+            file_extension=".pt",
+            use_gpu_index=False
+        )
+
+        db_path = Path(output_db)
+        db = FaissEmbeddingDatabase(db_path=str(db_path.parent), index_name=db_path.name)
+        db.load_database()
+        initial_count = len(db.chain_ids)
+        self.assertEqual(initial_count, 5)
+
+        # Create a temp dir with new embeddings: one replacing an existing ID, one new
+        update_dir = os.path.join(self.__temp_dir, "update_embeddings")
+        os.makedirs(update_dir, exist_ok=True)
+        torch.save(torch.randn(1536), os.path.join(update_dir, "1acb.A.pt"))  # replacement
+        torch.save(torch.randn(1536), os.path.join(update_dir, "new_entry.pt"))  # new
+
+        update_database_from_embeddings(
+            embedding_dir=update_dir,
+            output_db=output_db,
+            file_extension=".pt",
+            use_gpu_index=False
+        )
+
+        db2 = FaissEmbeddingDatabase(db_path=str(db_path.parent), index_name=db_path.name)
+        db2.load_database()
+        # 5 original - 1 replaced + 2 new = 6 total
+        self.assertEqual(len(db2.chain_ids), 6)
+        self.assertIn("1acb.A", db2.chain_ids)
+        self.assertIn("new_entry", db2.chain_ids)
+
+    def test_20_update_database_from_fasta(self):
+        """Test updating an existing database with embeddings from a FASTA file."""
+        from foldmatch.cli.search import build_database_from_embeddings, update_database_from_fasta
+        from foldmatch.search.faiss_database import FaissEmbeddingDatabase
+        from pathlib import Path
+
+        embedding_dir = f"{self.__test_path}/resources/embeddings"
+        output_db = os.path.join(self.__temp_dir, "test_update_from_fasta")
+
+        # Build initial database from .pt embedding files (5 embeddings)
+        build_database_from_embeddings(
+            embedding_dir=embedding_dir,
+            output_db=output_db,
+            file_extension=".pt",
+            use_gpu_index=False
+        )
+
+        db_path = Path(output_db)
+        db = FaissEmbeddingDatabase(db_path=str(db_path.parent), index_name=db_path.name)
+        db.load_database()
+        initial_ids = set(db.chain_ids)
+        self.assertEqual(len(initial_ids), 5)
+
+        # Update with FASTA sequences (1acb_E, 2uzi_A - new IDs not in the initial DB)
+        fasta_file = f"{self.__test_path}/resources/fasta/test_sequences.fasta"
+        update_database_from_fasta(
+            fasta_file=fasta_file,
+            output_db=output_db,
+            tmp_dir=self.__temp_dir,
+            accelerator='cpu',
+            use_gpu_index=False,
+            compute_residue_embedding=True
+        )
+
+        db2 = FaissEmbeddingDatabase(db_path=str(db_path.parent), index_name=db_path.name)
+        db2.load_database()
+        # 5 original + 2 new from FASTA = 7 total
+        self.assertEqual(len(db2.chain_ids), 7)
+        self.assertIn("1acb_E", db2.chain_ids)
+        self.assertIn("2uzi_A", db2.chain_ids)
 
 
 if __name__ == '__main__':

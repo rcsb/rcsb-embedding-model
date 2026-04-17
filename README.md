@@ -1,6 +1,6 @@
 # FoldMatch
 
-**Version** 0.2.0
+**Version** 0.3.0
 
 
 ## Overview
@@ -69,7 +69,7 @@ The package provides two main interfaces:
 
 ## Command-Line Interface (CLI)
 
-The CLI provides four main command groups: `fm-embedding` for computing embeddings from a folder of structure files, `fm-sequence` for computing embeddings from protein sequences in FASTA files, `fm-inference` for computing embeddings from CSV file lists, and `fm-search` for similarity search operations.
+The CLI provides four main command groups: `fm-embedding` for computing embeddings from a folder of structure files, `fm-sequence` for computing embeddings from protein sequences in FASTA files, `fm-inference` for computing embeddings from CSV file lists, and `fm-search` for building, updating, and querying FAISS databases for similarity search.
 
 ### Embedding Commands
 
@@ -255,12 +255,12 @@ fm-sequence download-models
 
 ### Search Commands
 
-#### `fm-search build-db`
+#### `fm-search build-db-from-structures`
 
-Build a FAISS database from structure files for similarity search.
+Build a FAISS database from structure files for similarity search. Residue embeddings are computed first using ESM3, then aggregated into chain or assembly embeddings.
 
 ```bash
-fm-search build-db \
+fm-search build-db-from-structures \
   --structure-dir data/pdb_files \
   --output-db databases/my_structures \
   --tmp-dir tmp \
@@ -284,12 +284,12 @@ fm-search build-db \
 
 ---
 
-#### `fm-search update-db`
+#### `fm-search update-db-from-structures`
 
 Update an existing FAISS database with new or replacement structure files. Structures with IDs already present in the database are replaced; new IDs are added. The FAISS index is fully rebuilt after merging.
 
 ```bash
-fm-search update-db \
+fm-search update-db-from-structures \
   --structure-dir data/new_structures \
   --output-db databases/my_structures \
   --tmp-dir tmp \
@@ -312,6 +312,98 @@ fm-search update-db \
 - `--batch-size-res`, `--num-workers-res`, `--num-nodes-res`: Residue embedding settings
 - `--batch-size-aggregator`, `--num-workers-aggregator`, `--num-nodes-aggregator`: Aggregator settings
 - `--log-level`: Logging level - `info`, `warn`, or `debug` (default: `info`)
+
+---
+
+#### `fm-search build-db-from-embeddings`
+
+Build a FAISS database from a directory of pre-computed embedding files (`.csv` or `.pt`). The filename without extension is used as the embedding ID in the database. This is useful when embeddings have been previously computed with any of the `fm-embedding` or `fm-sequence` commands.
+
+```bash
+fm-search build-db-from-embeddings \
+  --embedding-dir results/chain_embeddings \
+  --output-db databases/my_structures \
+  --file-extension .pt
+```
+
+**Key Options:**
+- `--embedding-dir`: Directory containing pre-computed embedding files (`.csv` or `.pt`)
+- `--output-db`: Database path (prefix for `.index` and `.metadata` files)
+- `--file-extension`: Filter by extension (`.csv` or `.pt`). If not specified, collects both
+- `--use-gpu-index`: Use GPU for FAISS index construction
+- `--log-level`: Logging level (default: `info`)
+
+---
+
+#### `fm-search update-db-from-embeddings`
+
+Update an existing FAISS database with new or replacement embeddings from pre-computed files (`.csv` or `.pt`). Embeddings with IDs already present in the database are replaced; new IDs are added.
+
+```bash
+fm-search update-db-from-embeddings \
+  --embedding-dir results/new_embeddings \
+  --output-db databases/my_structures \
+  --file-extension .pt
+```
+
+**Key Options:**
+- `--embedding-dir`: Directory containing pre-computed embedding files (`.csv` or `.pt`)
+- `--output-db`: Path to the existing FAISS database to update
+- `--file-extension`: Filter by extension (`.csv` or `.pt`). If not specified, collects both
+- `--use-gpu-index`: Use GPU for FAISS index construction
+- `--log-level`: Logging level (default: `info`)
+
+---
+
+#### `fm-search build-db-from-fasta`
+
+Build a FAISS database from protein sequences in a FASTA file. Residue embeddings are computed first using ESM3, then aggregated into chain embeddings. The FASTA sequence names are used as embedding IDs.
+
+```bash
+fm-search build-db-from-fasta \
+  --fasta-file sequences.fasta \
+  --output-db databases/my_sequences \
+  --tmp-dir tmp \
+  --batch-size 4
+```
+
+**Key Options:**
+- `--fasta-file`: FASTA file containing protein sequences
+- `--output-db`: Database path (prefix for `.index` and `.metadata` files)
+- `--tmp-dir`: Directory for intermediate residue embeddings
+- `--min-res-n`: Minimum residue count for sequence filtering (default: 0)
+- `--compute-residue-embedding` / `--no-compute-residue-embedding`: Compute residue embeddings first (default: enabled). Disable to use pre-computed residue embeddings in `--tmp-dir`
+- `--use-gpu-index`: Use GPU for FAISS index construction
+- `--accelerator`, `--devices`, `--strategy`: Inference device settings
+- `--batch-size`, `--num-workers`, `--num-nodes`: Residue embedding inference settings
+- `--batch-size-aggregator`, `--num-workers-aggregator`, `--num-nodes-aggregator`: Chain embedding inference settings
+- `--log-level`: Logging level (default: `info`)
+
+---
+
+#### `fm-search update-db-from-fasta`
+
+Update an existing FAISS database with new or replacement embeddings computed from protein sequences in a FASTA file. Embeddings with IDs already present in the database are replaced; new IDs are added.
+
+```bash
+fm-search update-db-from-fasta \
+  --fasta-file new_sequences.fasta \
+  --output-db databases/my_sequences \
+  --tmp-dir tmp \
+  --batch-size 4
+```
+
+**Key Options:**
+- `--fasta-file`: FASTA file containing protein sequences
+- `--output-db`: Path to the existing FAISS database to update
+- `--tmp-dir`: Directory for intermediate residue embeddings
+- `--min-res-n`: Minimum residue count for sequence filtering (default: 0)
+- `--compute-residue-embedding` / `--no-compute-residue-embedding`: Compute residue embeddings first (default: enabled). Disable to use pre-computed residue embeddings in `--tmp-dir`
+- `--use-gpu-index`: Use GPU for FAISS index construction
+- `--accelerator`, `--devices`, `--strategy`: Inference device settings
+- `--batch-size`, `--num-workers`, `--num-nodes`: Residue embedding inference settings
+- `--batch-size-aggregator`, `--num-workers-aggregator`, `--num-nodes-aggregator`: Chain embedding inference settings
+- `--log-level`: Logging level (default: `info`)
 
 ---
 
