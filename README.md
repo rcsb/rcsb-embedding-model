@@ -69,7 +69,7 @@ The package provides two main interfaces:
 
 ## Command-Line Interface (CLI)
 
-The CLI provides three main command groups: `fm-structure` for computing embeddings from a folder of structure files, `fm-sequence` for computing embeddings from protein sequences in FASTA files, and `fm-search` for building, updating, and querying FAISS databases for similarity search. Within `fm-search`, the `build` and `update` sub-commands are further grouped by input source (`structures`, `embeddings`, or `fasta`).
+The CLI provides three main command groups: `fm-structure` for computing embeddings from a folder of structure files, `fm-sequence` for computing embeddings from protein sequences in FASTA files, and `fm-search` for building, updating, and querying FAISS databases for similarity search.
 
 ### Embedding Commands
 
