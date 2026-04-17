@@ -21,9 +21,21 @@ app = typer.Typer(
     help=f"3D structure search using embeddings and FAISS. Version: {__version__}."
 )
 
+build_db_app = typer.Typer(
+    add_completion=False,
+    help="Build an embedding database."
+)
+app.add_typer(build_db_app, name="build-db")
 
-@app.command(
-    name="build-db-from-structures",
+update_db_app = typer.Typer(
+    add_completion=False,
+    help="Update an existing embedding database."
+)
+app.add_typer(update_db_app, name="update-db")
+
+
+@build_db_app.command(
+    name="structures",
     help="Build an embedding database from a directory of structure files."
 )
 def build_database_from_structures(
@@ -131,8 +143,8 @@ def build_database_from_structures(
         logging.info(f"   fm-search query --db-path {output_db} --query-structure <path_to_structure>")
 
 
-@app.command(
-    name="update-db-from-structures",
+@update_db_app.command(
+    name="structures",
     help="Update an existing embedding database with new or replacement structure files."
 )
 def update_database_from_structures(
@@ -237,8 +249,8 @@ def update_database_from_structures(
         logging.info(f"Database updated successfully: {output_db}")
 
 
-@app.command(
-    name="build-db-from-embeddings",
+@build_db_app.command(
+    name="embeddings",
     help="Build an embedding database from a directory of pre-computed embedding files (.csv or .pt)."
 )
 def build_database_from_embeddings(
@@ -274,8 +286,8 @@ def build_database_from_embeddings(
     logging.info(f"Total embeddings: {len(chain_ids)}")
 
 
-@app.command(
-    name="update-db-from-embeddings",
+@update_db_app.command(
+    name="embeddings",
     help="Update an existing embedding database with new or replacement embeddings from pre-computed files (.csv or .pt)."
 )
 def update_database_from_embeddings(
@@ -315,8 +327,8 @@ def update_database_from_embeddings(
     logging.info(f"Total embeddings: {len(db.chain_ids)}")
 
 
-@app.command(
-    name="build-db-from-fasta",
+@build_db_app.command(
+    name="fasta",
     help="Build an embedding database from protein sequences in a FASTA file."
 )
 def build_database_from_fasta(
@@ -391,8 +403,8 @@ def build_database_from_fasta(
     logging.info(f"Total embeddings: {len(chain_ids)}")
 
 
-@app.command(
-    name="update-db-from-fasta",
+@update_db_app.command(
+    name="fasta",
     help="Update an existing embedding database with new or replacement embeddings from protein sequences in a FASTA file."
 )
 def update_database_from_fasta(

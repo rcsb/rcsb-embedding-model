@@ -1,6 +1,6 @@
 # FoldMatch
 
-**Version** 0.3.0
+**Version** 0.4.0
 
 
 ## Overview
@@ -69,7 +69,7 @@ The package provides two main interfaces:
 
 ## Command-Line Interface (CLI)
 
-The CLI provides three main command groups: `fm-embedding` for computing embeddings from a folder of structure files, `fm-sequence` for computing embeddings from protein sequences in FASTA files, and `fm-search` for building, updating, and querying FAISS databases for similarity search.
+The CLI provides three main command groups: `fm-embedding` for computing embeddings from a folder of structure files, `fm-sequence` for computing embeddings from protein sequences in FASTA files, and `fm-search` for building, updating, and querying FAISS databases for similarity search. Within `fm-search`, the `build-db` and `update-db` sub-commands are further grouped by input source (`structures`, `embeddings`, or `fasta`).
 
 ### Embedding Commands
 
@@ -255,12 +255,12 @@ fm-sequence download-models
 
 ### Search Commands
 
-#### `fm-search build-db-from-structures`
+#### `fm-search build-db structures`
 
 Build a FAISS database from structure files for similarity search. Residue embeddings are computed first using ESM3, then aggregated into chain or assembly embeddings.
 
 ```bash
-fm-search build-db-from-structures \
+fm-search build-db structures \
   --structure-dir data/pdb_files \
   --output-db databases/my_structures \
   --tmp-dir tmp \
@@ -284,12 +284,12 @@ fm-search build-db-from-structures \
 
 ---
 
-#### `fm-search update-db-from-structures`
+#### `fm-search update-db structures`
 
 Update an existing FAISS database with new or replacement structure files. Structures with IDs already present in the database are replaced; new IDs are added. The FAISS index is fully rebuilt after merging.
 
 ```bash
-fm-search update-db-from-structures \
+fm-search update-db structures \
   --structure-dir data/new_structures \
   --output-db databases/my_structures \
   --tmp-dir tmp \
@@ -315,12 +315,12 @@ fm-search update-db-from-structures \
 
 ---
 
-#### `fm-search build-db-from-embeddings`
+#### `fm-search build-db embeddings`
 
 Build a FAISS database from a directory of pre-computed embedding files (`.csv` or `.pt`). The filename without extension is used as the embedding ID in the database. This is useful when embeddings have been previously computed with any of the `fm-embedding` or `fm-sequence` commands.
 
 ```bash
-fm-search build-db-from-embeddings \
+fm-search build-db embeddings \
   --embedding-dir results/chain_embeddings \
   --output-db databases/my_structures \
   --file-extension .pt
@@ -335,12 +335,12 @@ fm-search build-db-from-embeddings \
 
 ---
 
-#### `fm-search update-db-from-embeddings`
+#### `fm-search update-db embeddings`
 
 Update an existing FAISS database with new or replacement embeddings from pre-computed files (`.csv` or `.pt`). Embeddings with IDs already present in the database are replaced; new IDs are added.
 
 ```bash
-fm-search update-db-from-embeddings \
+fm-search update-db embeddings \
   --embedding-dir results/new_embeddings \
   --output-db databases/my_structures \
   --file-extension .pt
@@ -355,12 +355,12 @@ fm-search update-db-from-embeddings \
 
 ---
 
-#### `fm-search build-db-from-fasta`
+#### `fm-search build-db fasta`
 
 Build a FAISS database from protein sequences in a FASTA file. Residue embeddings are computed first using ESM3, then aggregated into chain embeddings. The FASTA sequence names are used as embedding IDs.
 
 ```bash
-fm-search build-db-from-fasta \
+fm-search build-db fasta \
   --fasta-file sequences.fasta \
   --output-db databases/my_sequences \
   --tmp-dir tmp \
@@ -381,12 +381,12 @@ fm-search build-db-from-fasta \
 
 ---
 
-#### `fm-search update-db-from-fasta`
+#### `fm-search update-db fasta`
 
 Update an existing FAISS database with new or replacement embeddings computed from protein sequences in a FASTA file. Embeddings with IDs already present in the database are replaced; new IDs are added.
 
 ```bash
-fm-search update-db-from-fasta \
+fm-search update-db fasta \
   --fasta-file new_sequences.fasta \
   --output-db databases/my_sequences \
   --tmp-dir tmp \
