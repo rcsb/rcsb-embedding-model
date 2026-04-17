@@ -1,6 +1,6 @@
 # FoldMatch
 
-**Version** 0.4.0
+**Version** 0.3.0
 
 
 ## Overview
@@ -69,16 +69,16 @@ The package provides two main interfaces:
 
 ## Command-Line Interface (CLI)
 
-The CLI provides three main command groups: `fm-embedding` for computing embeddings from a folder of structure files, `fm-sequence` for computing embeddings from protein sequences in FASTA files, and `fm-search` for building, updating, and querying FAISS databases for similarity search. Within `fm-search`, the `build-db` and `update-db` sub-commands are further grouped by input source (`structures`, `embeddings`, or `fasta`).
+The CLI provides three main command groups: `fm-structure` for computing embeddings from a folder of structure files, `fm-sequence` for computing embeddings from protein sequences in FASTA files, and `fm-search` for building, updating, and querying FAISS databases for similarity search. Within `fm-search`, the `build` and `update` sub-commands are further grouped by input source (`structures`, `embeddings`, or `fasta`).
 
 ### Embedding Commands
 
-#### `fm-embedding residue`
+#### `fm-structure residue`
 
 Calculate residue-level embeddings using ESM3 from a folder of structure files. All chains in each structure are processed. Outputs are stored as PyTorch tensor files (default) or CSV files.
 
 ```bash
-fm-embedding residue \
+fm-structure residue \
   --src-folder data/structures \
   --output-path results/residue_embeddings \
   --structure-format mmcif \
@@ -103,20 +103,20 @@ fm-embedding residue \
 
 ---
 
-#### `fm-embedding chain`
+#### `fm-structure chain`
 
 Compute chain-level embeddings from a folder of structure files. By default, residue embeddings are computed as a first step and stored in `--res-embedding-location`, then aggregated into chain embeddings. Use `--no-compute-residue-embedding` to skip the residue step and use pre-computed residue embeddings.
 
 ```bash
 # End-to-end: compute residue + chain embeddings
-fm-embedding chain \
+fm-structure chain \
   --src-folder data/structures \
   --res-embedding-location results/residue_embeddings \
   --output-path results/chain_embeddings \
   --batch-size 4
 
 # Using pre-computed residue embeddings
-fm-embedding chain \
+fm-structure chain \
   --src-folder data/structures \
   --res-embedding-location results/residue_embeddings \
   --output-path results/chain_embeddings \
@@ -131,17 +131,17 @@ fm-embedding chain \
 - `--compute-residue-embedding` / `--no-compute-residue-embedding`: Compute residue embeddings first (default: enabled)
 - `--output-format`: `separated` (individual files) or `grouped` (single JSON)
 - `--output-name`: Filename when using `grouped` format (default: `inference`)
-- All other options similar to `fm-embedding residue`
+- All other options similar to `fm-structure residue`
 
 ---
 
-#### `fm-embedding assembly`
+#### `fm-structure assembly`
 
 Compute assembly-level embeddings from a folder of structure files. By default, residue embeddings are computed as a first step and stored in `--res-embedding-location`, then aggregated into assembly embeddings. Use `--no-compute-residue-embedding` to skip the residue step and use pre-computed residue embeddings.
 
 ```bash
 # End-to-end: compute residue + assembly embeddings
-fm-embedding assembly \
+fm-structure assembly \
   --src-folder data/structures \
   --res-embedding-location results/residue_embeddings \
   --output-path results/assembly_embeddings \
@@ -149,7 +149,7 @@ fm-embedding assembly \
   --max-res-n 10000
 
 # Using pre-computed residue embeddings
-fm-embedding assembly \
+fm-structure assembly \
   --src-folder data/structures \
   --res-embedding-location results/residue_embeddings \
   --output-path results/assembly_embeddings \
@@ -167,16 +167,16 @@ fm-embedding assembly \
 - `--output-name`: Filename when using `grouped` format (default: `inference`)
 - `--min-res-n`: Minimum residues per chain (default: 0)
 - `--max-res-n`: Maximum total residues for assembly (default: unlimited)
-- All other options similar to `fm-embedding residue`
+- All other options similar to `fm-structure residue`
 
 ---
 
-#### `fm-embedding download-models`
+#### `fm-structure download-models`
 
 Download ESM3 and aggregator models from Hugging Face.
 
 ```bash
-fm-embedding download-models
+fm-structure download-models
 ```
 
 ---
@@ -255,14 +255,14 @@ fm-sequence download-models
 
 ### Search Commands
 
-#### `fm-search build-db structures`
+#### `fm-search build structures`
 
 Build a FAISS database from structure files for similarity search. Residue embeddings are computed first using ESM3, then aggregated into chain or assembly embeddings.
 
 ```bash
-fm-search build-db structures \
+fm-search build structures \
   --structure-dir data/pdb_files \
-  --output-db databases/my_structures \
+  --output databases/my_structures \
   --tmp-dir tmp \
   --granularity chain \
   --min-res 10 \
@@ -284,12 +284,12 @@ fm-search build-db structures \
 
 ---
 
-#### `fm-search update-db structures`
+#### `fm-search update structures`
 
 Update an existing FAISS database with new or replacement structure files. Structures with IDs already present in the database are replaced; new IDs are added. The FAISS index is fully rebuilt after merging.
 
 ```bash
-fm-search update-db structures \
+fm-search update structures \
   --structure-dir data/new_structures \
   --output-db databases/my_structures \
   --tmp-dir tmp \
@@ -315,12 +315,12 @@ fm-search update-db structures \
 
 ---
 
-#### `fm-search build-db embeddings`
+#### `fm-search build embeddings`
 
-Build a FAISS database from a directory of pre-computed embedding files (`.csv` or `.pt`). The filename without extension is used as the embedding ID in the database. This is useful when embeddings have been previously computed with any of the `fm-embedding` or `fm-sequence` commands.
+Build a FAISS database from a directory of pre-computed embedding files (`.csv` or `.pt`). The filename without extension is used as the embedding ID in the database. This is useful when embeddings have been previously computed with any of the `fm-structure` or `fm-sequence` commands.
 
 ```bash
-fm-search build-db embeddings \
+fm-search build embeddings \
   --embedding-dir results/chain_embeddings \
   --output-db databases/my_structures \
   --file-extension .pt
@@ -335,12 +335,12 @@ fm-search build-db embeddings \
 
 ---
 
-#### `fm-search update-db embeddings`
+#### `fm-search update embeddings`
 
 Update an existing FAISS database with new or replacement embeddings from pre-computed files (`.csv` or `.pt`). Embeddings with IDs already present in the database are replaced; new IDs are added.
 
 ```bash
-fm-search update-db embeddings \
+fm-search update embeddings \
   --embedding-dir results/new_embeddings \
   --output-db databases/my_structures \
   --file-extension .pt
@@ -355,12 +355,12 @@ fm-search update-db embeddings \
 
 ---
 
-#### `fm-search build-db fasta`
+#### `fm-search build sequneces`
 
 Build a FAISS database from protein sequences in a FASTA file. Residue embeddings are computed first using ESM3, then aggregated into chain embeddings. The FASTA sequence names are used as embedding IDs.
 
 ```bash
-fm-search build-db fasta \
+fm-search build sequences \
   --fasta-file sequences.fasta \
   --output-db databases/my_sequences \
   --tmp-dir tmp \
@@ -381,12 +381,12 @@ fm-search build-db fasta \
 
 ---
 
-#### `fm-search update-db fasta`
+#### `fm-search update sequences`
 
 Update an existing FAISS database with new or replacement embeddings computed from protein sequences in a FASTA file. Embeddings with IDs already present in the database are replaced; new IDs are added.
 
 ```bash
-fm-search update-db fasta \
+fm-search update sequences \
   --fasta-file new_sequences.fasta \
   --output-db databases/my_sequences \
   --tmp-dir tmp \
@@ -407,7 +407,7 @@ fm-search update-db fasta \
 
 ---
 
-#### `fm-search query`
+#### `fm-search query structure`
 
 Search the database for structures similar to a query structure.
 
@@ -439,12 +439,67 @@ fm-search query \
 
 ---
 
-#### `fm-search query-db`
+#### `fm-search query embedding`
+
+Search the database using a single pre-computed embedding file (`.csv` or `.pt`). The filename stem is used as the query ID. No model inference is required — the embedding is loaded directly and queried against the FAISS index.
+
+```bash
+fm-search query-from-embedding \
+  --db-path databases/my_structures \
+  --embedding-file results/chain_embeddings/1acb.A.pt \
+  --top-k 100 \
+  --threshold 0.8 \
+  --output-csv results.csv
+```
+
+**Key Options:**
+- `--db-path`: Path to FAISS database
+- `--embedding-file`: Pre-computed embedding file (`.csv` or `.pt`). The filename stem is used as the query ID
+- `--top-k`: Number of results to return (default: 100)
+- `--threshold`: Minimum similarity score (default: 0.8)
+- `--output-csv`: Export results to CSV (optional)
+- `--use-gpu-index`: Use GPU for FAISS search
+- `--log-level`: Logging level (default: `info`)
+
+---
+
+#### `fm-search query sequences`
+
+Search the database using protein sequences from a FASTA file. Each sequence is used as a separate query, producing its own ranked result list. Residue and chain embeddings are computed first using ESM3, then each sequence is searched against the database.
+
+```bash
+fm-search query-from-fasta \
+  --db-path databases/my_structures \
+  --fasta-file queries.fasta \
+  --tmp-dir tmp \
+  --top-k 100 \
+  --threshold 0.8 \
+  --output-csv results.csv
+```
+
+**Key Options:**
+- `--db-path`: Path to FAISS database
+- `--fasta-file`: FASTA file with protein sequences (each sequence is queried independently)
+- `--tmp-dir`: Directory for intermediate residue embeddings
+- `--min-res-n`: Minimum residue count for sequence filtering (default: 0)
+- `--compute-residue-embedding` / `--no-compute-residue-embedding`: Compute residue embeddings first (default: enabled). Disable to use pre-computed residue embeddings in `--tmp-dir`
+- `--top-k`: Number of results per query sequence (default: 100)
+- `--threshold`: Minimum similarity score (default: 0.8)
+- `--output-csv`: Export results to CSV (optional)
+- `--use-gpu-index`: Use GPU for FAISS search
+- `--accelerator`, `--devices`, `--strategy`: Inference device settings
+- `--batch-size`, `--num-workers`, `--num-nodes`: Residue embedding inference settings
+- `--batch-size-aggregator`, `--num-workers-aggregator`, `--num-nodes-aggregator`: Chain embedding inference settings
+- `--log-level`: Logging level (default: `info`)
+
+---
+
+#### `fm-search query db`
 
 Compare all entries from a query database against a subject database.
 
 ```bash
-fm-search query-db \
+fm-search query \
   --query-db-path databases/query_set \
   --subject-db-path databases/target_set \
   --top-k 100 \

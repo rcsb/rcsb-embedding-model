@@ -25,13 +25,19 @@ build_db_app = typer.Typer(
     add_completion=False,
     help="Build an embedding database."
 )
-app.add_typer(build_db_app, name="build-db")
+app.add_typer(build_db_app, name="build")
 
 update_db_app = typer.Typer(
     add_completion=False,
     help="Update an existing embedding database."
 )
-app.add_typer(update_db_app, name="update-db")
+app.add_typer(update_db_app, name="update")
+
+query_db_app = typer.Typer(
+    add_completion=False,
+    help="Query an existing embedding database."
+)
+app.add_typer(query_db_app, name="query")
 
 
 @build_db_app.command(
@@ -328,7 +334,7 @@ def update_database_from_embeddings(
 
 
 @build_db_app.command(
-    name="fasta",
+    name="sequences",
     help="Build an embedding database from protein sequences in a FASTA file."
 )
 def build_database_from_fasta(
@@ -404,7 +410,7 @@ def build_database_from_fasta(
 
 
 @update_db_app.command(
-    name="fasta",
+    name="sequences",
     help="Update an existing embedding database with new or replacement embeddings from protein sequences in a FASTA file."
 )
 def update_database_from_fasta(
@@ -483,11 +489,11 @@ def update_database_from_fasta(
     logging.info(f"Total embeddings: {len(db.chain_ids)}")
 
 
-@app.command(
-    name="query",
-    help="Search the database for similar structures."
+@query_db_app.command(
+    name="structure",
+    help="Search the database using a structure file."
 )
-def query_database(
+def query_database_from_structure(
         db_path: Annotated[str, typer.Option(
             help='Path to the FAISS database.'
         )],
@@ -584,8 +590,174 @@ def query_database(
         searcher.export_results(results, output_csv)
 
 
-@app.command(
-    name="query-db",
+@query_db_app.command(
+    name="embedding",
+    help="Search the database using a pre-computed embedding file (.csv or .pt)."
+)
+def query_database_from_embedding(
+        db_path: Annotated[str, typer.Option(
+            help='Path to the FAISS database.'
+        )],
+        embedding_file: Annotated[str, typer.Option(
+            help='Path to a pre-computed embedding file (.csv or .pt). The filename stem is used as the query ID.'
+        )],
+        top_k: Annotated[int, typer.Option(
+            help='Number of top results to return.'
+        )] = 100,
+        threshold: Annotated[Optional[float], typer.Option(
+            help='Similarity score threshold to filter results (only return matches with score >= threshold).'
+        )] = 0.8,
+        output_csv: Annotated[Optional[str], typer.Option(
+            help='Path to save results as CSV file (optional).'
+        )] = None,
+        use_gpu_index: Annotated[bool, typer.Option(
+            help='Use GPU for FAISS search (requires faiss-gpu).'
+        )] = False,
+        log_level: Annotated[LogLevel, typer.Option(
+            help='Logging level.'
+        )] = 'info'
+):
+    """Search database using a pre-computed embedding file."""
+
+    set_log_level(log_level)
+
+    db_dir, index_name = _parse_database_path(db_path)
+
+    emb_path = Path(embedding_file)
+    if not emb_path.exists():
+        raise ValueError(f"Embedding file does not exist: {embedding_file}")
+    if emb_path.suffix not in ('.csv', '.pt'):
+        raise ValueError(f"Unsupported file extension '{emb_path.suffix}'. Use .csv or .pt")
+
+    if emb_path.suffix == '.pt':
+        embedding = torch.load(emb_path, map_location='cpu', weights_only=True)
+    else:
+        df = pd.read_csv(emb_path, header=None)
+        embedding = torch.tensor(df.values, dtype=torch.float32).squeeze()
+
+    query_id = emb_path.stem
+
+    logging.info("Loading database...")
+    searcher = StructureSearch(
+        db_path=str(db_dir),
+        index_name=index_name,
+        use_gpu_for_search=use_gpu_index
+    )
+
+    logging.info(f"Searching with query: {query_id}")
+    matching_ids, scores = searcher.db.search(embedding, top_k=top_k)
+    results = {query_id: (matching_ids, scores)}
+
+    results = _filter_results_by_threshold(results, threshold)
+
+    searcher.print_results(results)
+
+    if output_csv:
+        searcher.export_results(results, output_csv)
+
+
+@query_db_app.command(
+    name="sequences",
+    help="Search the database using protein sequences from a FASTA file. Each sequence is used as a separate query."
+)
+def query_database_from_fasta(
+        db_path: Annotated[str, typer.Option(
+            help='Path to the FAISS database.'
+        )],
+        fasta_file: Annotated[str, typer.Option(
+            help='FASTA file containing protein sequences. Each sequence is used as a separate query.'
+        )],
+        tmp_dir: Annotated[str, typer.Option(
+            help='Directory for intermediate residue embeddings.'
+        )],
+        min_res_n: Annotated[int, typer.Option(
+            help='Consider only sequences with at least <min_res_n> residues.'
+        )] = 0,
+        top_k: Annotated[int, typer.Option(
+            help='Number of top results to return per query.'
+        )] = 100,
+        threshold: Annotated[Optional[float], typer.Option(
+            help='Similarity score threshold to filter results (only return matches with score >= threshold).'
+        )] = 0.8,
+        output_csv: Annotated[Optional[str], typer.Option(
+            help='Path to save results as CSV file (optional).'
+        )] = None,
+        use_gpu_index: Annotated[bool, typer.Option(
+            help='Use GPU for FAISS search (requires faiss-gpu).'
+        )] = False,
+        accelerator: Annotated[Accelerator, typer.Option(
+            help='Device used for inference.'
+        )] = "auto",
+        devices: Annotated[List[str], typer.Option(
+            help='The devices to use. Can be set to a positive number or "auto".'
+        )] = tuple(['auto']),
+        strategy: Annotated[Strategy, typer.Option(
+            help='Lightning strategy to control distribution of inference.'
+        )] = 'auto',
+        batch_size: Annotated[int, typer.Option(
+            help='Number of samples processed together for residue embedding inference.'
+        )] = 1,
+        num_workers: Annotated[int, typer.Option(
+            help='Number of subprocesses to use for data loading.'
+        )] = 0,
+        num_nodes: Annotated[int, typer.Option(
+            help='Number of nodes to use for residue embedding inference.'
+        )] = 1,
+        batch_size_aggregator: Annotated[int, typer.Option(
+            help='Number of samples processed together for chain embedding inference.'
+        )] = 1,
+        num_workers_aggregator: Annotated[int, typer.Option(
+            help='Number of subprocesses to use for chain embedding data loading.'
+        )] = 0,
+        num_nodes_aggregator: Annotated[int, typer.Option(
+            help='Number of nodes to use for chain embedding inference.'
+        )] = 1,
+        compute_residue_embedding: Annotated[bool, typer.Option(
+            help='Compute residue level embeddings first. When disabled, pre-computed residue embeddings must exist in tmp-dir.'
+        )] = True,
+        log_level: Annotated[LogLevel, typer.Option(
+            help='Logging level.'
+        )] = 'info'
+):
+    """Search database using protein sequences from a FASTA file."""
+
+    set_log_level(log_level)
+
+    db_dir, index_name = _parse_database_path(db_path)
+
+    chain_ids, embeddings = _compute_fasta_embeddings(
+        fasta_file=fasta_file, tmp_dir=tmp_dir, min_res_n=min_res_n,
+        compute_residue_embedding=compute_residue_embedding,
+        accelerator=accelerator, devices=devices, strategy=strategy,
+        batch_size=batch_size, num_workers=num_workers, num_nodes=num_nodes,
+        batch_size_aggregator=batch_size_aggregator,
+        num_workers_aggregator=num_workers_aggregator,
+        num_nodes_aggregator=num_nodes_aggregator
+    )
+
+    logging.info("Loading database...")
+    searcher = StructureSearch(
+        db_path=str(db_dir),
+        index_name=index_name,
+        use_gpu_for_search=use_gpu_index
+    )
+
+    logging.info(f"Performing search for {len(chain_ids)} sequence(s)...")
+    results = {}
+    for query_id, embedding in zip(chain_ids, embeddings):
+        matching_ids, scores = searcher.db.search(embedding, top_k=top_k)
+        results[query_id] = (matching_ids, scores)
+
+    results = _filter_results_by_threshold(results, threshold)
+
+    searcher.print_results(results)
+
+    if output_csv:
+        searcher.export_results(results, output_csv)
+
+
+@query_db_app.command(
+    name="db",
     help="Compare entries from a query database with a subject database."
 )
 def query_database_with_database(

@@ -1,6 +1,6 @@
 [project]
 name = "foldmatch"
-version = "0.4.0"
+version = "0.3.0"
 authors = [
     { name="Joan Segura", email="joan.segura@rcsb.org" },
 ]
@@ -44,6 +44,6 @@ build-backend = "hatchling.build"
 
 [project.scripts]
 inference = "foldmatch.cli.inference:app"
-fm-embedding = "foldmatch.cli.embedding:app"
+fm-structure = "foldmatch.cli.embedding:app"
 fm-search = "foldmatch.cli.search:app"
 fm-sequence = "foldmatch.cli.sequence:app"

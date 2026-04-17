@@ -52,13 +52,13 @@ class TestCliSearch(unittest.TestCase):
 
     def test_02_query_database(self):
         """Test querying the database with a structure."""
-        from foldmatch.cli.search import query_database
+        from foldmatch.cli.search import query_database_from_structure
 
         # Use one of the test structures as the query
         query_structure = f"{self.__test_path}/resources/pdb/1acb.cif"
         output_csv = os.path.join(self.__temp_dir, "search_results.csv")
 
-        query_database(
+        query_database_from_structure(
             db_path=self.__db_path,
             query_structure=query_structure,
             structure_format=StructureFormat.mmcif,
@@ -83,12 +83,12 @@ class TestCliSearch(unittest.TestCase):
 
     def test_03_query_with_threshold(self):
         """Test querying with a similarity score threshold."""
-        from foldmatch.cli.search import query_database
+        from foldmatch.cli.search import query_database_from_structure
 
         query_structure = f"{self.__test_path}/resources/pdb/1acb.cif"
         output_csv = os.path.join(self.__temp_dir, "search_results_threshold.csv")
 
-        query_database(
+        query_database_from_structure(
             db_path=self.__db_path,
             query_structure=query_structure,
             structure_format=StructureFormat.mmcif,
@@ -107,12 +107,12 @@ class TestCliSearch(unittest.TestCase):
 
     def test_04_query_specific_chain(self):
         """Test querying with a specific chain ID."""
-        from foldmatch.cli.search import query_database
+        from foldmatch.cli.search import query_database_from_structure
 
         query_structure = f"{self.__test_path}/resources/pdb/1acb.cif"
         output_csv = os.path.join(self.__temp_dir, "search_results_chain.csv")
 
-        query_database(
+        query_database_from_structure(
             db_path=self.__db_path,
             query_structure=query_structure,
             structure_format=StructureFormat.mmcif,
@@ -385,14 +385,14 @@ class TestCliSearch(unittest.TestCase):
 
     def test_14_query_database_assembly(self):
         """Test querying the database with assembly granularity."""
-        from foldmatch.cli.search import query_database
+        from foldmatch.cli.search import query_database_from_structure
 
         # Use the assembly database built in test_13
         assembly_db_path = os.path.join(self.__temp_dir, "test_faiss_assembly")
         query_structure = f"{self.__test_path}/resources/pdb/1acb.cif"
         output_csv = os.path.join(self.__temp_dir, "search_results_assembly.csv")
 
-        query_database(
+        query_database_from_structure(
             db_path=assembly_db_path,
             query_structure=query_structure,
             structure_format=StructureFormat.mmcif,
@@ -615,6 +615,78 @@ class TestCliSearch(unittest.TestCase):
         self.assertEqual(len(db2.chain_ids), 7)
         self.assertIn("1acb_E", db2.chain_ids)
         self.assertIn("2uzi_A", db2.chain_ids)
+
+
+    def test_21_query_database_from_embedding(self):
+        """Test querying the database with a pre-computed embedding file."""
+        from foldmatch.cli.search import build_database_from_embeddings, query_database_from_embedding
+
+        embedding_dir = f"{self.__test_path}/resources/embeddings"
+        subject_db = os.path.join(self.__temp_dir, "test_query_from_emb_db")
+        build_database_from_embeddings(
+            embedding_dir=embedding_dir,
+            output_db=subject_db,
+            file_extension=".pt",
+            use_gpu_index=False
+        )
+
+        # Use one of the pre-computed .pt chain embedding files as the query
+        embedding_file = f"{self.__test_path}/resources/embeddings/1acb.A.pt"
+        output_csv = os.path.join(self.__temp_dir, "query_from_embedding_results.csv")
+
+        query_database_from_embedding(
+            db_path=subject_db,
+            embedding_file=embedding_file,
+            top_k=5,
+            threshold=None,
+            output_csv=output_csv,
+            use_gpu_index=False
+        )
+
+        self.assertTrue(os.path.exists(output_csv))
+        with open(output_csv, 'r') as f:
+            lines = f.readlines()
+            # Header + at least one result
+            self.assertGreater(len(lines), 1)
+            # Query ID should be the filename stem
+            self.assertIn("1acb.A", lines[1])
+
+    def test_22_query_database_from_fasta(self):
+        """Test querying the database with sequences from a FASTA file."""
+        from foldmatch.cli.search import build_database_from_embeddings, query_database_from_fasta
+
+        embedding_dir = f"{self.__test_path}/resources/embeddings"
+        subject_db = os.path.join(self.__temp_dir, "test_query_from_fasta_db")
+        build_database_from_embeddings(
+            embedding_dir=embedding_dir,
+            output_db=subject_db,
+            file_extension=".pt",
+            use_gpu_index=False
+        )
+
+        fasta_file = f"{self.__test_path}/resources/fasta/test_sequences.fasta"
+        output_csv = os.path.join(self.__temp_dir, "query_from_fasta_results.csv")
+
+        query_database_from_fasta(
+            db_path=subject_db,
+            fasta_file=fasta_file,
+            tmp_dir=self.__temp_dir,
+            top_k=5,
+            threshold=None,
+            output_csv=output_csv,
+            accelerator='cpu',
+            use_gpu_index=False,
+            compute_residue_embedding=True
+        )
+
+        self.assertTrue(os.path.exists(output_csv))
+        with open(output_csv, 'r') as f:
+            lines = f.readlines()
+            # Header + results for 2 queries (1acb_E, 2uzi_A)
+            self.assertGreater(len(lines), 2)
+            query_ids = {line.split(',')[0] for line in lines[1:]}
+            self.assertIn("1acb_E", query_ids)
+            self.assertIn("2uzi_A", query_ids)
 
 
 if __name__ == '__main__':
