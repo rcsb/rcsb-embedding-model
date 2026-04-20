@@ -1,4 +1,5 @@
 import gzip
+import os
 from pathlib import Path
 
 import numpy as np
@@ -15,7 +16,7 @@ def get_structure_from_src(
         assembly_id=None
 ):
     try:
-        if Path(src_structure).suffix == ".gz":
+        if __is_path(src_structure) and Path(src_structure).suffix == ".gz":
             if structure_format == "mmcif" or structure_format == "pdb":
                 src_structure = gzip.open(src_structure, "rt")
             elif structure_format == "binarycif":
@@ -108,3 +109,9 @@ def __get_structure(cif_file, assembly_id=None):
         model=1,
         use_author_fields=False
     )
+
+def __is_path(val):
+    if isinstance(val, (str, os.PathLike)):
+        return True
+    else:
+        return False
