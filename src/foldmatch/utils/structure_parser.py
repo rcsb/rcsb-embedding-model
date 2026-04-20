@@ -1,4 +1,5 @@
-import warnings
+import gzip
+from pathlib import Path
 
 import numpy as np
 from biotite.structure import filter_amino_acids, filter_polymer, chain_iter, get_chains, get_residues, \
@@ -14,6 +15,13 @@ def get_structure_from_src(
         assembly_id=None
 ):
     try:
+        if Path(src_structure).suffix == ".gz":
+            if structure_format == "mmcif" or structure_format == "pdb":
+                src_structure = gzip.open(src_structure, "rt")
+            elif structure_format == "binarycif":
+                src_structure = gzip.open(src_structure, "rb")
+            else:
+                raise RuntimeError(f"Unknown file format {structure_format}")
         if structure_format == "pdb":
             pdb_file = PDBFile.read(src_structure)
             structure = __get_pdb_structure(pdb_file, assembly_id)
