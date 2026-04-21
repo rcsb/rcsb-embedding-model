@@ -55,6 +55,13 @@ def get_protein_chains(structure, min_res_n=0):
 
 def get_assemblies(structure, structure_format="mmcif"):
     try:
+        if __is_path(structure) and Path(structure).suffix == ".gz":
+            if structure_format == "mmcif" or structure_format == "pdb":
+                structure = gzip.open(structure, "rt")
+            elif structure_format == "binarycif":
+                structure = gzip.open(structure, "rb")
+            else:
+                raise RuntimeError(f"Unknown file format {structure_format}")
         if structure_format == "pdb":
             return tuple(list_pdb_assemblies(PDBFile.read(structure)))
         elif structure_format == "mmcif":
