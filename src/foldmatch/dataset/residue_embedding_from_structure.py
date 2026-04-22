@@ -4,7 +4,7 @@ import pandas as pd
 
 from foldmatch.dataset.residue_embedding_from_tensor_file import ResidueEmbeddingFromTensorFile
 from foldmatch.dataset.untils import get_structure_location
-from foldmatch.types.api_types import SrcLocation, StructureLocation, StructureFormat
+from foldmatch.types.api_types import SrcLocation, StructureLocation, StructureFormat, ResEmbeddingFormat
 from foldmatch.utils.data import stringio_from_url
 from foldmatch.utils.structure_parser import get_protein_chains
 from foldmatch.utils.structure_provider import StructureProvider
@@ -25,6 +25,7 @@ class ResidueEmbeddingFromStructure(ResidueEmbeddingFromTensorFile):
             src_location=SrcLocation.file,
             structure_format=StructureFormat.mmcif,
             min_res_n=0,
+            res_embedding_format=ResEmbeddingFormat.pt,
             structure_provider=StructureProvider()
     ):
         if not os.path.isdir(res_embedding_location):
@@ -33,10 +34,12 @@ class ResidueEmbeddingFromStructure(ResidueEmbeddingFromTensorFile):
         self.src_location = src_location
         self.structure_format = structure_format
         self.min_res_n = min_res_n
+        self.res_embedding_format = res_embedding_format
         self.__structure_provider = structure_provider
         super().__init__(
             src_stream=self.__get_chains(src_stream),
-            src_location=SrcLocation.stream
+            src_location=SrcLocation.stream,
+            res_embedding_format=res_embedding_format
         )
 
     def __get_chains(self, src_stream):
@@ -63,5 +66,5 @@ class ResidueEmbeddingFromStructure(ResidueEmbeddingFromTensorFile):
                 structure_format=self.structure_format
             )
             for ch in get_protein_chains(structure, self.min_res_n):
-                chains.append((os.path.join(self.res_embedding_location, f"{src_name}.{ch}.pt"), f"{item_name}.{ch}"))
+                chains.append((os.path.join(self.res_embedding_location, f"{src_name}.{ch}.{self.res_embedding_format.value}"), f"{item_name}.{ch}"))
         return tuple(chains)

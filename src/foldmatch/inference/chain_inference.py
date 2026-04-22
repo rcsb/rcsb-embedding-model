@@ -7,7 +7,7 @@ from foldmatch.dataset.residue_embedding_from_structure import ResidueEmbeddingF
 from foldmatch.dataset.residue_embedding_from_tensor_file import ResidueEmbeddingFromTensorFile
 from foldmatch.modules.chain_module import ChainModule
 from foldmatch.types.api_types import Accelerator, Devices, Strategy, OptionalPath, FileOrStreamTuple, SrcLocation, \
-    SrcTensorFrom, StructureFormat, OutFormat
+    SrcTensorFrom, StructureFormat, OutFormat, ResEmbeddingFormat
 from foldmatch.utils.data import collate_seq_embeddings, collate_embeddings
 from foldmatch.utils.model import get_aggregator_model
 from foldmatch.writer.batch_writer import CsvBatchWriter, TensorBatchWriter, JsonStorage
@@ -30,20 +30,23 @@ def predict(
         out_name: str = 'inference',
         out_path: OptionalPath = None,
         inference_set=None,
-        write_tensor: bool = False
+        write_tensor: bool = False,
+        res_embedding_format: ResEmbeddingFormat = ResEmbeddingFormat.pt
 ):
     logger = logging.getLogger(__name__)
 
     if inference_set is None:
         inference_set = ResidueEmbeddingFromTensorFile(
             src_stream=src_stream,
-            src_location=src_location
+            src_location=src_location,
+            res_embedding_format=res_embedding_format
         ) if src_from == SrcTensorFrom.file else ResidueEmbeddingFromStructure(
             src_stream=src_stream,
             res_embedding_location=res_embedding_location,
             src_location=src_location,
             structure_format=structure_format,
-            min_res_n=min_res_n
+            min_res_n=min_res_n,
+            res_embedding_format=res_embedding_format
         )
     logger.info(f"chain-inference set contains {len(inference_set)} samples")
 

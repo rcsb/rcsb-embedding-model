@@ -1,8 +1,8 @@
 import pandas as pd
-import torch
 from torch.utils.data import Dataset
 
-from foldmatch.types.api_types import SrcLocation
+from foldmatch.types.api_types import SrcLocation, ResEmbeddingFormat
+from foldmatch.utils.data import load_residue_embedding
 
 
 class ResidueEmbeddingFromTensorFile(Dataset):
@@ -15,10 +15,12 @@ class ResidueEmbeddingFromTensorFile(Dataset):
     def __init__(
             self,
             src_stream,
-            src_location=SrcLocation.file
+            src_location=SrcLocation.file,
+            res_embedding_format=ResEmbeddingFormat.pt
     ):
         super().__init__()
         self.src_location = src_location
+        self.res_embedding_format = res_embedding_format
         self.data = pd.DataFrame()
         self.__load_stream(src_stream)
 
@@ -41,4 +43,4 @@ class ResidueEmbeddingFromTensorFile(Dataset):
     def __getitem__(self, idx):
         embedding_src = self.data.iloc[idx][ResidueEmbeddingFromTensorFile.FILE_ATTR]
         item_name = self.data.iloc[idx][ResidueEmbeddingFromTensorFile.ITEM_NAME_ATTR]
-        return torch.load(embedding_src, map_location=torch.device('cpu')), item_name
+        return load_residue_embedding(embedding_src, res_embedding_format=self.res_embedding_format), item_name

@@ -61,6 +61,11 @@ class OutFormat(str, Enum):
     separated = "separated"
     grouped = "grouped"
 
+
+class ResEmbeddingFormat(str, Enum):
+    pt = "pt"
+    csv = "csv"
+
 class LogLevel(str, Enum):
     info = "info"
     warn = "warn"

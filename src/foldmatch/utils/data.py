@@ -1,11 +1,22 @@
 import os
 import requests
 import gzip
+import pandas as pd
 import torch
 import logging
 
 from requests import RequestException, ConnectTimeout
 from io import StringIO, BytesIO
+
+from foldmatch.types.api_types import ResEmbeddingFormat
+
+
+def load_residue_embedding(file_path, res_embedding_format=ResEmbeddingFormat.pt):
+    """Load a residue-level embedding tensor from a .pt or .csv file."""
+    if res_embedding_format == ResEmbeddingFormat.csv:
+        values = pd.read_csv(file_path, header=None, index_col=None).values
+        return torch.from_numpy(values).float()
+    return torch.load(file_path, map_location=torch.device('cpu'))
 
 def collate_seq_embeddings(batch_list):
     """
@@ -78,7 +89,7 @@ def __stringio_from_url(url):
         raise IOError(f"Error decompressing gzip file {url}: {e}")
 
 
-def concatenate_tensors(file_list, max_residues, dim=0):
+def concatenate_tensors(file_list, max_residues, dim=0, res_embedding_format=ResEmbeddingFormat.pt):
     """
     Concatenates a list of tensors stored in individual files along a specified dimension.
 
@@ -86,6 +97,7 @@ def concatenate_tensors(file_list, max_residues, dim=0):
         file_list (list of str): List of file paths to tensor files.
         max_residues (int): Maximum number of residues allowed in the assembly
         dim (int): The dimension along which to concatenate the tensors. Default is 0.
+        res_embedding_format (ResEmbeddingFormat): Format of the residue embedding files (pt or csv).
 
     Returns:
         torch.Tensor: The concatenated tensor.
@@ -94,10 +106,7 @@ def concatenate_tensors(file_list, max_residues, dim=0):
     total_residues = 0
     for file in file_list:
         try:
-            tensor = torch.load(
-                file,
-                map_location=torch.device('cpu')
-            )
+            tensor = load_residue_embedding(file, res_embedding_format=res_embedding_format)
             total_residues += tensor.shape[0]
             tensors.append(tensor)
         except Exception as e:
@@ -112,10 +121,10 @@ def concatenate_tensors(file_list, max_residues, dim=0):
     else:
         raise ValueError(f"No valid tensors were loaded to concatenate. {', '.join(file_list)}")
 
-def adapt_csv_to_embedding_chain_stream(src_file, res_embedding_location):
+def adapt_csv_to_embedding_chain_stream(src_file, res_embedding_location, res_embedding_format=ResEmbeddingFormat.pt):
     def __parse_row(row):
         r = row.split(",")
-        return os.path.join(res_embedding_location, f"{r[0]}.{r[2]}.pt"), f"{r[0]}.{r[2]}"
+        return os.path.join(res_embedding_location, f"{r[0]}.{r[2]}.{res_embedding_format.value}"), f"{r[0]}.{r[2]}"
     return tuple([__parse_row(r.strip()) for r in open(src_file) if len(r.split(",")) > 2])
 
 

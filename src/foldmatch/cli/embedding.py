@@ -8,7 +8,7 @@ from typing import Annotated, List
 from foldmatch import __version__
 from foldmatch.cli.args_utils import arg_devices, set_log_level
 from foldmatch.types.api_types import StructureFormat, Accelerator, SrcLocation, SrcProteinFrom, \
-    SrcAssemblyFrom, SrcTensorFrom, OutFormat, Strategy, LogLevel
+    SrcAssemblyFrom, SrcTensorFrom, OutFormat, Strategy, LogLevel, ResEmbeddingFormat
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
@@ -187,6 +187,9 @@ def chain_embedding(
         compute_residue_embedding: Annotated[bool, typer.Option(
             help='Compute residue level embeddings as a first step. When enabled, residue embeddings are stored in res-embedding-location before computing chain embeddings.'
         )] = True,
+        res_embedding_format: Annotated[ResEmbeddingFormat, typer.Option(
+            help='Format of the precomputed residue embedding files read from res-embedding-location when compute-residue-embedding=False. Options: pt (torch tensor files) or csv.'
+        )] = ResEmbeddingFormat.pt,
         write_tensor: Annotated[bool, typer.Option(
             help='If output-format=separated, write chain embeddings as torch tensor (.pt) files instead of csv files.'
         )] = False,
@@ -217,6 +220,7 @@ def chain_embedding(
             strategy=strategy,
             write_tensor=True
         )
+        res_embedding_format = ResEmbeddingFormat.pt
 
     predict(
         src_stream=src_stream,
@@ -234,7 +238,8 @@ def chain_embedding(
         out_format=output_format,
         out_name=output_name,
         strategy=strategy,
-        write_tensor=write_tensor
+        write_tensor=write_tensor,
+        res_embedding_format=res_embedding_format
     )
 
 
@@ -300,6 +305,9 @@ def assembly_embedding(
         compute_residue_embedding: Annotated[bool, typer.Option(
             help='Compute residue level embeddings as a first step. When enabled, residue embeddings are stored in res-embedding-location before computing assembly embeddings.'
         )] = True,
+        res_embedding_format: Annotated[ResEmbeddingFormat, typer.Option(
+            help='Format of the precomputed residue embedding files read from res-embedding-location when compute-residue-embedding=False. Options: pt (torch tensor files) or csv.'
+        )] = ResEmbeddingFormat.pt,
         write_tensor: Annotated[bool, typer.Option(
             help='If output-format=separated, write assembly embeddings as torch tensor (.pt) files instead of csv files.'
         )] = False,
@@ -330,6 +338,7 @@ def assembly_embedding(
             strategy=strategy,
             write_tensor=True
         )
+        res_embedding_format = ResEmbeddingFormat.pt
 
     predict(
         src_stream=src_stream,
@@ -348,7 +357,8 @@ def assembly_embedding(
         out_format=output_format,
         out_name=output_name,
         strategy=strategy,
-        write_tensor=write_tensor
+        write_tensor=write_tensor,
+        res_embedding_format=res_embedding_format
     )
 
 @app.command(

@@ -4,7 +4,7 @@ import sys
 from foldmatch.dataset.resdiue_assembly_embedding_from_structure import ResidueAssemblyDatasetFromStructure
 from foldmatch.dataset.residue_assembly_embedding_from_tensor_file import ResidueAssemblyEmbeddingFromTensorFile
 from foldmatch.types.api_types import FileOrStreamTuple, SrcLocation, Accelerator, Devices, Strategy, OptionalPath, \
-    EmbeddingPath, StructureFormat, SrcAssemblyFrom, OutFormat
+    EmbeddingPath, StructureFormat, SrcAssemblyFrom, OutFormat, ResEmbeddingFormat
 from foldmatch.inference.chain_inference import predict as chain_predict
 
 
@@ -25,7 +25,8 @@ def predict(
         out_format: OutFormat = OutFormat.separated,
         out_name: str = 'inference',
         out_path: OptionalPath = None,
-        write_tensor: bool = False
+        write_tensor: bool = False,
+        res_embedding_format: ResEmbeddingFormat = ResEmbeddingFormat.pt
 ):
     logger = logging.getLogger(__name__)
 
@@ -35,14 +36,16 @@ def predict(
         src_location=src_location,
         structure_format=structure_format,
         min_res_n=min_res_n,
-        max_res_n=max_res_n
+        max_res_n=max_res_n,
+        res_embedding_format=res_embedding_format
     ) if src_from == SrcAssemblyFrom.assembly else ResidueAssemblyDatasetFromStructure(
         src_stream=src_stream,
         res_embedding_location=res_embedding_location,
         src_location=src_location,
         structure_format=structure_format,
         min_res_n=min_res_n,
-        max_res_n=max_res_n
+        max_res_n=max_res_n,
+        res_embedding_format=res_embedding_format
     )
     logger.info(f"assembly-inference set contains {len(inference_set)} samples")
 
@@ -60,5 +63,6 @@ def predict(
         out_name=out_name,
         out_path=out_path,
         inference_set=inference_set,
-        write_tensor=write_tensor
+        write_tensor=write_tensor,
+        res_embedding_format=res_embedding_format
     )

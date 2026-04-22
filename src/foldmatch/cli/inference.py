@@ -8,7 +8,7 @@ from typing import Annotated, List
 from foldmatch import __version__
 from foldmatch.cli.args_utils import arg_devices, set_log_level
 from foldmatch.types.api_types import StructureFormat, Accelerator, SrcLocation, SrcProteinFrom, \
-    SrcAssemblyFrom, SrcTensorFrom, OutFormat, Strategy, LogLevel
+    SrcAssemblyFrom, SrcTensorFrom, OutFormat, Strategy, LogLevel, ResEmbeddingFormat
 from foldmatch.utils.data import adapt_csv_to_embedding_chain_stream
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -199,6 +199,9 @@ def chain_embedding(
         structure_format: Annotated[StructureFormat, typer.Option(
             help='Structure file format.'
         )] = StructureFormat.mmcif,
+        res_embedding_format: Annotated[ResEmbeddingFormat, typer.Option(
+            help='Format of the residue level embedding files. Options: pt (torch tensor files) or csv.'
+        )] = ResEmbeddingFormat.pt,
         min_res_n: Annotated[int, typer.Option(
             help='When using all chains in a structure, consider only chains with more than <min_res_n> residues.'
         )] = 0,
@@ -228,7 +231,7 @@ def chain_embedding(
     set_log_level(log_level)
 
     predict(
-        src_stream=adapt_csv_to_embedding_chain_stream(src_file, res_embedding_location),
+        src_stream=adapt_csv_to_embedding_chain_stream(src_file, res_embedding_location, res_embedding_format=res_embedding_format),
         res_embedding_location=res_embedding_location,
         src_location=SrcLocation.stream,
         src_from=SrcTensorFrom.file,
@@ -242,7 +245,8 @@ def chain_embedding(
         out_path=output_path,
         out_format=output_format,
         out_name=output_name,
-        strategy=strategy
+        strategy=strategy,
+        res_embedding_format=res_embedding_format
     )
 
 @app.command(
@@ -280,6 +284,9 @@ def assembly_embedding(
         structure_format: Annotated[StructureFormat, typer.Option(
             help='Structure file format.'
         )] = StructureFormat.mmcif,
+        res_embedding_format: Annotated[ResEmbeddingFormat, typer.Option(
+            help='Format of the residue level embedding files. Options: pt (torch tensor files) or csv.'
+        )] = ResEmbeddingFormat.pt,
         min_res_n: Annotated[int, typer.Option(
             help='Consider only assembly chains with more than <min_res_n> residues.'
         )] = 0,
@@ -327,7 +334,8 @@ def assembly_embedding(
         out_path=output_path,
         out_format=output_format,
         out_name=output_name,
-        strategy=strategy
+        strategy=strategy,
+        res_embedding_format=res_embedding_format
     )
 
 @app.command(

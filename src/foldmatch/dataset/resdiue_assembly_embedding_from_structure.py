@@ -4,7 +4,7 @@ import pandas as pd
 
 from foldmatch.dataset.residue_assembly_embedding_from_tensor_file import ResidueAssemblyEmbeddingFromTensorFile
 from foldmatch.dataset.untils import get_structure_location
-from foldmatch.types.api_types import SrcLocation, StructureLocation, StructureFormat
+from foldmatch.types.api_types import SrcLocation, StructureLocation, StructureFormat, ResEmbeddingFormat
 from foldmatch.utils.data import stringio_from_url
 from foldmatch.utils.structure_parser import get_assemblies
 from foldmatch.utils.structure_provider import StructureProvider
@@ -26,6 +26,7 @@ class ResidueAssemblyDatasetFromStructure(ResidueAssemblyEmbeddingFromTensorFile
             structure_format=StructureFormat.mmcif,
             min_res_n=0,
             max_res_n=sys.maxsize,
+            res_embedding_format=ResEmbeddingFormat.pt,
             structure_provider=StructureProvider()
     ):
         self.src_location = src_location
@@ -39,6 +40,7 @@ class ResidueAssemblyDatasetFromStructure(ResidueAssemblyEmbeddingFromTensorFile
             structure_format=structure_format,
             min_res_n=min_res_n,
             max_res_n=max_res_n,
+            res_embedding_format=res_embedding_format,
             structure_provider=structure_provider
         )
 

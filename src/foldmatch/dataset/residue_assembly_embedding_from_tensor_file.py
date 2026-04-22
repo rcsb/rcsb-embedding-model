@@ -5,7 +5,7 @@ import pandas as pd
 from torch.utils.data import Dataset, DataLoader
 
 from foldmatch.dataset.untils import get_structure_location
-from foldmatch.types.api_types import StructureLocation, StructureFormat, SrcLocation
+from foldmatch.types.api_types import StructureLocation, StructureFormat, SrcLocation, ResEmbeddingFormat
 from foldmatch.utils.data import stringio_from_url, concatenate_tensors
 from foldmatch.utils.structure_parser import get_protein_chains
 from foldmatch.utils.structure_provider import StructureProvider
@@ -28,6 +28,7 @@ class ResidueAssemblyEmbeddingFromTensorFile(Dataset):
             structure_format=StructureFormat.mmcif,
             min_res_n=0,
             max_res_n=sys.maxsize,
+            res_embedding_format=ResEmbeddingFormat.pt,
             structure_provider=StructureProvider()
     ):
         super().__init__()
@@ -36,6 +37,7 @@ class ResidueAssemblyEmbeddingFromTensorFile(Dataset):
         self.structure_format = structure_format
         self.min_res_n = min_res_n
         self.max_res_n = max_res_n
+        self.res_embedding_format = res_embedding_format
         self.data = pd.DataFrame()
         self.__load_stream(src_stream)
         self.__structure_provider = structure_provider
@@ -69,11 +71,11 @@ class ResidueAssemblyEmbeddingFromTensorFile(Dataset):
             assembly_id=assembly_id
         )
         residue_embedding_files = [
-            f"{self.res_embedding_location}/{src_name}.{ch}.pt" for ch in get_protein_chains(structure, self.min_res_n)
+            f"{self.res_embedding_location}/{src_name}.{ch}.{self.res_embedding_format.value}" for ch in get_protein_chains(structure, self.min_res_n)
         ]
         if len(residue_embedding_files) == 0:
             raise ValueError(f"No chains found for {src_name}-{assembly_id} in structure {src_structure}.")
-        return concatenate_tensors(residue_embedding_files, self.max_res_n), item_name
+        return concatenate_tensors(residue_embedding_files, self.max_res_n, res_embedding_format=self.res_embedding_format), item_name
 
 
 if __name__ == "__main__":
