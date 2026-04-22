@@ -5,7 +5,7 @@ from typing import Annotated, List
 
 from foldmatch import __version__
 from foldmatch.cli.args_utils import arg_devices, set_log_level
-from foldmatch.types.api_types import Accelerator, OutFormat, Strategy, LogLevel
+from foldmatch.types.api_types import Accelerator, OutFormat, Strategy, LogLevel, ResEmbeddingFormat
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
@@ -154,6 +154,12 @@ def chain_embedding(
         compute_residue_embedding: Annotated[bool, typer.Option(
             help='Compute residue level embeddings as a first step. When enabled, residue embeddings are stored in res-embedding-location before computing chain embeddings.'
         )] = True,
+        res_embedding_format: Annotated[ResEmbeddingFormat, typer.Option(
+            help='Format of the precomputed residue embedding files read from res-embedding-location when compute-residue-embedding=False. Options: pt (torch tensor files) or csv.'
+        )] = ResEmbeddingFormat.pt,
+        write_tensor: Annotated[bool, typer.Option(
+            help='If output-format=separated, write residue embeddings as torch tensor (.pt) files instead of csv files.'
+        )] = False,
         log_level: Annotated[LogLevel, typer.Option(
             help='Logging level.'
         )] = 'info'
@@ -179,6 +185,7 @@ def chain_embedding(
             strategy=strategy,
             write_tensor=True
         )
+        res_embedding_format = ResEmbeddingFormat.pt
 
     src_stream = scan_fasta_sequences(fasta_file, res_embedding_location)
     chain_predict(
@@ -193,7 +200,9 @@ def chain_embedding(
         out_path=output_path,
         out_format=output_format,
         out_name=output_name,
-        strategy=strategy
+        strategy=strategy,
+        res_embedding_format=res_embedding_format,
+        write_tensor=write_tensor
     )
 
 
