@@ -115,20 +115,30 @@ fm-structure chain \
   --output-path results/chain_embeddings \
   --batch-size 4
 
-# Using pre-computed residue embeddings
+# Using pre-computed residue embeddings (stored as .pt files)
 fm-structure chain \
   --src-folder data/structures \
   --res-embedding-location results/residue_embeddings \
   --output-path results/chain_embeddings \
   --no-compute-residue-embedding \
   --batch-size 4
+
+# Using pre-computed residue embeddings stored as .csv files
+fm-structure chain \
+  --src-folder data/structures \
+  --res-embedding-location results/residue_embeddings \
+  --output-path results/chain_embeddings \
+  --no-compute-residue-embedding \
+  --res-embedding-format csv \
+  --batch-size 4
 ```
 
 **Key Options:**
 - `--src-folder`: Folder containing structure files
-- `--res-embedding-location`: Directory for residue embedding tensor files (output when computing, input for chain aggregation)
+- `--res-embedding-location`: Directory for residue embedding files (output when computing, input for chain aggregation)
 - `--output-path`: Directory to store chain embedding CSV files
 - `--compute-residue-embedding` / `--no-compute-residue-embedding`: Compute residue embeddings first (default: enabled)
+- `--res-embedding-format`: Format of the pre-computed residue embedding files when `--no-compute-residue-embedding` is set. Options: `pt` (torch tensor files) or `csv` (default: `pt`). Ignored when residue embeddings are computed on-the-fly.
 - `--output-format`: `separated` (individual files) or `grouped` (single JSON)
 - `--output-name`: Filename when using `grouped` format (default: `inference`)
 - All other options similar to `fm-structure residue`
@@ -148,7 +158,7 @@ fm-structure assembly \
   --min-res-n 10 \
   --max-res-n 10000
 
-# Using pre-computed residue embeddings
+# Using pre-computed residue embeddings (stored as .pt files)
 fm-structure assembly \
   --src-folder data/structures \
   --res-embedding-location results/residue_embeddings \
@@ -156,13 +166,24 @@ fm-structure assembly \
   --no-compute-residue-embedding \
   --min-res-n 10 \
   --max-res-n 10000
+
+# Using pre-computed residue embeddings stored as .csv files
+fm-structure assembly \
+  --src-folder data/structures \
+  --res-embedding-location results/residue_embeddings \
+  --output-path results/assembly_embeddings \
+  --no-compute-residue-embedding \
+  --res-embedding-format csv \
+  --min-res-n 10 \
+  --max-res-n 10000
 ```
 
 **Key Options:**
 - `--src-folder`: Folder containing structure files
-- `--res-embedding-location`: Directory for residue embedding tensor files (output when computing, input for assembly aggregation)
+- `--res-embedding-location`: Directory for residue embedding files (output when computing, input for assembly aggregation)
 - `--output-path`: Directory to store assembly embedding CSV files
 - `--compute-residue-embedding` / `--no-compute-residue-embedding`: Compute residue embeddings first (default: enabled)
+- `--res-embedding-format`: Format of the pre-computed residue embedding files when `--no-compute-residue-embedding` is set. Options: `pt` (torch tensor files) or `csv` (default: `pt`). Ignored when residue embeddings are computed on-the-fly.
 - `--output-format`: `separated` (individual files) or `grouped` (single JSON)
 - `--output-name`: Filename when using `grouped` format (default: `inference`)
 - `--min-res-n`: Minimum residues per chain (default: 0)
