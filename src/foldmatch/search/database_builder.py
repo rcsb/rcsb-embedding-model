@@ -30,8 +30,7 @@ class EmbeddingDatabaseBuilder:
             structure_dir: Directory containing structure files
             structure_format: Format of structure files (mmcif or pdb)
             min_res: Minimum residue length for chains
-            max_res: Maximum residue length for structures
-            device: Device to use for computation
+            accelerator: Device to use for computation
         """
         self.structure_dir = Path(structure_dir)
         self.tmp_dir = Path(tmp_dir)

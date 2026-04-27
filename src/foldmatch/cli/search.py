@@ -362,13 +362,13 @@ def build_database_from_fasta(
         strategy: Annotated[Strategy, typer.Option(
             help='Lightning strategy to control distribution of inference.'
         )] = 'auto',
-        batch_size: Annotated[int, typer.Option(
+        batch_size_res: Annotated[int, typer.Option(
             help='Number of samples processed together for residue embedding inference.'
         )] = 1,
-        num_workers: Annotated[int, typer.Option(
+        num_workers_res: Annotated[int, typer.Option(
             help='Number of subprocesses to use for data loading.'
         )] = 0,
-        num_nodes: Annotated[int, typer.Option(
+        num_nodes_res: Annotated[int, typer.Option(
             help='Number of nodes to use for residue embedding inference.'
         )] = 1,
         batch_size_aggregator: Annotated[int, typer.Option(
@@ -380,9 +380,6 @@ def build_database_from_fasta(
         num_nodes_aggregator: Annotated[int, typer.Option(
             help='Number of nodes to use for chain embedding inference.'
         )] = 1,
-        compute_residue_embedding: Annotated[bool, typer.Option(
-            help='Compute residue level embeddings first. When disabled, pre-computed residue embeddings must exist in tmp-dir.'
-        )] = True,
         log_level: Annotated[LogLevel, typer.Option(
             help='Logging level.'
         )] = 'info'
@@ -394,9 +391,8 @@ def build_database_from_fasta(
     db_dir, index_name, output_db = _parse_output_db(output_db)
     chain_ids, embeddings = _compute_fasta_embeddings(
         fasta_file=fasta_file, tmp_dir=tmp_dir, min_res_n=min_res_n,
-        compute_residue_embedding=compute_residue_embedding,
         accelerator=accelerator, devices=devices, strategy=strategy,
-        batch_size=batch_size, num_workers=num_workers, num_nodes=num_nodes,
+        batch_size_res=batch_size_res, num_workers_res=num_workers_res, num_nodes_res=num_nodes_res,
         batch_size_aggregator=batch_size_aggregator,
         num_workers_aggregator=num_workers_aggregator,
         num_nodes_aggregator=num_nodes_aggregator
@@ -438,13 +434,13 @@ def update_database_from_fasta(
         strategy: Annotated[Strategy, typer.Option(
             help='Lightning strategy to control distribution of inference.'
         )] = 'auto',
-        batch_size: Annotated[int, typer.Option(
+        batch_size_res: Annotated[int, typer.Option(
             help='Number of samples processed together for residue embedding inference.'
         )] = 1,
-        num_workers: Annotated[int, typer.Option(
+        num_workers_res: Annotated[int, typer.Option(
             help='Number of subprocesses to use for data loading.'
         )] = 0,
-        num_nodes: Annotated[int, typer.Option(
+        num_nodes_res: Annotated[int, typer.Option(
             help='Number of nodes to use for residue embedding inference.'
         )] = 1,
         batch_size_aggregator: Annotated[int, typer.Option(
@@ -456,9 +452,6 @@ def update_database_from_fasta(
         num_nodes_aggregator: Annotated[int, typer.Option(
             help='Number of nodes to use for chain embedding inference.'
         )] = 1,
-        compute_residue_embedding: Annotated[bool, typer.Option(
-            help='Compute residue level embeddings first. When disabled, pre-computed residue embeddings must exist in tmp-dir.'
-        )] = True,
         log_level: Annotated[LogLevel, typer.Option(
             help='Logging level.'
         )] = 'info'
@@ -470,9 +463,8 @@ def update_database_from_fasta(
     db_dir, index_name, output_db = _parse_output_db(output_db)
     chain_ids, embeddings = _compute_fasta_embeddings(
         fasta_file=fasta_file, tmp_dir=tmp_dir, min_res_n=min_res_n,
-        compute_residue_embedding=compute_residue_embedding,
         accelerator=accelerator, devices=devices, strategy=strategy,
-        batch_size=batch_size, num_workers=num_workers, num_nodes=num_nodes,
+        batch_size_res=batch_size_res, num_workers_res=num_workers_res, num_nodes_res=num_nodes_res,
         batch_size_aggregator=batch_size_aggregator,
         num_workers_aggregator=num_workers_aggregator,
         num_nodes_aggregator=num_nodes_aggregator
@@ -694,13 +686,13 @@ def query_database_from_fasta(
         strategy: Annotated[Strategy, typer.Option(
             help='Lightning strategy to control distribution of inference.'
         )] = 'auto',
-        batch_size: Annotated[int, typer.Option(
+        batch_size_res: Annotated[int, typer.Option(
             help='Number of samples processed together for residue embedding inference.'
         )] = 1,
-        num_workers: Annotated[int, typer.Option(
+        num_workers_res: Annotated[int, typer.Option(
             help='Number of subprocesses to use for data loading.'
         )] = 0,
-        num_nodes: Annotated[int, typer.Option(
+        num_nodes_res: Annotated[int, typer.Option(
             help='Number of nodes to use for residue embedding inference.'
         )] = 1,
         batch_size_aggregator: Annotated[int, typer.Option(
@@ -712,9 +704,6 @@ def query_database_from_fasta(
         num_nodes_aggregator: Annotated[int, typer.Option(
             help='Number of nodes to use for chain embedding inference.'
         )] = 1,
-        compute_residue_embedding: Annotated[bool, typer.Option(
-            help='Compute residue level embeddings first. When disabled, pre-computed residue embeddings must exist in tmp-dir.'
-        )] = True,
         log_level: Annotated[LogLevel, typer.Option(
             help='Logging level.'
         )] = 'info'
@@ -727,9 +716,8 @@ def query_database_from_fasta(
 
     chain_ids, embeddings = _compute_fasta_embeddings(
         fasta_file=fasta_file, tmp_dir=tmp_dir, min_res_n=min_res_n,
-        compute_residue_embedding=compute_residue_embedding,
         accelerator=accelerator, devices=devices, strategy=strategy,
-        batch_size=batch_size, num_workers=num_workers, num_nodes=num_nodes,
+        batch_size_res=batch_size_res, num_workers_res=num_workers_res, num_nodes_res=num_nodes_res,
         batch_size_aggregator=batch_size_aggregator,
         num_workers_aggregator=num_workers_aggregator,
         num_nodes_aggregator=num_nodes_aggregator
@@ -1050,9 +1038,9 @@ def _load_embeddings_from_dir(embedding_dir: str, file_extension: Optional[str] 
 
 
 def _compute_fasta_embeddings(
-        fasta_file, tmp_dir, min_res_n, compute_residue_embedding,
+        fasta_file, tmp_dir, min_res_n,
         accelerator, devices, strategy,
-        batch_size, num_workers, num_nodes,
+        batch_size_res, num_workers_res, num_nodes_res,
         batch_size_aggregator, num_workers_aggregator, num_nodes_aggregator
 ) -> tuple[list, list]:
     """Compute chain embeddings from a FASTA file and return (chain_ids, embeddings)."""
@@ -1063,21 +1051,20 @@ def _compute_fasta_embeddings(
 
     dev = arg_devices(devices)
 
-    if compute_residue_embedding:
-        logging.info("Computing residue embeddings from FASTA sequences...")
-        sequence_predict(
-            fasta_file=fasta_file,
-            min_res_n=min_res_n,
-            batch_size=batch_size,
-            num_workers=num_workers,
-            num_nodes=num_nodes,
-            accelerator=accelerator,
-            devices=dev,
-            out_format=OutFormat.separated,
-            out_path=tmp_dir,
-            strategy=strategy,
-            write_tensor=True
-        )
+    logging.info("Computing residue embeddings from FASTA sequences...")
+    sequence_predict(
+        fasta_file=fasta_file,
+        min_res_n=min_res_n,
+        batch_size=batch_size_res,
+        num_workers=num_workers_res,
+        num_nodes=num_nodes_res,
+        accelerator=accelerator,
+        devices=dev,
+        out_format=OutFormat.separated,
+        out_path=tmp_dir,
+        strategy=strategy,
+        write_tensor=True
+    )
 
     logging.info("Computing chain embeddings...")
     src_stream = scan_fasta_sequences(fasta_file, tmp_dir)
