@@ -3,7 +3,7 @@ import sys
 import logging
 import typer
 
-from typing import Annotated, List
+from typing import Annotated, List, Optional
 
 from foldmatch import __version__
 from foldmatch.cli.args_utils import arg_devices, set_log_level
@@ -24,11 +24,14 @@ app = typer.Typer(
 )
 
 
-def scan_structure_folder(folder_path, structure_format):
+def scan_structure_folder(folder_path, structure_format, file_extension=None):
     """Scan a folder for structure files and return stream tuples (name, path, name)."""
-    extensions = STRUCTURE_FORMAT_EXTENSIONS.get(structure_format)
-    if extensions is None:
-        raise typer.BadParameter(f"Unknown structure format: {structure_format}")
+    if file_extension is not None:
+        extensions = (file_extension,)
+    else:
+        extensions = STRUCTURE_FORMAT_EXTENSIONS.get(structure_format)
+        if extensions is None:
+            raise typer.BadParameter(f"Unknown structure format: {structure_format}")
 
     entries = []
     for filename in sorted(os.listdir(folder_path)):
@@ -36,7 +39,7 @@ def scan_structure_folder(folder_path, structure_format):
             file_path = os.path.join(folder_path, filename)
             name = filename
             for ext in extensions:
-                if name.endswith(ext):
+                if ext and name.endswith(ext):
                     name = name[:-len(ext)]
                     break
             entries.append((name, file_path, name))
@@ -77,6 +80,9 @@ def residue_embedding(
         structure_format: Annotated[StructureFormat, typer.Option(
             help='Structure file format.'
         )] = StructureFormat.mmcif,
+        structure_file_extension: Annotated[Optional[str], typer.Option(
+            help='Override the default file extension used to filter structure files in src-folder. Pass an empty string to disable extension filtering and process every file in the folder. When unset, the defaults for the chosen structure-format are used.'
+        )] = None,
         min_res_n: Annotated[int, typer.Option(
             help='Consider only chains with more than <min_res_n> residues.'
         )] = 0,
@@ -108,7 +114,7 @@ def residue_embedding(
     from foldmatch.inference.esm_inference import predict
     set_log_level(log_level)
 
-    src_stream = scan_structure_folder(src_folder, structure_format)
+    src_stream = scan_structure_folder(src_folder, structure_format, structure_file_extension)
     predict(
         src_stream=src_stream,
         src_location=SrcLocation.stream,
@@ -163,6 +169,9 @@ def chain_embedding(
         structure_format: Annotated[StructureFormat, typer.Option(
             help='Structure file format.'
         )] = StructureFormat.mmcif,
+        structure_file_extension: Annotated[Optional[str], typer.Option(
+            help='Override the default file extension used to filter structure files in src-folder. Pass an empty string to disable extension filtering and process every file in the folder. When unset, the defaults for the chosen structure-format are used.'
+        )] = None,
         min_res_n: Annotated[int, typer.Option(
             help='Consider only chains with more than <min_res_n> residues.'
         )] = 0,
@@ -200,7 +209,7 @@ def chain_embedding(
     from foldmatch.inference.chain_inference import predict
     set_log_level(log_level)
 
-    src_stream = scan_structure_folder(src_folder, structure_format)
+    src_stream = scan_structure_folder(src_folder, structure_format, structure_file_extension)
 
     if compute_residue_embedding:
         from foldmatch.inference.esm_inference import predict as esm_predict
@@ -278,6 +287,9 @@ def assembly_embedding(
         structure_format: Annotated[StructureFormat, typer.Option(
             help='Structure file format.'
         )] = StructureFormat.mmcif,
+        structure_file_extension: Annotated[Optional[str], typer.Option(
+            help='Override the default file extension used to filter structure files in src-folder. Pass an empty string to disable extension filtering and process every file in the folder. When unset, the defaults for the chosen structure-format are used.'
+        )] = None,
         min_res_n: Annotated[int, typer.Option(
             help='Consider only assembly chains with more than <min_res_n> residues.'
         )] = 0,
@@ -318,7 +330,7 @@ def assembly_embedding(
     from foldmatch.inference.assembly_inferece import predict
     set_log_level(log_level)
 
-    src_stream = scan_structure_folder(src_folder, structure_format)
+    src_stream = scan_structure_folder(src_folder, structure_format, structure_file_extension)
 
     if compute_residue_embedding:
         from foldmatch.inference.esm_inference import predict as esm_predict
