@@ -1,6 +1,6 @@
 # FoldMatch
 
-**Version** 0.3.4
+**Version** 0.4.0
 
 
 ## Overview
