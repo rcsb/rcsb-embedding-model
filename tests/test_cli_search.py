@@ -516,8 +516,7 @@ class TestCliSearch(unittest.TestCase):
             output_db=output_db,
             res_embedding_folder=self.__temp_dir,
             accelerator='cpu',
-            use_gpu_index=False,
-            compute_residue_embedding=True
+            use_gpu_index=False
         )
 
         from pathlib import Path
@@ -605,8 +604,7 @@ class TestCliSearch(unittest.TestCase):
             output_db=output_db,
             res_embedding_folder=self.__temp_dir,
             accelerator='cpu',
-            use_gpu_index=False,
-            compute_residue_embedding=True
+            use_gpu_index=False
         )
 
         db2 = FaissEmbeddingDatabase(db_path=str(db_path.parent), index_name=db_path.name)
@@ -675,8 +673,7 @@ class TestCliSearch(unittest.TestCase):
             threshold=None,
             output_csv=output_csv,
             accelerator='cpu',
-            use_gpu_index=False,
-            compute_residue_embedding=True
+            use_gpu_index=False
         )
 
         self.assertTrue(os.path.exists(output_csv))
