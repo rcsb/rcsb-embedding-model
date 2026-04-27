@@ -1,6 +1,7 @@
 import sys
 
 import pandas as pd
+from tqdm import tqdm
 
 from foldmatch.dataset.residue_assembly_embedding_from_tensor_file import ResidueAssemblyEmbeddingFromTensorFile
 from foldmatch.dataset.untils import get_structure_location
@@ -58,9 +59,11 @@ class ResidueAssemblyDatasetFromStructure(ResidueAssemblyEmbeddingFromTensorFile
             names=ResidueAssemblyDatasetFromStructure.COLUMNS
         )
         data = data.sort_values(by=data.columns[0])
-        for idx, row in data.iterrows():
+        progress = tqdm(data.iterrows(), total=len(data), desc="Loading structures")
+        for idx, row in progress:
             src_name = row[ResidueAssemblyDatasetFromStructure.STREAM_NAME_ATTR]
             src_structure = row[ResidueAssemblyDatasetFromStructure.STREAM_ATTR]
+            progress.set_postfix_str(src_structure)
             structure = stringio_from_url(src_structure) if get_structure_location(src_structure) == StructureLocation.remote else src_structure
             item_name = row[ResidueAssemblyDatasetFromStructure.ITEM_NAME_ATTR]
             for assembly_id in get_assemblies(structure=structure, structure_format=self.structure_format):

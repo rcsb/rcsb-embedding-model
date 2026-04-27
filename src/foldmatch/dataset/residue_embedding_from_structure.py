@@ -1,6 +1,7 @@
 import os
 
 import pandas as pd
+from tqdm import tqdm
 
 from foldmatch.dataset.residue_embedding_from_tensor_file import ResidueEmbeddingFromTensorFile
 from foldmatch.dataset.untils import get_structure_location
@@ -56,10 +57,12 @@ class ResidueEmbeddingFromStructure(ResidueEmbeddingFromTensorFile):
             names=ResidueEmbeddingFromStructure.COLUMNS
         )
         data = data.sort_values(by=data.columns[0])
-        for idx, row in data.iterrows():
+        progress = tqdm(data.iterrows(), total=len(data), desc="Loading structures")
+        for idx, row in progress:
             src_name = row[ResidueEmbeddingFromStructure.STREAM_NAME_ATTR]
             src_structure = row[ResidueEmbeddingFromStructure.STREAM_ATTR]
             item_name = row[ResidueEmbeddingFromStructure.ITEM_NAME_ATTR]
+            progress.set_postfix_str(src_structure)
             structure = self.__structure_provider.get_structure(
                 src_name=src_name,
                 src_structure=stringio_from_url(src_structure) if get_structure_location(src_structure) == StructureLocation.remote else src_structure,
