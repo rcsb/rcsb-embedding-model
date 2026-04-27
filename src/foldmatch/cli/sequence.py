@@ -117,7 +117,7 @@ def chain_embedding(
             resolve_path=True,
             help='Output path to store predictions. Embeddings are stored as csv files.'
         )],
-        res_embedding_location: Annotated[str, typer.Option(
+        res_embedding_folder: Annotated[str, typer.Option(
             exists=True,
             file_okay=False,
             dir_okay=True,
@@ -181,13 +181,13 @@ def chain_embedding(
             accelerator=accelerator,
             devices=dev,
             out_format=OutFormat.separated,
-            out_path=res_embedding_location,
+            out_path=res_embedding_folder,
             strategy=strategy,
             write_tensor=True
         )
         res_embedding_format = ResEmbeddingFormat.pt
 
-    src_stream = scan_fasta_sequences(fasta_file, res_embedding_location)
+    src_stream = scan_fasta_sequences(fasta_file, res_embedding_folder)
     chain_predict(
         src_stream=src_stream,
         src_location=SrcLocation.stream,

@@ -45,14 +45,14 @@ app.add_typer(query_db_app, name="query")
     help="Build an embedding database from a directory of structure files."
 )
 def build_database_from_structures(
-        structure_dir: Annotated[str, typer.Option(
+        structure_folder: Annotated[str, typer.Option(
             help='Directory containing structure files.'
         )],
         output_db: Annotated[str, typer.Option(
             help='Path to save the FAISS database.'
         )],
-        tmp_dir: Annotated[str, typer.Option(
-            help='Temporal directory.'
+        res_embedding_folder: Annotated[str, typer.Option(
+            help='Directory for intermediate residue embeddings.'
         )],
         structure_format: Annotated[StructureFormat, typer.Option(
             help='Structure file format (mmcif, binarycif, or pdb).'
@@ -122,8 +122,8 @@ def build_database_from_structures(
         logging.info("GPU acceleration for FAISS index: enabled")
 
     builder = EmbeddingDatabaseBuilder(
-        structure_dir=structure_dir,
-        tmp_dir=tmp_dir,
+        structure_dir=structure_folder,
+        tmp_dir=res_embedding_folder,
         structure_format=structure_format,
         min_res=min_res,
         accelerator=accelerator
@@ -154,14 +154,14 @@ def build_database_from_structures(
     help="Update an existing embedding database with new or replacement structure files."
 )
 def update_database_from_structures(
-        structure_dir: Annotated[str, typer.Option(
+        structure_folder: Annotated[str, typer.Option(
             help='Directory containing new or updated structure files.'
         )],
         output_db: Annotated[str, typer.Option(
             help='Path to the existing FAISS database to update.'
         )],
-        tmp_dir: Annotated[str, typer.Option(
-            help='Temporal directory.'
+        res_embedding_folder: Annotated[str, typer.Option(
+            help='Directory for intermediate residue embeddings.'
         )],
         structure_format: Annotated[StructureFormat, typer.Option(
             help='Structure file format (mmcif, binarycif, or pdb).'
@@ -229,8 +229,8 @@ def update_database_from_structures(
         logging.info("GPU acceleration for FAISS index: enabled")
 
     builder = EmbeddingDatabaseBuilder(
-        structure_dir=structure_dir,
-        tmp_dir=tmp_dir,
+        structure_dir=structure_folder,
+        tmp_dir=res_embedding_folder,
         structure_format=structure_format,
         min_res=min_res,
         accelerator=accelerator
@@ -344,7 +344,7 @@ def build_database_from_fasta(
         output_db: Annotated[str, typer.Option(
             help='Path to save the FAISS database.'
         )],
-        tmp_dir: Annotated[str, typer.Option(
+        res_embedding_folder: Annotated[str, typer.Option(
             help='Directory for intermediate residue embeddings.'
         )],
         min_res_n: Annotated[int, typer.Option(
@@ -390,7 +390,7 @@ def build_database_from_fasta(
 
     db_dir, index_name, output_db = _parse_output_db(output_db)
     chain_ids, embeddings = _compute_fasta_embeddings(
-        fasta_file=fasta_file, tmp_dir=tmp_dir, min_res_n=min_res_n,
+        fasta_file=fasta_file, tmp_dir=res_embedding_folder, min_res_n=min_res_n,
         accelerator=accelerator, devices=devices, strategy=strategy,
         batch_size_res=batch_size_res, num_workers_res=num_workers_res, num_nodes_res=num_nodes_res,
         batch_size_aggregator=batch_size_aggregator,
@@ -416,7 +416,7 @@ def update_database_from_fasta(
         output_db: Annotated[str, typer.Option(
             help='Path to the existing FAISS database to update.'
         )],
-        tmp_dir: Annotated[str, typer.Option(
+        res_embedding_folder: Annotated[str, typer.Option(
             help='Directory for intermediate residue embeddings.'
         )],
         min_res_n: Annotated[int, typer.Option(
@@ -462,7 +462,7 @@ def update_database_from_fasta(
 
     db_dir, index_name, output_db = _parse_output_db(output_db)
     chain_ids, embeddings = _compute_fasta_embeddings(
-        fasta_file=fasta_file, tmp_dir=tmp_dir, min_res_n=min_res_n,
+        fasta_file=fasta_file, tmp_dir=res_embedding_folder, min_res_n=min_res_n,
         accelerator=accelerator, devices=devices, strategy=strategy,
         batch_size_res=batch_size_res, num_workers_res=num_workers_res, num_nodes_res=num_nodes_res,
         batch_size_aggregator=batch_size_aggregator,
@@ -659,7 +659,7 @@ def query_database_from_fasta(
         fasta_file: Annotated[str, typer.Option(
             help='FASTA file containing protein sequences. Each sequence is used as a separate query.'
         )],
-        tmp_dir: Annotated[str, typer.Option(
+        res_embedding_folder: Annotated[str, typer.Option(
             help='Directory for intermediate residue embeddings.'
         )],
         min_res_n: Annotated[int, typer.Option(
@@ -715,7 +715,7 @@ def query_database_from_fasta(
     db_dir, index_name = _parse_database_path(db_path)
 
     chain_ids, embeddings = _compute_fasta_embeddings(
-        fasta_file=fasta_file, tmp_dir=tmp_dir, min_res_n=min_res_n,
+        fasta_file=fasta_file, tmp_dir=res_embedding_folder, min_res_n=min_res_n,
         accelerator=accelerator, devices=devices, strategy=strategy,
         batch_size_res=batch_size_res, num_workers_res=num_workers_res, num_nodes_res=num_nodes_res,
         batch_size_aggregator=batch_size_aggregator,

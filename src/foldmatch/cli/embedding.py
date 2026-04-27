@@ -69,7 +69,7 @@ def residue_embedding(
             file_okay=False,
             dir_okay=True,
             resolve_path=True,
-            help='Output path to store predictions. Embeddings are stored as torch tensor files.'
+            help='Output path to store predictions. Embeddings are stored as csv or tensor files.'
         )],
         output_format: Annotated[OutFormat, typer.Option(
             help='Format of the output. Options: separated (predictions are stored in single files) or grouped (predictions are stored in a single JSON file).'
@@ -151,9 +151,9 @@ def chain_embedding(
             file_okay=False,
             dir_okay=True,
             resolve_path=True,
-            help='Output path to store predictions. Embeddings are stored as csv files.'
+            help='Output path to store predictions. Embeddings are stored as csv or tensor files.'
         )],
-        res_embedding_location: Annotated[str, typer.Option(
+        res_embedding_folder: Annotated[str, typer.Option(
             exists=True,
             file_okay=False,
             dir_okay=True,
@@ -225,7 +225,7 @@ def chain_embedding(
             accelerator=accelerator,
             devices=arg_devices(devices),
             out_format=OutFormat.separated,
-            out_path=res_embedding_location,
+            out_path=res_embedding_folder,
             strategy=strategy,
             write_tensor=True
         )
@@ -233,7 +233,7 @@ def chain_embedding(
 
     predict(
         src_stream=src_stream,
-        res_embedding_location=res_embedding_location,
+        res_embedding_location=res_embedding_folder,
         src_location=SrcLocation.stream,
         src_from=SrcTensorFrom.structure,
         structure_format=structure_format,
@@ -264,7 +264,7 @@ def assembly_embedding(
             resolve_path=True,
             help='Folder containing structure files. All assemblies in each structure will be processed.'
         )],
-        res_embedding_location: Annotated[str, typer.Option(
+        res_embedding_folder: Annotated[str, typer.Option(
             exists=True,
             file_okay=False,
             dir_okay=True,
@@ -276,7 +276,7 @@ def assembly_embedding(
             file_okay=False,
             dir_okay=True,
             resolve_path=True,
-            help='Output path to store predictions. Embeddings are stored as csv files.'
+            help='Output path to store predictions. Embeddings are stored as csv or tensor files.'
         )],
         output_format: Annotated[OutFormat, typer.Option(
             help='Format of the output. Options: separated (predictions are stored in single files) or grouped (predictions are stored in a single JSON file).'
@@ -346,7 +346,7 @@ def assembly_embedding(
             accelerator=accelerator,
             devices=arg_devices(devices),
             out_format=OutFormat.separated,
-            out_path=res_embedding_location,
+            out_path=res_embedding_folder,
             strategy=strategy,
             write_tensor=True
         )
@@ -354,7 +354,7 @@ def assembly_embedding(
 
     predict(
         src_stream=src_stream,
-        res_embedding_location=res_embedding_location,
+        res_embedding_location=res_embedding_folder,
         src_location=SrcLocation.stream,
         src_from=SrcAssemblyFrom.structure,
         structure_format=structure_format,

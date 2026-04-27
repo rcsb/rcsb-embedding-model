@@ -62,7 +62,7 @@ class TestCliEmbedding(unittest.TestCase):
         chain_embedding(
             src_folder=f"{self.__test_path}/resources/pdb",
             output_path=f"{self.__test_path}/resources/tmp",
-            res_embedding_location=f"{self.__test_path}/resources/embeddings",
+            res_embedding_folder=f"{self.__test_path}/resources/embeddings",
             output_format=OutFormat.grouped,
             output_name="chain-inference",
             structure_format=StructureFormat.mmcif,
@@ -81,7 +81,7 @@ class TestCliEmbedding(unittest.TestCase):
         chain_embedding(
             src_folder=f"{self.__test_path}/resources/pdb",
             output_path=f"{self.__test_path}/resources/tmp",
-            res_embedding_location=f"{self.__test_path}/resources/tmp",
+            res_embedding_folder=f"{self.__test_path}/resources/tmp",
             output_format=OutFormat.grouped,
             output_name="chain-inference",
             structure_format=StructureFormat.mmcif,
@@ -103,7 +103,7 @@ class TestCliEmbedding(unittest.TestCase):
         from foldmatch.cli.embedding import assembly_embedding
         assembly_embedding(
             src_folder=f"{self.__test_path}/resources/pdb",
-            res_embedding_location=f"{self.__test_path}/resources/embeddings",
+            res_embedding_folder=f"{self.__test_path}/resources/embeddings",
             output_path=f"{self.__test_path}/resources/tmp",
             output_format=OutFormat.grouped,
             output_name="assembly-inference",
@@ -122,7 +122,7 @@ class TestCliEmbedding(unittest.TestCase):
         from foldmatch.cli.embedding import assembly_embedding
         assembly_embedding(
             src_folder=f"{self.__test_path}/resources/pdb",
-            res_embedding_location=f"{self.__test_path}/resources/tmp",
+            res_embedding_folder=f"{self.__test_path}/resources/tmp",
             output_path=f"{self.__test_path}/resources/tmp",
             output_format=OutFormat.grouped,
             output_name="assembly-inference",

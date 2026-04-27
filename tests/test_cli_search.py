@@ -34,9 +34,9 @@ class TestCliSearch(unittest.TestCase):
         structure_dir = f"{self.__test_path}/resources/pdb"
 
         build_database_from_structures(
-            structure_dir=structure_dir,
+            structure_folder=structure_dir,
             output_db=self.__db_path,
-            tmp_dir=self.__temp_dir,
+            res_embedding_folder=self.__temp_dir,
             structure_format=StructureFormat.mmcif,
             file_extension=".cif",
             min_res=10,
@@ -366,9 +366,9 @@ class TestCliSearch(unittest.TestCase):
         assembly_db_path = os.path.join(self.__temp_dir, "test_faiss_assembly")
 
         build_database_from_structures(
-            structure_dir=structure_dir,
+            structure_folder=structure_dir,
             output_db=assembly_db_path,
-            tmp_dir=self.__temp_dir,
+            res_embedding_folder=self.__temp_dir,
             structure_format=StructureFormat.mmcif,
             file_extension=".cif",
             min_res=10,
@@ -434,9 +434,9 @@ class TestCliSearch(unittest.TestCase):
         # Update with the same structure files (should replace, count stays the same)
         structure_dir = f"{self.__test_path}/resources/pdb"
         update_database_from_structures(
-            structure_dir=structure_dir,
+            structure_folder=structure_dir,
             output_db=self.__db_path,
-            tmp_dir=self.__temp_dir,
+            res_embedding_folder=self.__temp_dir,
             structure_format=StructureFormat.mmcif,
             file_extension=".cif",
             min_res=10,
@@ -514,7 +514,7 @@ class TestCliSearch(unittest.TestCase):
         build_database_from_fasta(
             fasta_file=fasta_file,
             output_db=output_db,
-            tmp_dir=self.__temp_dir,
+            res_embedding_folder=self.__temp_dir,
             accelerator='cpu',
             use_gpu_index=False,
             compute_residue_embedding=True
@@ -603,7 +603,7 @@ class TestCliSearch(unittest.TestCase):
         update_database_from_fasta(
             fasta_file=fasta_file,
             output_db=output_db,
-            tmp_dir=self.__temp_dir,
+            res_embedding_folder=self.__temp_dir,
             accelerator='cpu',
             use_gpu_index=False,
             compute_residue_embedding=True
@@ -670,7 +670,7 @@ class TestCliSearch(unittest.TestCase):
         query_database_from_fasta(
             db_path=subject_db,
             fasta_file=fasta_file,
-            tmp_dir=self.__temp_dir,
+            res_embedding_folder=self.__temp_dir,
             top_k=5,
             threshold=None,
             output_csv=output_csv,
