@@ -91,8 +91,9 @@ fm-structure residue \
 - `--output-path`: Directory to store embedding files
 - `--output-format`: `separated` (individual files) or `grouped` (single JSON)
 - `--output-name`: Filename when using `grouped` format (default: `inference`)
-- `--write-csv` / `--no-write-csv`: Write embeddings as CSV files instead of tensor files when using `separated` format (default: disabled)
+- `--write-tensor` / `--no-write-tensor`: Write embeddings as torch tensor (`.pt`) files instead of CSV files when using `separated` format (default: disabled)
 - `--structure-format`: `mmcif`, `binarycif`, or `pdb`
+- `--structure-file-extension`: Override the default file extension used to filter structure files in `--src-folder`. Pass an empty string to disable extension filtering. When unset, the defaults for the chosen `--structure-format` are used.
 - `--min-res-n`: Minimum residue count for chain filtering (default: 0)
 - `--batch-size`: Batch size for processing (default: 1)
 - `--num-workers`: Data loader workers (default: 0)
@@ -105,20 +106,20 @@ fm-structure residue \
 
 #### `fm-structure chain`
 
-Compute chain-level embeddings from a folder of structure files. By default, residue embeddings are computed as a first step and stored in `--res-embedding-location`, then aggregated into chain embeddings. Use `--no-compute-residue-embedding` to skip the residue step and use pre-computed residue embeddings.
+Compute chain-level embeddings from a folder of structure files. By default, residue embeddings are computed as a first step and stored in `--res-embedding-folder`, then aggregated into chain embeddings. Use `--no-compute-residue-embedding` to skip the residue step and use pre-computed residue embeddings.
 
 ```bash
 # End-to-end: compute residue + chain embeddings
 fm-structure chain \
   --src-folder data/structures \
-  --res-embedding-location results/residue_embeddings \
+  --res-embedding-folder results/residue_embeddings \
   --output-path results/chain_embeddings \
   --batch-size 4
 
 # Using pre-computed residue embeddings (stored as .pt files)
 fm-structure chain \
   --src-folder data/structures \
-  --res-embedding-location results/residue_embeddings \
+  --res-embedding-folder results/residue_embeddings \
   --output-path results/chain_embeddings \
   --no-compute-residue-embedding \
   --batch-size 4
@@ -126,7 +127,7 @@ fm-structure chain \
 # Using pre-computed residue embeddings stored as .csv files
 fm-structure chain \
   --src-folder data/structures \
-  --res-embedding-location results/residue_embeddings \
+  --res-embedding-folder results/residue_embeddings \
   --output-path results/chain_embeddings \
   --no-compute-residue-embedding \
   --res-embedding-format csv \
@@ -135,25 +136,26 @@ fm-structure chain \
 
 **Key Options:**
 - `--src-folder`: Folder containing structure files
-- `--res-embedding-location`: Directory for residue embedding files (output when computing, input for chain aggregation)
+- `--res-embedding-folder`: Directory for residue embedding files (output when computing, input for chain aggregation)
 - `--output-path`: Directory to store chain embedding CSV files
 - `--compute-residue-embedding` / `--no-compute-residue-embedding`: Compute residue embeddings first (default: enabled)
 - `--res-embedding-format`: Format of the pre-computed residue embedding files when `--no-compute-residue-embedding` is set. Options: `pt` (torch tensor files) or `csv` (default: `pt`). Ignored when residue embeddings are computed on-the-fly.
 - `--output-format`: `separated` (individual files) or `grouped` (single JSON)
 - `--output-name`: Filename when using `grouped` format (default: `inference`)
+- `--structure-file-extension`: Override the default file extension used to filter structure files in `--src-folder`. Pass an empty string to disable extension filtering.
 - All other options similar to `fm-structure residue`
 
 ---
 
 #### `fm-structure assembly`
 
-Compute assembly-level embeddings from a folder of structure files. By default, residue embeddings are computed as a first step and stored in `--res-embedding-location`, then aggregated into assembly embeddings. Use `--no-compute-residue-embedding` to skip the residue step and use pre-computed residue embeddings.
+Compute assembly-level embeddings from a folder of structure files. By default, residue embeddings are computed as a first step and stored in `--res-embedding-folder`, then aggregated into assembly embeddings. Use `--no-compute-residue-embedding` to skip the residue step and use pre-computed residue embeddings.
 
 ```bash
 # End-to-end: compute residue + assembly embeddings
 fm-structure assembly \
   --src-folder data/structures \
-  --res-embedding-location results/residue_embeddings \
+  --res-embedding-folder results/residue_embeddings \
   --output-path results/assembly_embeddings \
   --min-res-n 10 \
   --max-res-n 10000
@@ -161,7 +163,7 @@ fm-structure assembly \
 # Using pre-computed residue embeddings (stored as .pt files)
 fm-structure assembly \
   --src-folder data/structures \
-  --res-embedding-location results/residue_embeddings \
+  --res-embedding-folder results/residue_embeddings \
   --output-path results/assembly_embeddings \
   --no-compute-residue-embedding \
   --min-res-n 10 \
@@ -170,7 +172,7 @@ fm-structure assembly \
 # Using pre-computed residue embeddings stored as .csv files
 fm-structure assembly \
   --src-folder data/structures \
-  --res-embedding-location results/residue_embeddings \
+  --res-embedding-folder results/residue_embeddings \
   --output-path results/assembly_embeddings \
   --no-compute-residue-embedding \
   --res-embedding-format csv \
@@ -180,12 +182,13 @@ fm-structure assembly \
 
 **Key Options:**
 - `--src-folder`: Folder containing structure files
-- `--res-embedding-location`: Directory for residue embedding files (output when computing, input for assembly aggregation)
+- `--res-embedding-folder`: Directory for residue embedding files (output when computing, input for assembly aggregation)
 - `--output-path`: Directory to store assembly embedding CSV files
 - `--compute-residue-embedding` / `--no-compute-residue-embedding`: Compute residue embeddings first (default: enabled)
 - `--res-embedding-format`: Format of the pre-computed residue embedding files when `--no-compute-residue-embedding` is set. Options: `pt` (torch tensor files) or `csv` (default: `pt`). Ignored when residue embeddings are computed on-the-fly.
 - `--output-format`: `separated` (individual files) or `grouped` (single JSON)
 - `--output-name`: Filename when using `grouped` format (default: `inference`)
+- `--structure-file-extension`: Override the default file extension used to filter structure files in `--src-folder`. Pass an empty string to disable extension filtering.
 - `--min-res-n`: Minimum residues per chain (default: 0)
 - `--max-res-n`: Maximum total residues for assembly (default: unlimited)
 - All other options similar to `fm-structure residue`
@@ -221,7 +224,7 @@ fm-sequence residue \
 - `--output-path`: Directory to store embedding files
 - `--output-format`: `separated` (individual files) or `grouped` (single JSON)
 - `--output-name`: Filename when using `grouped` format (default: `inference`)
-- `--write-csv` / `--no-write-csv`: Write embeddings as CSV files instead of tensor files when using `separated` format (default: disabled)
+- `--write-tensor` / `--no-write-tensor`: Write embeddings as torch tensor (`.pt`) files instead of CSV files when using `separated` format (default: disabled)
 - `--min-res-n`: Minimum residue count for sequence filtering (default: 0)
 - `--batch-size`: Batch size for processing (default: 1)
 - `--num-workers`: Data loader workers (default: 0)
@@ -234,20 +237,20 @@ fm-sequence residue \
 
 #### `fm-sequence chain`
 
-Compute chain-level embeddings from protein sequences in a FASTA file. By default, residue embeddings are computed as a first step and stored in `--res-embedding-location`, then aggregated into chain embeddings using the transformer-based aggregator. Use `--no-compute-residue-embedding` to skip the residue step and use pre-computed residue embeddings.
+Compute chain-level embeddings from protein sequences in a FASTA file. By default, residue embeddings are computed as a first step and stored in `--res-embedding-folder`, then aggregated into chain embeddings using the transformer-based aggregator. Use `--no-compute-residue-embedding` to skip the residue step and use pre-computed residue embeddings.
 
 ```bash
 # End-to-end: compute residue + chain embeddings
 fm-sequence chain \
   --fasta-file sequences.fasta \
-  --res-embedding-location results/residue_embeddings \
+  --res-embedding-folder results/residue_embeddings \
   --output-path results/chain_embeddings \
   --batch-size 4
 
 # Using pre-computed residue embeddings
 fm-sequence chain \
   --fasta-file sequences.fasta \
-  --res-embedding-location results/residue_embeddings \
+  --res-embedding-folder results/residue_embeddings \
   --output-path results/chain_embeddings \
   --no-compute-residue-embedding \
   --batch-size 4
@@ -255,12 +258,13 @@ fm-sequence chain \
 
 **Key Options:**
 - `--fasta-file`: FASTA file containing protein sequences
-- `--res-embedding-location`: Directory for residue embedding tensor files (output when computing, input for chain aggregation)
+- `--res-embedding-folder`: Directory for residue embedding tensor files (output when computing, input for chain aggregation)
 - `--output-path`: Directory to store chain embedding CSV files
 - `--compute-residue-embedding` / `--no-compute-residue-embedding`: Compute residue embeddings first (default: enabled)
+- `--res-embedding-format`: Format of the pre-computed residue embedding files when `--no-compute-residue-embedding` is set. Options: `pt` (torch tensor files) or `csv` (default: `pt`). Ignored when residue embeddings are computed on-the-fly.
 - `--output-format`: `separated` (individual files) or `grouped` (single JSON)
 - `--output-name`: Filename when using `grouped` format (default: `inference`)
-- All other options similar to `fm-sequence residue-embedding`
+- All other options similar to `fm-sequence residue`
 
 ---
 
@@ -282,18 +286,18 @@ Build a FAISS database from structure files for similarity search. Residue embed
 
 ```bash
 fm-search build structures \
-  --structure-dir data/pdb_files \
-  --output databases/my_structures \
-  --tmp-dir tmp \
+  --structure-folder data/pdb_files \
+  --output-db databases/my_structures \
+  --res-embedding-folder tmp \
   --granularity chain \
   --min-res 10 \
   --use-gpu-index
 ```
 
 **Key Options:**
-- `--structure-dir`: Directory containing structure files
+- `--structure-folder`: Directory containing structure files
 - `--output-db`: Database path (prefix for `.index` and `.metadata` files)
-- `--tmp-dir`: Temporary directory for intermediate files
+- `--res-embedding-folder`: Directory for intermediate residue embeddings
 - `--structure-format`: `mmcif`, `binarycif`, or `pdb`
 - `--granularity`: `chain` or `assembly` level embeddings
 - `--file-extension`: Filter files by extension (e.g., `.cif`, `.bcif`, `.pdb`)
@@ -311,9 +315,9 @@ Update an existing FAISS database with new or replacement structure files. Struc
 
 ```bash
 fm-search update structures \
-  --structure-dir data/new_structures \
+  --structure-folder data/new_structures \
   --output-db databases/my_structures \
-  --tmp-dir tmp \
+  --res-embedding-folder tmp \
   --structure-format mmcif \
   --granularity chain \
   --min-res 10 \
@@ -321,9 +325,9 @@ fm-search update structures \
 ```
 
 **Key Options:**
-- `--structure-dir`: Directory containing new or updated structure files
+- `--structure-folder`: Directory containing new or updated structure files
 - `--output-db`: Path to the existing FAISS database to update
-- `--tmp-dir`: Temporary directory for intermediate files
+- `--res-embedding-folder`: Directory for intermediate residue embeddings
 - `--structure-format`: `mmcif`, `binarycif`, or `pdb`
 - `--granularity`: `chain` or `assembly` level embeddings
 - `--file-extension`: Filter files by extension (e.g., `.cif`, `.bcif`, `.pdb`)
@@ -342,13 +346,13 @@ Build a FAISS database from a directory of pre-computed embedding files (`.csv` 
 
 ```bash
 fm-search build embeddings \
-  --embedding-dir results/chain_embeddings \
+  --embedding-folder results/chain_embeddings \
   --output-db databases/my_structures \
   --file-extension .pt
 ```
 
 **Key Options:**
-- `--embedding-dir`: Directory containing pre-computed embedding files (`.csv` or `.pt`)
+- `--embedding-folder`: Directory containing pre-computed embedding files (`.csv` or `.pt`)
 - `--output-db`: Database path (prefix for `.index` and `.metadata` files)
 - `--file-extension`: Filter by extension (`.csv` or `.pt`). If not specified, collects both
 - `--use-gpu-index`: Use GPU for FAISS index construction
@@ -362,13 +366,13 @@ Update an existing FAISS database with new or replacement embeddings from pre-co
 
 ```bash
 fm-search update embeddings \
-  --embedding-dir results/new_embeddings \
+  --embedding-folder results/new_embeddings \
   --output-db databases/my_structures \
   --file-extension .pt
 ```
 
 **Key Options:**
-- `--embedding-dir`: Directory containing pre-computed embedding files (`.csv` or `.pt`)
+- `--embedding-folder`: Directory containing pre-computed embedding files (`.csv` or `.pt`)
 - `--output-db`: Path to the existing FAISS database to update
 - `--file-extension`: Filter by extension (`.csv` or `.pt`). If not specified, collects both
 - `--use-gpu-index`: Use GPU for FAISS index construction
@@ -384,19 +388,18 @@ Build a FAISS database from protein sequences in a FASTA file. Residue embedding
 fm-search build sequences \
   --fasta-file sequences.fasta \
   --output-db databases/my_sequences \
-  --tmp-dir tmp \
-  --batch-size 4
+  --res-embedding-folder tmp \
+  --batch-size-res 4
 ```
 
 **Key Options:**
 - `--fasta-file`: FASTA file containing protein sequences
 - `--output-db`: Database path (prefix for `.index` and `.metadata` files)
-- `--tmp-dir`: Directory for intermediate residue embeddings
+- `--res-embedding-folder`: Directory for intermediate residue embeddings
 - `--min-res-n`: Minimum residue count for sequence filtering (default: 0)
-- `--compute-residue-embedding` / `--no-compute-residue-embedding`: Compute residue embeddings first (default: enabled). Disable to use pre-computed residue embeddings in `--tmp-dir`
 - `--use-gpu-index`: Use GPU for FAISS index construction
 - `--accelerator`, `--devices`, `--strategy`: Inference device settings
-- `--batch-size`, `--num-workers`, `--num-nodes`: Residue embedding inference settings
+- `--batch-size-res`, `--num-workers-res`, `--num-nodes-res`: Residue embedding inference settings
 - `--batch-size-aggregator`, `--num-workers-aggregator`, `--num-nodes-aggregator`: Chain embedding inference settings
 - `--log-level`: Logging level (default: `info`)
 
@@ -410,19 +413,18 @@ Update an existing FAISS database with new or replacement embeddings computed fr
 fm-search update sequences \
   --fasta-file new_sequences.fasta \
   --output-db databases/my_sequences \
-  --tmp-dir tmp \
-  --batch-size 4
+  --res-embedding-folder tmp \
+  --batch-size-res 4
 ```
 
 **Key Options:**
 - `--fasta-file`: FASTA file containing protein sequences
 - `--output-db`: Path to the existing FAISS database to update
-- `--tmp-dir`: Directory for intermediate residue embeddings
+- `--res-embedding-folder`: Directory for intermediate residue embeddings
 - `--min-res-n`: Minimum residue count for sequence filtering (default: 0)
-- `--compute-residue-embedding` / `--no-compute-residue-embedding`: Compute residue embeddings first (default: enabled). Disable to use pre-computed residue embeddings in `--tmp-dir`
 - `--use-gpu-index`: Use GPU for FAISS index construction
 - `--accelerator`, `--devices`, `--strategy`: Inference device settings
-- `--batch-size`, `--num-workers`, `--num-nodes`: Residue embedding inference settings
+- `--batch-size-res`, `--num-workers-res`, `--num-nodes-res`: Residue embedding inference settings
 - `--batch-size-aggregator`, `--num-workers-aggregator`, `--num-nodes-aggregator`: Chain embedding inference settings
 - `--log-level`: Logging level (default: `info`)
 
@@ -433,7 +435,7 @@ fm-search update sequences \
 Search the database for structures similar to a query structure.
 
 ```bash
-fm-search query \
+fm-search query structure \
   --db-path databases/my_structures \
   --query-structure query.cif \
   --structure-format mmcif \
@@ -465,7 +467,7 @@ fm-search query \
 Search the database using a single pre-computed embedding file (`.csv` or `.pt`). The filename stem is used as the query ID. No model inference is required — the embedding is loaded directly and queried against the FAISS index.
 
 ```bash
-fm-search query-from-embedding \
+fm-search query embedding \
   --db-path databases/my_structures \
   --embedding-file results/chain_embeddings/1acb.A.pt \
   --top-k 100 \
@@ -489,10 +491,10 @@ fm-search query-from-embedding \
 Search the database using protein sequences from a FASTA file. Each sequence is used as a separate query, producing its own ranked result list. Residue and chain embeddings are computed first using ESM3, then each sequence is searched against the database.
 
 ```bash
-fm-search query-from-fasta \
+fm-search query sequences \
   --db-path databases/my_structures \
   --fasta-file queries.fasta \
-  --tmp-dir tmp \
+  --res-embedding-folder tmp \
   --top-k 100 \
   --threshold 0.8 \
   --output-csv results.csv
@@ -501,15 +503,14 @@ fm-search query-from-fasta \
 **Key Options:**
 - `--db-path`: Path to FAISS database
 - `--fasta-file`: FASTA file with protein sequences (each sequence is queried independently)
-- `--tmp-dir`: Directory for intermediate residue embeddings
+- `--res-embedding-folder`: Directory for intermediate residue embeddings
 - `--min-res-n`: Minimum residue count for sequence filtering (default: 0)
-- `--compute-residue-embedding` / `--no-compute-residue-embedding`: Compute residue embeddings first (default: enabled). Disable to use pre-computed residue embeddings in `--tmp-dir`
 - `--top-k`: Number of results per query sequence (default: 100)
 - `--threshold`: Minimum similarity score (default: 0.8)
 - `--output-csv`: Export results to CSV (optional)
 - `--use-gpu-index`: Use GPU for FAISS search
 - `--accelerator`, `--devices`, `--strategy`: Inference device settings
-- `--batch-size`, `--num-workers`, `--num-nodes`: Residue embedding inference settings
+- `--batch-size-res`, `--num-workers-res`, `--num-nodes-res`: Residue embedding inference settings
 - `--batch-size-aggregator`, `--num-workers-aggregator`, `--num-nodes-aggregator`: Chain embedding inference settings
 - `--log-level`: Logging level (default: `info`)
 
@@ -520,7 +521,7 @@ fm-search query-from-fasta \
 Compare all entries from a query database against a subject database.
 
 ```bash
-fm-search query \
+fm-search query db \
   --query-db-path databases/query_set \
   --subject-db-path databases/target_set \
   --top-k 100 \

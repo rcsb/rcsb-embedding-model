@@ -260,7 +260,7 @@ def update_database_from_structures(
     help="Build an embedding database from a directory of pre-computed embedding files (.csv or .pt)."
 )
 def build_database_from_embeddings(
-        embedding_dir: Annotated[str, typer.Option(
+        embedding_folder: Annotated[str, typer.Option(
             help='Directory containing pre-computed embedding files (.csv or .pt).'
         )],
         output_db: Annotated[str, typer.Option(
@@ -281,9 +281,9 @@ def build_database_from_embeddings(
     set_log_level(log_level)
 
     db_dir, index_name, output_db = _parse_output_db(output_db)
-    chain_ids, embeddings = _load_embeddings_from_dir(embedding_dir, file_extension)
+    chain_ids, embeddings = _load_embeddings_from_dir(embedding_folder, file_extension)
 
-    logging.info(f"Loaded {len(embeddings)} embeddings from {embedding_dir}")
+    logging.info(f"Loaded {len(embeddings)} embeddings from {embedding_folder}")
 
     db = FaissEmbeddingDatabase(db_path=str(db_dir), index_name=index_name)
     db.create_database(chain_ids=chain_ids, embeddings=embeddings, use_gpu=use_gpu_index)
@@ -297,7 +297,7 @@ def build_database_from_embeddings(
     help="Update an existing embedding database with new or replacement embeddings from pre-computed files (.csv or .pt)."
 )
 def update_database_from_embeddings(
-        embedding_dir: Annotated[str, typer.Option(
+        embedding_folder: Annotated[str, typer.Option(
             help='Directory containing pre-computed embedding files (.csv or .pt).'
         )],
         output_db: Annotated[str, typer.Option(
@@ -318,9 +318,9 @@ def update_database_from_embeddings(
     set_log_level(log_level)
 
     db_dir, index_name, output_db = _parse_output_db(output_db)
-    chain_ids, embeddings = _load_embeddings_from_dir(embedding_dir, file_extension)
+    chain_ids, embeddings = _load_embeddings_from_dir(embedding_folder, file_extension)
 
-    logging.info(f"Loaded {len(embeddings)} embeddings from {embedding_dir}")
+    logging.info(f"Loaded {len(embeddings)} embeddings from {embedding_folder}")
 
     db = FaissEmbeddingDatabase(db_path=str(db_dir), index_name=index_name)
     db.load_database()
@@ -1004,11 +1004,11 @@ def _parse_output_db(output_db: str) -> tuple[Path, str, str]:
     return db_dir, index_name, str(db_dir / index_name)
 
 
-def _load_embeddings_from_dir(embedding_dir: str, file_extension: Optional[str] = None) -> tuple[list, list]:
+def _load_embeddings_from_dir(embedding_folder: str, file_extension: Optional[str] = None) -> tuple[list, list]:
     """Load embedding IDs and tensors from a directory of .csv/.pt files."""
-    embedding_path = Path(embedding_dir)
+    embedding_path = Path(embedding_folder)
     if not embedding_path.exists():
-        raise ValueError(f"Embedding directory does not exist: {embedding_dir}")
+        raise ValueError(f"Embedding directory does not exist: {embedding_folder}")
 
     if file_extension is not None:
         extensions = [file_extension]
@@ -1020,7 +1020,7 @@ def _load_embeddings_from_dir(embedding_dir: str, file_extension: Optional[str] 
         embedding_files.extend(sorted(embedding_path.glob(f"*{ext}")))
 
     if not embedding_files:
-        raise ValueError(f"No embedding files found with extensions {extensions} in {embedding_dir}")
+        raise ValueError(f"No embedding files found with extensions {extensions} in {embedding_folder}")
 
     chain_ids = []
     embeddings = []

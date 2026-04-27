@@ -487,7 +487,7 @@ class TestCliSearch(unittest.TestCase):
         output_db = os.path.join(self.__temp_dir, "test_from_embeddings")
 
         build_database_from_embeddings(
-            embedding_dir=embedding_dir,
+            embedding_folder=embedding_dir,
             output_db=output_db,
             file_extension=".pt",
             use_gpu_index=False
@@ -542,7 +542,7 @@ class TestCliSearch(unittest.TestCase):
 
         # Build initial database from .pt files (5 embeddings)
         build_database_from_embeddings(
-            embedding_dir=embedding_dir,
+            embedding_folder=embedding_dir,
             output_db=output_db,
             file_extension=".pt",
             use_gpu_index=False
@@ -561,7 +561,7 @@ class TestCliSearch(unittest.TestCase):
         torch.save(torch.randn(1536), os.path.join(update_dir, "new_entry.pt"))  # new
 
         update_database_from_embeddings(
-            embedding_dir=update_dir,
+            embedding_folder=update_dir,
             output_db=output_db,
             file_extension=".pt",
             use_gpu_index=False
@@ -585,7 +585,7 @@ class TestCliSearch(unittest.TestCase):
 
         # Build initial database from .pt embedding files (5 embeddings)
         build_database_from_embeddings(
-            embedding_dir=embedding_dir,
+            embedding_folder=embedding_dir,
             output_db=output_db,
             file_extension=".pt",
             use_gpu_index=False
@@ -622,7 +622,7 @@ class TestCliSearch(unittest.TestCase):
         embedding_dir = f"{self.__test_path}/resources/embeddings"
         subject_db = os.path.join(self.__temp_dir, "test_query_from_emb_db")
         build_database_from_embeddings(
-            embedding_dir=embedding_dir,
+            embedding_folder=embedding_dir,
             output_db=subject_db,
             file_extension=".pt",
             use_gpu_index=False
@@ -656,7 +656,7 @@ class TestCliSearch(unittest.TestCase):
         embedding_dir = f"{self.__test_path}/resources/embeddings"
         subject_db = os.path.join(self.__temp_dir, "test_query_from_fasta_db")
         build_database_from_embeddings(
-            embedding_dir=embedding_dir,
+            embedding_folder=embedding_dir,
             output_db=subject_db,
             file_extension=".pt",
             use_gpu_index=False
