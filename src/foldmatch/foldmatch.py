@@ -5,7 +5,7 @@ from esm.utils.structure.protein_chain import ProteinChain
 
 from foldmatch.types.api_types import StreamSrc, StructureFormat
 from foldmatch.utils.model import get_aggregator_model, get_residue_model
-from foldmatch.utils.structure_parser import get_structure_from_src
+from foldmatch.utils.structure_parser import get_structure_from_src, filter_residues, rename_atom_attr
 
 
 class FoldMatch:
@@ -92,13 +92,14 @@ class FoldMatch:
 
         embedding_by_chain = {}
         for atom_ch in chain_iter(structure):
-            atom_res = atom_ch[filter_amino_acids(atom_ch)]
-            if len(atom_res) == 0 or len(get_residues(atom_res)[0]) < self.min_res:
+            atom_ch = filter_residues(atom_ch)
+            if len(atom_ch) == 0 or len(get_residues(atom_ch)[0]) < self.min_res:
                 continue
             chain_id_value = atom_ch.chain_id[0]
             # Skip chains that don't match the requested chain_id (if specified)
             if chain_id is not None and chain_id_value != chain_id:
                 continue
+            atom_ch = rename_atom_attr(atom_ch)
             protein_chain = ProteinChain.from_atomarray(atom_ch)
             protein = ESMProtein.from_protein_chain(protein_chain)
             protein_tensor = self.__residue_embedding.encode(protein)
@@ -122,9 +123,10 @@ class FoldMatch:
 
         embedding_ch = []
         for atom_ch in chain_iter(structure):
-            atom_res = atom_ch[filter_amino_acids(atom_ch)]
-            if len(atom_res) == 0 or len(get_residues(atom_res)[0]) < self.min_res:
+            atom_ch = filter_residues(atom_ch)
+            if len(atom_ch) == 0 or len(get_residues(atom_ch)[0]) < self.min_res:
                 continue
+            atom_ch = rename_atom_attr(atom_ch)
             protein_chain = ProteinChain.from_atomarray(atom_ch)
             protein = ESMProtein.from_protein_chain(protein_chain)
             protein_tensor = self.__residue_embedding.encode(protein)

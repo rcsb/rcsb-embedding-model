@@ -16,6 +16,22 @@ def _has_gpu_support():
         return False
 
 
+def _normalize_L2_batched(embedding_array: np.ndarray, batch_size: int = 1000):
+    """Normalize embeddings in-place by batches to avoid segfaults on very large arrays."""
+    n = embedding_array.shape[0]
+    for start in range(0, n, batch_size):
+        end = min(start + batch_size, n)
+        faiss.normalize_L2(embedding_array[start:end])
+
+
+def _index_add_batched(index, embedding_array: np.ndarray, batch_size: int = 100):
+    """Add embeddings to a FAISS index by batches to avoid segfaults on very large arrays."""
+    n = embedding_array.shape[0]
+    for start in range(0, n, batch_size):
+        end = min(start + batch_size, n)
+        index.add(np.ascontiguousarray(embedding_array[start:end]))
+
+
 class FaissEmbeddingDatabase:
     """FAISS-based database for structure chain embeddings."""
 
@@ -67,7 +83,7 @@ class FaissEmbeddingDatabase:
         n_embeddings = embedding_array.shape[0]
 
         # Normalize embeddings for cosine similarity
-        faiss.normalize_L2(embedding_array)
+        _normalize_L2_batched(embedding_array)
 
         # Choose index type based on dataset size
         if n_embeddings < 10000:
@@ -87,7 +103,7 @@ class FaissEmbeddingDatabase:
                 self.is_gpu_index = True
 
         # Add vectors to index
-        self.index.add(embedding_array)
+        _index_add_batched(self.index, embedding_array)
         self.chain_ids = chain_ids
 
         # Save to disk
@@ -125,10 +141,10 @@ class FaissEmbeddingDatabase:
         embedding_array = np.array(embedding_array, dtype=np.float32)
 
         # Normalize embeddings for cosine similarity
-        faiss.normalize_L2(embedding_array)
+        _normalize_L2_batched(embedding_array)
 
         # Add vectors to index
-        self.index.add(embedding_array)
+        _index_add_batched(self.index, embedding_array)
         self.chain_ids.extend(chain_ids)
 
         # Save to disk
@@ -181,7 +197,7 @@ class FaissEmbeddingDatabase:
         embedding_array = np.array(all_vectors, dtype=np.float32)
 
         # Normalize for cosine similarity
-        faiss.normalize_L2(embedding_array)
+        _normalize_L2_batched(embedding_array)
 
         n_embeddings = embedding_array.shape[0]
 
@@ -198,7 +214,7 @@ class FaissEmbeddingDatabase:
                 self.index = faiss.index_cpu_to_gpu(self.gpu_resources, 0, self.index)
                 self.is_gpu_index = True
 
-        self.index.add(embedding_array)
+        _index_add_batched(self.index, embedding_array)
         self.chain_ids = all_ids
 
         self._save()
