@@ -1,6 +1,6 @@
 # FoldMatch
 
-**Version** 0.4.0
+**Version** 0.4.1
 
 
 ## Overview
@@ -98,7 +98,7 @@ fm-structure residue \
 - `--batch-size`: Batch size for processing (default: 1)
 - `--num-workers`: Data loader workers (default: 0)
 - `--num-nodes`: Number of nodes for distributed inference (default: 1)
-- `--accelerator`: Device type - `auto`, `cpu`, `cuda`, `gpu` (default: `auto`)
+- `--accelerator`: Device type - `auto`, `cpu`, `tpu`, `hpu`, `gpu` (default: `auto`)
 - `--devices`: Device indices (can specify multiple with `--devices 0 --devices 1`) or `auto`
 - `--strategy`: Lightning distribution strategy (default: `auto`)
 
@@ -229,7 +229,7 @@ fm-sequence residue \
 - `--batch-size`: Batch size for processing (default: 1)
 - `--num-workers`: Data loader workers (default: 0)
 - `--num-nodes`: Number of nodes for distributed inference (default: 1)
-- `--accelerator`: Device type - `auto`, `cpu`, `cuda`, `gpu` (default: `auto`)
+- `--accelerator`: Device type - `auto`, `cpu`, `tpu`, `hpu`, `gpu` (default: `auto`)
 - `--devices`: Device indices (can specify multiple with `--devices 0 --devices 1`) or `auto`
 - `--strategy`: Lightning distribution strategy (default: `auto`)
 
@@ -457,7 +457,7 @@ fm-search query structure \
 - `--output-csv`: Export results to CSV (optional)
 - `--min-res`: Minimum residue filter (default: 10)
 - `--max-res`: Maximum residue filter (optional)
-- `--device`: `cuda`, `cpu`, or `auto`
+- `--accelerator`: Device type - `auto`, `cpu`, `tpu`, `hpu`, `gpu` (default: `auto`)
 - `--use-gpu-index`: Use GPU for FAISS search
 
 ---

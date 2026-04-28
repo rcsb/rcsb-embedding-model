@@ -84,7 +84,7 @@ class TestSequenceInference(unittest.TestCase):
         _remove_files_in_directory(self.__tmp_path)
         from foldmatch.inference.sequence_inference import predict as sequence_predict
         from foldmatch.inference.chain_inference import predict as chain_predict
-        from foldmatch.cli.sequence import scan_fasta_sequences
+        from foldmatch.cli.sequence_embedding import scan_fasta_sequences
 
         fasta_file = f"{self.__test_path}/resources/fasta/test_sequences.fasta"
 

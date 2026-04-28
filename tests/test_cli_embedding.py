@@ -3,7 +3,7 @@ import os
 import shutil
 import unittest
 
-from foldmatch.cli.embedding import scan_structure_folder
+from foldmatch.cli.structure_embedding import scan_structure_folder
 from foldmatch.types.api_types import OutFormat, StructureFormat, Accelerator
 
 
@@ -36,7 +36,7 @@ class TestCliEmbedding(unittest.TestCase):
 
     def test_residue_embedding(self):
         _remove_files_in_directory(f"{self.__test_path}/resources/tmp")
-        from foldmatch.cli.embedding import residue_embedding
+        from foldmatch.cli.structure_embedding import residue_embedding
         residue_embedding(
             src_folder=f"{self.__test_path}/resources/pdb",
             output_path=f"{self.__test_path}/resources/tmp",
@@ -58,7 +58,7 @@ class TestCliEmbedding(unittest.TestCase):
 
     def test_chain_embedding_with_precomputed_residues(self):
         _remove_files_in_directory(f"{self.__test_path}/resources/tmp")
-        from foldmatch.cli.embedding import chain_embedding
+        from foldmatch.cli.structure_embedding import chain_embedding
         chain_embedding(
             src_folder=f"{self.__test_path}/resources/pdb",
             output_path=f"{self.__test_path}/resources/tmp",
@@ -77,7 +77,7 @@ class TestCliEmbedding(unittest.TestCase):
 
     def test_chain_embedding_end_to_end(self):
         _remove_files_in_directory(f"{self.__test_path}/resources/tmp")
-        from foldmatch.cli.embedding import chain_embedding
+        from foldmatch.cli.structure_embedding import chain_embedding
         chain_embedding(
             src_folder=f"{self.__test_path}/resources/pdb",
             output_path=f"{self.__test_path}/resources/tmp",
@@ -100,7 +100,7 @@ class TestCliEmbedding(unittest.TestCase):
 
     def test_assembly_embedding_with_precomputed_residues(self):
         _remove_files_in_directory(f"{self.__test_path}/resources/tmp")
-        from foldmatch.cli.embedding import assembly_embedding
+        from foldmatch.cli.structure_embedding import assembly_embedding
         assembly_embedding(
             src_folder=f"{self.__test_path}/resources/pdb",
             res_embedding_folder=f"{self.__test_path}/resources/embeddings",
@@ -119,7 +119,7 @@ class TestCliEmbedding(unittest.TestCase):
 
     def test_assembly_embedding_end_to_end(self):
         _remove_files_in_directory(f"{self.__test_path}/resources/tmp")
-        from foldmatch.cli.embedding import assembly_embedding
+        from foldmatch.cli.structure_embedding import assembly_embedding
         assembly_embedding(
             src_folder=f"{self.__test_path}/resources/pdb",
             res_embedding_folder=f"{self.__test_path}/resources/tmp",

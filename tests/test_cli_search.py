@@ -68,7 +68,7 @@ class TestCliSearch(unittest.TestCase):
             output_csv=output_csv,
             min_res=10,
             max_res=None,
-            device="cpu",
+            accelerator="cpu",
             use_gpu_index=False
         )
 
@@ -98,7 +98,7 @@ class TestCliSearch(unittest.TestCase):
             output_csv=output_csv,
             min_res=10,
             max_res=None,
-            device="cpu",
+            accelerator="cpu",
             use_gpu_index=False
         )
 
@@ -122,7 +122,7 @@ class TestCliSearch(unittest.TestCase):
             output_csv=output_csv,
             min_res=10,
             max_res=None,
-            device="cpu",
+            accelerator="cpu",
             use_gpu_index=False
         )
 
@@ -401,7 +401,7 @@ class TestCliSearch(unittest.TestCase):
             output_csv=output_csv,
             min_res=10,
             max_res=None,
-            device="cpu",
+            accelerator="cpu",
             use_gpu_index=False,
             granularity='assembly',
             assembly_id='1'

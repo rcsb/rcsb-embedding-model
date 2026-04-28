@@ -519,9 +519,9 @@ def query_database_from_structure(
         max_res: Annotated[Optional[int], typer.Option(
             help='Maximum residue length for structures (None for no limit).'
         )] = None,
-        device: Annotated[str, typer.Option(
-            help='Device to use for embedding calculation (cuda, cpu, or auto).'
-        )] = "auto",
+        accelerator: Annotated[Accelerator, typer.Option(
+            help='Device used for inference.'
+        )] = 'auto',
         use_gpu_index: Annotated[bool, typer.Option(
             help='Use GPU for FAISS search (requires faiss-gpu).'
         )] = False,
@@ -537,10 +537,12 @@ def query_database_from_structure(
     db_dir, index_name = _parse_database_path(db_path)
 
     # Determine device
-    if device == "auto":
+    if accelerator == "auto":
         torch_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    elif accelerator == "cpu":
+        torch_device = torch.device("cpu")
     else:
-        torch_device = torch.device(device)
+        torch_device = torch.device("cuda")
 
     logging.info(f"Using device for embeddings DB: {str(torch_device)}")
     if use_gpu_index:
@@ -1046,7 +1048,7 @@ def _compute_fasta_embeddings(
     """Compute chain embeddings from a FASTA file and return (chain_ids, embeddings)."""
     from foldmatch.inference.sequence_inference import predict as sequence_predict
     from foldmatch.inference.chain_inference import predict as chain_predict
-    from foldmatch.cli.sequence import scan_fasta_sequences
+    from foldmatch.cli.sequence_embedding import scan_fasta_sequences
     from foldmatch.types.api_types import SrcLocation, SrcTensorFrom, OutFormat
 
     dev = arg_devices(devices)
