@@ -1,4 +1,7 @@
 import logging
+import os
+import tempfile
+
 import torch
 import time
 from pathlib import Path
@@ -33,7 +36,11 @@ class EmbeddingDatabaseBuilder:
             accelerator: Device to use for computation
         """
         self.structure_dir = Path(structure_dir)
-        self.tmp_dir = Path(tmp_dir)
+        tmp_dir = tempfile.mkdtemp(prefix="run_", dir=tmp_dir)
+        self.tmp_res_dir = Path(tmp_dir) / "res"
+        os.makedirs(self.tmp_res_dir, exist_ok=True)
+        self.tmp_ch_dir = Path(tmp_dir) / "ch"
+        os.makedirs(self.tmp_ch_dir, exist_ok=True)
         self.structure_format = structure_format
         self.min_res_n = min_res
         self.accelerator = accelerator
@@ -42,7 +49,6 @@ class EmbeddingDatabaseBuilder:
             self,
             file_extension: Optional[str] = None,
             granularity: Granularity = 'chain',
-            output_embedding_folder: str = None,
             devices='auto',
             strategy='auto',
             batch_size_res=1,
@@ -58,7 +64,6 @@ class EmbeddingDatabaseBuilder:
         Args:
             file_extension: File extension filter (e.g., '.cif', '.pdb'). If None, uses structure_format default
             granularity: Calculate embeddings for 'chain' or 'assembly' level
-            output_embedding_folder: Output folder for embedding files
             devices: Number of devices to use for inference
             strategy: Lightning strategy to control distribution of inference
             batch_size_res: Number of chains to process residue embeddings per batch
@@ -91,7 +96,7 @@ class EmbeddingDatabaseBuilder:
             src_from=SrcProteinFrom.structure,
             structure_format=self.structure_format,
             min_res_n=self.min_res_n,
-            out_path=self.tmp_dir,
+            out_path=self.tmp_res_dir,
             accelerator=self.accelerator,
             batch_size=batch_size_res,
             num_workers=num_workers_res,
@@ -101,44 +106,52 @@ class EmbeddingDatabaseBuilder:
             write_tensor=True
         )
 
-        esm_embedding_files = list(self.tmp_dir.glob(f"*pt"))
-        structure_embeddings = chain_predict(
-            src_stream=[
-                (esm_file, esm_file.stem)
-                for esm_file in esm_embedding_files
-            ],
-            src_location=SrcLocation.stream,
-            out_path=output_embedding_folder,
-            accelerator=self.accelerator,
-            batch_size=batch_size_chain,
-            num_workers=num_workers_chain,
-            num_nodes=num_nodes_chain,
-            devices=devices,
-            strategy=strategy
-        ) if granularity == 'chain' else assembly_predict(
-            src_stream=[
-                (str_file.stem, str_file, str_file.stem)
-                for str_file in structure_files
-            ],
-            res_embedding_location=str(self.tmp_dir),
-            src_location=SrcLocation.stream,
-            src_from=SrcAssemblyFrom.structure,
-            accelerator=self.accelerator,
-            num_workers=num_workers_chain,
-            num_nodes=num_nodes_chain,
-            devices=devices,
-            strategy=strategy
-        )
+        esm_embedding_files = list(self.tmp_res_dir.glob(f"*pt"))
+        if granularity == 'chain':
+            chain_predict(
+                src_stream=[
+                    (esm_file, esm_file.stem)
+                    for esm_file in esm_embedding_files
+                ],
+                src_location=SrcLocation.stream,
+                out_path=self.tmp_ch_dir,
+                accelerator=self.accelerator,
+                batch_size=batch_size_chain,
+                num_workers=num_workers_chain,
+                num_nodes=num_nodes_chain,
+                devices=devices,
+                strategy=strategy,
+                write_tensor=True
+            )
+        else:
+            assembly_predict(
+                src_stream=[
+                    (str_file.stem, str_file, str_file.stem)
+                    for str_file in structure_files
+                ],
+                res_embedding_location=str(self.tmp_res_dir),
+                src_location=SrcLocation.stream,
+                out_path=self.tmp_ch_dir,
+                src_from=SrcAssemblyFrom.structure,
+                accelerator=self.accelerator,
+                num_workers=num_workers_chain,
+                num_nodes=num_nodes_chain,
+                devices=devices,
+                strategy=strategy,
+                write_tensor=True
+            )
 
-        return ([ch_id for _, chain_ids in structure_embeddings for ch_id in chain_ids],
-                [embedding for embedding_tensor, _ in structure_embeddings for embedding in torch.split(embedding_tensor, 1, dim=0)])
+        tensor_files = [f for f in self.tmp_ch_dir.iterdir() if f.is_file()]
+        names = [f.stem for f in tensor_files]
+        embeddings = [torch.load(f) for f in tensor_files]
+
+        return names, embeddings
 
     def build_faiss_database(
             self,
             output_db: str,
             file_extension: Optional[str] = None,
             granularity: Granularity = 'chain',
-            output_embedding_folder: str = None,
             use_gpu_index: bool = False,
             batch_size_res=1,
             num_workers_res=0,
@@ -156,7 +169,6 @@ class EmbeddingDatabaseBuilder:
             output_db: Path to save the FAISS database (directory + prefix)
             file_extension: File extension filter (e.g., '.cif', '.pdb'). If None, uses structure_format default
             granularity: Calculate embeddings for 'chain' or 'assembly' level
-            output_embedding_folder: Output folder for embedding files
             use_gpu_index: Whether to use GPU for FAISS indexing
             batch_size_res: Number of chains to process residue embeddings per batch
             num_workers_res: Number of subprocesses to use for residue embedding data loading
@@ -186,7 +198,6 @@ class EmbeddingDatabaseBuilder:
         chain_ids, embeddings = self.build_embeddings(
                 file_extension=file_extension,
                 granularity=granularity,
-                output_embedding_folder=output_embedding_folder,
                 devices=devices,
                 strategy=strategy,
                 batch_size_res=batch_size_res,

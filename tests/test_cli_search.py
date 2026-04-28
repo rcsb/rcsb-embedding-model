@@ -36,7 +36,7 @@ class TestCliSearch(unittest.TestCase):
         build_database_from_structures(
             structure_folder=structure_dir,
             output_db=self.__db_path,
-            res_embedding_folder=self.__temp_dir,
+            tmp_embedding_folder=self.__temp_dir,
             structure_format=StructureFormat.mmcif,
             file_extension=".cif",
             min_res=10,
@@ -368,7 +368,7 @@ class TestCliSearch(unittest.TestCase):
         build_database_from_structures(
             structure_folder=structure_dir,
             output_db=assembly_db_path,
-            res_embedding_folder=self.__temp_dir,
+            tmp_embedding_folder=self.__temp_dir,
             structure_format=StructureFormat.mmcif,
             file_extension=".cif",
             min_res=10,
@@ -436,7 +436,7 @@ class TestCliSearch(unittest.TestCase):
         update_database_from_structures(
             structure_folder=structure_dir,
             output_db=self.__db_path,
-            res_embedding_folder=self.__temp_dir,
+            tmp_embedding_folder=self.__temp_dir,
             structure_format=StructureFormat.mmcif,
             file_extension=".cif",
             min_res=10,
@@ -514,7 +514,7 @@ class TestCliSearch(unittest.TestCase):
         build_database_from_fasta(
             fasta_file=fasta_file,
             output_db=output_db,
-            res_embedding_folder=self.__temp_dir,
+            tmp_embedding_folder=self.__temp_dir,
             accelerator='cpu',
             use_gpu_index=False
         )
@@ -602,7 +602,7 @@ class TestCliSearch(unittest.TestCase):
         update_database_from_fasta(
             fasta_file=fasta_file,
             output_db=output_db,
-            res_embedding_folder=self.__temp_dir,
+            tmp_embedding_folder=self.__temp_dir,
             accelerator='cpu',
             use_gpu_index=False
         )
@@ -668,7 +668,7 @@ class TestCliSearch(unittest.TestCase):
         query_database_from_fasta(
             db_path=subject_db,
             fasta_file=fasta_file,
-            res_embedding_folder=self.__temp_dir,
+            tmp_embedding_folder=self.__temp_dir,
             top_k=5,
             threshold=None,
             output_csv=output_csv,
