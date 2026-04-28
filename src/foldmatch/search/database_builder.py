@@ -42,6 +42,7 @@ class EmbeddingDatabaseBuilder:
             self,
             file_extension: Optional[str] = None,
             granularity: Granularity = 'chain',
+            output_embedding_folder: str = None,
             devices='auto',
             strategy='auto',
             batch_size_res=1,
@@ -57,6 +58,7 @@ class EmbeddingDatabaseBuilder:
         Args:
             file_extension: File extension filter (e.g., '.cif', '.pdb'). If None, uses structure_format default
             granularity: Calculate embeddings for 'chain' or 'assembly' level
+            output_embedding_folder: Output folder for embedding files
             devices: Number of devices to use for inference
             strategy: Lightning strategy to control distribution of inference
             batch_size_res: Number of chains to process residue embeddings per batch
@@ -106,6 +108,7 @@ class EmbeddingDatabaseBuilder:
                 for esm_file in esm_embedding_files
             ],
             src_location=SrcLocation.stream,
+            out_path=output_embedding_folder,
             accelerator=self.accelerator,
             batch_size=batch_size_chain,
             num_workers=num_workers_chain,
@@ -135,6 +138,7 @@ class EmbeddingDatabaseBuilder:
             output_db: str,
             file_extension: Optional[str] = None,
             granularity: Granularity = 'chain',
+            output_embedding_folder: str = None,
             use_gpu_index: bool = False,
             batch_size_res=1,
             num_workers_res=0,
@@ -152,6 +156,7 @@ class EmbeddingDatabaseBuilder:
             output_db: Path to save the FAISS database (directory + prefix)
             file_extension: File extension filter (e.g., '.cif', '.pdb'). If None, uses structure_format default
             granularity: Calculate embeddings for 'chain' or 'assembly' level
+            output_embedding_folder: Output folder for embedding files
             use_gpu_index: Whether to use GPU for FAISS indexing
             batch_size_res: Number of chains to process residue embeddings per batch
             num_workers_res: Number of subprocesses to use for residue embedding data loading
@@ -181,6 +186,7 @@ class EmbeddingDatabaseBuilder:
         chain_ids, embeddings = self.build_embeddings(
                 file_extension=file_extension,
                 granularity=granularity,
+                output_embedding_folder=output_embedding_folder,
                 devices=devices,
                 strategy=strategy,
                 batch_size_res=batch_size_res,

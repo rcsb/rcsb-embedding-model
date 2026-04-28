@@ -57,6 +57,9 @@ def build_database_from_structures(
         structure_format: Annotated[StructureFormat, typer.Option(
             help='Structure file format (mmcif, binarycif, or pdb).'
         )] = StructureFormat.mmcif,
+        output_embedding_folder: Annotated[str, typer.Option(
+            help='When provided, folder where to store final embeddings.'
+        )] = None,
         granularity: Annotated[Granularity, typer.Option(
             help='Calculate embeddings for "chain" or "assembly" level.'
         )] = 'chain',
@@ -132,6 +135,7 @@ def build_database_from_structures(
     builder.build_faiss_database(
         output_db=output_db,
         granularity=granularity,
+        output_embedding_folder=output_embedding_folder,
         devices=arg_devices(devices),
         strategy=strategy,
         file_extension=file_extension,
