@@ -84,6 +84,7 @@ class EmbeddingDatabaseBuilder:
             raise ValueError(f"Structure directory does not exist: {self.structure_dir}")
 
         # Collect all structure files
+        logging.info(f"Listing structure files from: {self.structure_dir}")
         structure_files = list(self.structure_dir.glob(f"*{file_extension}"))
         if not structure_files:
             raise ValueError(f"No structure files found with extension {file_extension} in {self.structure_dir}")
@@ -109,6 +110,7 @@ class EmbeddingDatabaseBuilder:
         if _is_distributed():
             dist.barrier()
 
+        logging.info(f"Listing residue embedding files from: {self.structure_dir}")
         esm_embedding_files = list(self.tmp_res_dir.glob(f"*pt"))
         if granularity == 'chain':
             chain_predict(
