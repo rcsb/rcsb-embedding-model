@@ -220,7 +220,7 @@ class EmbeddingDatabaseBuilder:
         )
 
         if _is_rank_zero():
-            logging.info(f"Returning embedding tensors from: {self.tmp_ch_dir}")
+            logging.info(f"Reading embedding tensors from: {self.tmp_ch_dir}")
             tensor_files = [f for f in self.tmp_ch_dir.iterdir() if f.is_file()]
             chain_ids = [f.stem for f in tensor_files]
             embeddings = [torch.load(f) for f in tensor_files]
