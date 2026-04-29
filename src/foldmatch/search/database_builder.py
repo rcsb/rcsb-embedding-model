@@ -339,9 +339,9 @@ def _consolidate_run_dirs(local_res_dir: Path, local_ch_dir: Path) -> tuple[Path
     Each rank ran ``mkdtemp`` independently in ``__init__``, so residue
     embeddings were just written to a different directory on every rank.
     Broadcast rank 0's paths to everyone, move per-rank residue files into
-    the canonical residue dir, and drop the empty per-rank scratch dirs.
-    The returned paths are identical on every rank, so subsequent inference
-    and tensor loads see one shared location.
+    the canonical residue dir, and remove the now-empty per-rank scratch
+    dirs. The returned paths are identical on every rank, so subsequent
+    inference and tensor loads see one shared location.
 
     Must be called with the process group already initialized.
     """
@@ -359,8 +359,11 @@ def _consolidate_run_dirs(local_res_dir: Path, local_ch_dir: Path) -> tuple[Path
         for f in local_res_dir.iterdir():
             if f.is_file():
                 shutil.move(str(f), str(canonical_res / f.name))
-        # Both per-rank dirs share a parent run dir from mkdtemp; clean it up.
+        # Per-rank res/ and ch/ live under the same parent run dir from mkdtemp.
         local_run_dir = local_res_dir.parent
-        shutil.rmtree(local_run_dir, ignore_errors=True)
+        try:
+            shutil.rmtree(local_run_dir)
+        except OSError as e:
+            logger.warning(f"Failed to remove per-rank scratch dir {local_run_dir}: {e}")
 
     return canonical_res, canonical_ch
