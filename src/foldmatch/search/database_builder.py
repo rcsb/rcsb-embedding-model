@@ -1,5 +1,6 @@
 import logging
 import os
+import shutil
 import tempfile
 
 import torch
@@ -109,6 +110,15 @@ class EmbeddingDatabaseBuilder:
         )
         if _is_distributed():
             dist.barrier()
+            # Each rank's __init__ created an independent tmp dir, so residue
+            # embeddings just got written to N different paths. Now that
+            # Lightning has set up the process group, broadcast rank 0's
+            # paths and move per-rank residue files into the canonical dir
+            # so chain/assembly inference can read and write to one place.
+            self.tmp_res_dir, self.tmp_ch_dir = _consolidate_run_dirs(
+                self.tmp_res_dir, self.tmp_ch_dir
+            )
+            dist.barrier()
 
         logging.info(f"Listing residue embedding files from: {self.tmp_res_dir}")
         esm_embedding_files = list(self.tmp_res_dir.glob(f"*pt"))
@@ -147,13 +157,6 @@ class EmbeddingDatabaseBuilder:
             )
         if _is_distributed():
             dist.barrier()
-
-        logging.info(f"Returning embedding tensors from: {self.tmp_ch_dir}")
-        tensor_files = [f for f in self.tmp_ch_dir.iterdir() if f.is_file()]
-        names = [f.stem for f in tensor_files]
-        embeddings = [torch.load(f) for f in tensor_files]
-
-        return names, embeddings
 
     def build_faiss_database(
             self,
@@ -203,7 +206,7 @@ class EmbeddingDatabaseBuilder:
         db = FaissEmbeddingDatabase(db_path=str(db_dir), index_name=index_name)
 
         start_time = time.time()
-        chain_ids, embeddings = self.build_embeddings(
+        self.build_embeddings(
                 file_extension=file_extension,
                 granularity=granularity,
                 devices=devices,
@@ -217,6 +220,10 @@ class EmbeddingDatabaseBuilder:
         )
 
         if _is_rank_zero():
+            logging.info(f"Returning embedding tensors from: {self.tmp_ch_dir}")
+            tensor_files = [f for f in self.tmp_ch_dir.iterdir() if f.is_file()]
+            chain_ids = [f.stem for f in tensor_files]
+            embeddings = [torch.load(f) for f in tensor_files]
             embeddings_time = time.time() - start_time
             logging.info(f"Creating embeddings completed in {embeddings_time:.2f} seconds")
 
@@ -229,9 +236,9 @@ class EmbeddingDatabaseBuilder:
             logging.info(f"Database location: {output_db}")
             logging.info(f"Total embeddings: {len(db.chain_ids)}")
 
-        del chain_ids, embeddings
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
+            del chain_ids, embeddings
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
 
     def update_faiss_database(
             self,
@@ -325,3 +332,35 @@ def _is_distributed():
 def _is_rank_zero():
     """Check if the current process is rank zero in distributed training."""
     return not _is_distributed() or dist.get_rank() == 0
+
+def _consolidate_run_dirs(local_res_dir: Path, local_ch_dir: Path) -> tuple[Path, Path]:
+    """Unify the per-rank residue and chain temp dirs onto rank 0's paths.
+
+    Each rank ran ``mkdtemp`` independently in ``__init__``, so residue
+    embeddings were just written to a different directory on every rank.
+    Broadcast rank 0's paths to everyone, move per-rank residue files into
+    the canonical residue dir, and drop the empty per-rank scratch dirs.
+    The returned paths are identical on every rank, so subsequent inference
+    and tensor loads see one shared location.
+
+    Must be called with the process group already initialized.
+    """
+    rank = dist.get_rank()
+
+    res_payload = [str(local_res_dir)] if rank == 0 else [None]
+    dist.broadcast_object_list(res_payload, src=0)
+    canonical_res = Path(res_payload[0])
+
+    ch_payload = [str(local_ch_dir)] if rank == 0 else [None]
+    dist.broadcast_object_list(ch_payload, src=0)
+    canonical_ch = Path(ch_payload[0])
+
+    if rank != 0:
+        for f in local_res_dir.iterdir():
+            if f.is_file():
+                shutil.move(str(f), str(canonical_res / f.name))
+        # Both per-rank dirs share a parent run dir from mkdtemp; clean it up.
+        local_run_dir = local_res_dir.parent
+        shutil.rmtree(local_run_dir, ignore_errors=True)
+
+    return canonical_res, canonical_ch
