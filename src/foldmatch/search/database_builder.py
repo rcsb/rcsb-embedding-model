@@ -110,7 +110,7 @@ class EmbeddingDatabaseBuilder:
         if _is_distributed():
             dist.barrier()
 
-        logging.info(f"Listing residue embedding files from: {self.structure_dir}")
+        logging.info(f"Listing residue embedding files from: {self.tmp_res_dir}")
         esm_embedding_files = list(self.tmp_res_dir.glob(f"*pt"))
         if granularity == 'chain':
             chain_predict(
@@ -148,6 +148,7 @@ class EmbeddingDatabaseBuilder:
         if _is_distributed():
             dist.barrier()
 
+        logging.info(f"Returning embedding tensors from: {self.tmp_ch_dir}")
         tensor_files = [f for f in self.tmp_ch_dir.iterdir() if f.is_file()]
         names = [f.stem for f in tensor_files]
         embeddings = [torch.load(f) for f in tensor_files]
