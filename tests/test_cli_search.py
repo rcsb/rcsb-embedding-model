@@ -149,18 +149,18 @@ class TestCliSearch(unittest.TestCase):
         output_db = os.path.join(self.__temp_dir, "test_builder_faiss")
 
         builder = EmbeddingDatabaseBuilder(
-            structure_dir=structure_dir,
-            structure_format=StructureFormat.mmcif,
             tmp_dir=self.__temp_dir,
-            min_res=10,
-            accelerator="cpu"
+            accelerator="cpu",
         )
 
-        builder.build_faiss_database(
+        builder.build_from_structures(
+            structure_dir=structure_dir,
             output_db=output_db,
-            devices='auto',
+            structure_format=StructureFormat.mmcif,
+            min_res=10,
             file_extension=".cif",
-            use_gpu_index=False
+            use_gpu_index=False,
+            devices='auto',
         )
 
         # Verify FAISS database files exist

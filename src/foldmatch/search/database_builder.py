@@ -1,318 +1,203 @@
 import logging
-import os
-import shutil
-import tempfile
-
-import torch
-import torch.distributed as dist
 import time
 from pathlib import Path
 from typing import Optional
 
-from foldmatch.inference.esm_inference import predict as esm_predict
-from foldmatch.inference.chain_inference import predict as chain_predict
-from foldmatch.inference.assembly_inferece import predict as assembly_predict
-from foldmatch.types.api_types import StructureFormat, SrcLocation, SrcProteinFrom, Accelerator, Granularity, SrcAssemblyFrom
+import torch
+
+from foldmatch.types.api_types import StructureFormat, Accelerator, Granularity
 from foldmatch.search.faiss_database import FaissEmbeddingDatabase
+from foldmatch.search.embedding_computer import EmbeddingComputer, _is_rank_zero
 
 logger = logging.getLogger(__name__)
 
-class EmbeddingDatabaseBuilder:
-    """Build a database of structure chain embeddings from a directory of structure files."""
 
-    def __init__(
+class EmbeddingDatabaseBuilder:
+    """Compute embeddings (from structures or FASTA) and persist them to a FAISS database.
+
+    On multi-GPU runs every rank participates in the embedding computation;
+    only rank 0 materializes the FAISS database.
+    """
+
+    def __init__(self, tmp_dir: str, accelerator: Accelerator = 'auto'):
+        """
+        Args:
+            tmp_dir: Directory under which per-run scratch directories are created.
+            accelerator: Device to use for inference.
+        """
+        self.computer = EmbeddingComputer(tmp_dir=tmp_dir, accelerator=accelerator)
+
+    def build_from_structures(
             self,
             structure_dir: str,
-            tmp_dir: str,
+            output_db: str,
             structure_format: StructureFormat = StructureFormat.mmcif,
             min_res: int = 10,
-            accelerator: Accelerator = 'auto'
-    ):
-        """
-        Initialize the database builder.
-
-        Args:
-            structure_dir: Directory containing structure files
-            structure_format: Format of structure files (mmcif or pdb)
-            min_res: Minimum residue length for chains
-            accelerator: Device to use for computation
-        """
-        self.structure_dir = Path(structure_dir)
-        tmp_dir = tempfile.mkdtemp(prefix="run_", dir=tmp_dir)
-        self.tmp_res_dir = Path(tmp_dir) / "res"
-        os.makedirs(self.tmp_res_dir, exist_ok=True)
-        self.tmp_ch_dir = Path(tmp_dir) / "ch"
-        os.makedirs(self.tmp_ch_dir, exist_ok=True)
-        self.structure_format = structure_format
-        self.min_res_n = min_res
-        self.accelerator = accelerator
-
-    def build_embeddings(
-            self,
-            file_extension: Optional[str] = None,
             granularity: Granularity = 'chain',
+            file_extension: Optional[str] = None,
+            use_gpu_index: bool = False,
+            batch_size_res: int = 1,
+            num_workers_res: int = 0,
+            num_nodes_res: int = 1,
+            batch_size_chain: int = 1,
+            num_workers_chain: int = 0,
+            num_nodes_chain: int = 1,
             devices='auto',
             strategy='auto',
-            batch_size_res=1,
-            num_workers_res=0,
-            num_nodes_res=1,
-            batch_size_chain=1,
-            num_workers_chain=0,
-            num_nodes_chain=1,
     ):
-        """
-        Build embeddings from structure files in batches (generator).
-
-        Args:
-            file_extension: File extension filter (e.g., '.cif', '.pdb'). If None, uses structure_format default
-            granularity: Calculate embeddings for 'chain' or 'assembly' level
-            devices: Number of devices to use for inference
-            strategy: Lightning strategy to control distribution of inference
-            batch_size_res: Number of chains to process residue embeddings per batch
-            num_workers_res: Number of subprocesses to use for residue embedding data loading
-            num_nodes_res: Number of nodes to use for residue embedding inference
-            batch_size_chain: Number of chains to process chain embeddings per batch
-            num_workers_chain: Number of subprocesses to use for chain embedding data loading
-            num_nodes_chain: Number of nodes to use for chain embedding inference
-
-        Yields:
-            Tuple of (chain_ids, embeddings) for each batch where chain_ids are in format "structure_name:chain_id"
-        """
-        if file_extension is None:
-            file_extension = '.cif' if self.structure_format == StructureFormat.mmcif else '.pdb'
-
-        if not self.structure_dir.exists():
-            raise ValueError(f"Structure directory does not exist: {self.structure_dir}")
-
-        # Collect all structure files
-        logging.info(f"Listing structure files from: {self.structure_dir}")
-        structure_files = list(self.structure_dir.glob(f"*{file_extension}"))
-        if not structure_files:
-            raise ValueError(f"No structure files found with extension {file_extension} in {self.structure_dir}")
-
-        esm_predict(
-            src_stream=[
-                (str_file.stem, str_file, str_file.stem)
-                for str_file in structure_files
-            ],
-            src_location=SrcLocation.stream,
-            src_from=SrcProteinFrom.structure,
-            structure_format=self.structure_format,
-            min_res_n=self.min_res_n,
-            out_path=self.tmp_res_dir,
-            accelerator=self.accelerator,
-            batch_size=batch_size_res,
-            num_workers=num_workers_res,
-            num_nodes=num_nodes_res,
-            devices=devices,
-            strategy=strategy,
-            write_tensor=True
-        )
-        if _is_distributed():
-            dist.barrier()
-            # Each rank's __init__ created an independent tmp dir, so residue
-            # embeddings just got written to N different paths. Now that
-            # Lightning has set up the process group, broadcast rank 0's
-            # paths and move per-rank residue files into the canonical dir
-            # so chain/assembly inference can read and write to one place.
-            self.tmp_res_dir, self.tmp_ch_dir = _consolidate_run_dirs(
-                self.tmp_res_dir, self.tmp_ch_dir
-            )
-            dist.barrier()
-
-        logging.info(f"Listing residue embedding files from: {self.tmp_res_dir}")
-        esm_embedding_files = list(self.tmp_res_dir.glob(f"*pt"))
-        if granularity == 'chain':
-            chain_predict(
-                src_stream=[
-                    (esm_file, esm_file.stem)
-                    for esm_file in esm_embedding_files
-                ],
-                src_location=SrcLocation.stream,
-                out_path=self.tmp_ch_dir,
-                accelerator=self.accelerator,
-                batch_size=batch_size_chain,
-                num_workers=num_workers_chain,
-                num_nodes=num_nodes_chain,
-                devices=devices,
-                strategy=strategy,
-                write_tensor=True
-            )
-        else:
-            assembly_predict(
-                src_stream=[
-                    (str_file.stem, str_file, str_file.stem)
-                    for str_file in structure_files
-                ],
-                res_embedding_location=str(self.tmp_res_dir),
-                src_location=SrcLocation.stream,
-                out_path=self.tmp_ch_dir,
-                src_from=SrcAssemblyFrom.structure,
-                accelerator=self.accelerator,
-                num_workers=num_workers_chain,
-                num_nodes=num_nodes_chain,
-                devices=devices,
-                strategy=strategy,
-                write_tensor=True
-            )
-        if _is_distributed():
-            dist.barrier()
-
-    def build_faiss_database(
-            self,
-            output_db: str,
-            file_extension: Optional[str] = None,
-            granularity: Granularity = 'chain',
-            use_gpu_index: bool = False,
-            batch_size_res=1,
-            num_workers_res=0,
-            num_nodes_res=1,
-            batch_size_chain=1,
-            num_workers_chain=0,
-            num_nodes_chain=1,
-            devices='auto',
-            strategy='auto'
-    ):
-        """
-        Build a FAISS database from structure files in batches.
-
-        Args:
-            output_db: Path to save the FAISS database (directory + prefix)
-            file_extension: File extension filter (e.g., '.cif', '.pdb'). If None, uses structure_format default
-            granularity: Calculate embeddings for 'chain' or 'assembly' level
-            use_gpu_index: Whether to use GPU for FAISS indexing
-            batch_size_res: Number of chains to process residue embeddings per batch
-            num_workers_res: Number of subprocesses to use for residue embedding data loading
-            num_nodes_res: Number of nodes to use for residue embedding inference
-            batch_size_chain: Number of chains to process chain embeddings per batch
-            num_workers_chain: Number of subprocesses to use for chain embedding data loading
-            num_nodes_chain: Number of nodes to use for chain embedding inference
-            devices: Number of devices to use for inference
-            strategy: Lightning strategy to control distribution of inference
-        """
-        # Parse output_db into directory and prefix
-        output_db_path = Path(output_db)
-        db_dir = output_db_path.parent
-        index_name = output_db_path.name
-
-        # Ensure we have a valid directory and prefix
-        if not index_name:
-            index_name = "embeddings"
-        if db_dir == Path('.'):
-            db_dir = Path.cwd()
-
-        logging.info("Building embeddings and FAISS database")
-
-        db = FaissEmbeddingDatabase(db_path=str(db_dir), index_name=index_name)
-
+        """Build a FAISS database from a directory of structure files."""
+        logging.info("Building embeddings and FAISS database from structures")
         start_time = time.time()
-        self.build_embeddings(
-                file_extension=file_extension,
-                granularity=granularity,
-                devices=devices,
-                strategy=strategy,
-                batch_size_res=batch_size_res,
-                num_workers_res=num_workers_res,
-                num_nodes_res=num_nodes_res,
-                batch_size_chain=batch_size_chain,
-                num_workers_chain=num_workers_chain,
-                num_nodes_chain=num_nodes_chain,
-        )
-
-        if _is_rank_zero():
-            logging.info(f"Reading embedding tensors from: {self.tmp_ch_dir}")
-            tensor_files = [f for f in self.tmp_ch_dir.iterdir() if f.is_file()]
-            chain_ids = [f.stem for f in tensor_files]
-            embeddings = [torch.load(f) for f in tensor_files]
-            embeddings_time = time.time() - start_time
-            logging.info(f"Creating embeddings completed in {embeddings_time:.2f} seconds")
-
-            start_time = time.time()
-            db.create_database(chain_ids=chain_ids, embeddings=embeddings, use_gpu=use_gpu_index)
-            database_time = time.time() - start_time
-            logging.info(f"Creating database completed in {database_time:.2f} seconds")
-
-            logging.info("Batch database build complete!")
-            logging.info(f"Database location: {output_db}")
-            logging.info(f"Total embeddings: {len(db.chain_ids)}")
-
-            del chain_ids, embeddings
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
-
-    def update_faiss_database(
-            self,
-            output_db: str,
-            file_extension: Optional[str] = None,
-            granularity: Granularity = 'chain',
-            use_gpu_index: bool = False,
-            batch_size_res=1,
-            num_workers_res=0,
-            num_nodes_res=1,
-            batch_size_chain=1,
-            num_workers_chain=0,
-            num_nodes_chain=1,
-            devices='auto',
-            strategy='auto'
-    ):
-        """
-        Update an existing FAISS database with new or replacement embeddings.
-
-        New embeddings are added to the database. If any of the new IDs match
-        existing entries, their vectors are replaced.
-
-        Args:
-            output_db: Path to the existing FAISS database (directory + prefix)
-            file_extension: File extension filter (e.g., '.cif', '.pdb'). If None, uses structure_format default
-            granularity: Calculate embeddings for 'chain' or 'assembly' level
-            use_gpu_index: Whether to use GPU for FAISS indexing
-            batch_size_res: Number of chains to process residue embeddings per batch
-            num_workers_res: Number of subprocesses to use for residue embedding data loading
-            num_nodes_res: Number of nodes to use for residue embedding inference
-            batch_size_chain: Number of chains to process chain embeddings per batch
-            num_workers_chain: Number of subprocesses to use for chain embedding data loading
-            num_nodes_chain: Number of nodes to use for chain embedding inference
-            devices: Number of devices to use for inference
-            strategy: Lightning strategy to control distribution of inference
-        """
-        # Parse output_db into directory and prefix
-        output_db_path = Path(output_db)
-        db_dir = output_db_path.parent
-        index_name = output_db_path.name
-
-        if not index_name:
-            index_name = "embeddings"
-        if db_dir == Path('.'):
-            db_dir = Path.cwd()
-
-        logging.info("Loading existing FAISS database for update")
-
-        db = FaissEmbeddingDatabase(db_path=str(db_dir), index_name=index_name)
-        db.load_database()
-
-        existing_count = len(db.chain_ids)
-        logging.info(f"Existing database contains {existing_count} embeddings")
-
-        logging.info("Building new embeddings")
-
-        start_time = time.time()
-        chain_ids, embeddings = self.build_embeddings(
-            file_extension=file_extension,
+        chain_ids, embeddings = self.computer.compute_from_structures(
+            structure_dir=structure_dir,
+            structure_format=structure_format,
+            min_res=min_res,
             granularity=granularity,
-            devices=devices,
-            strategy=strategy,
+            file_extension=file_extension,
             batch_size_res=batch_size_res,
             num_workers_res=num_workers_res,
             num_nodes_res=num_nodes_res,
             batch_size_chain=batch_size_chain,
             num_workers_chain=num_workers_chain,
             num_nodes_chain=num_nodes_chain,
+            devices=devices,
+            strategy=strategy,
         )
+        self._create(output_db, chain_ids, embeddings, use_gpu_index, start_time)
+
+    def build_from_fasta(
+            self,
+            fasta_file: str,
+            output_db: str,
+            min_res_n: int = 0,
+            use_gpu_index: bool = False,
+            batch_size_res: int = 1,
+            num_workers_res: int = 0,
+            num_nodes_res: int = 1,
+            batch_size_chain: int = 1,
+            num_workers_chain: int = 0,
+            num_nodes_chain: int = 1,
+            devices='auto',
+            strategy='auto',
+    ):
+        """Build a FAISS database from protein sequences in a FASTA file."""
+        logging.info("Building embeddings and FAISS database from FASTA")
+        start_time = time.time()
+        chain_ids, embeddings = self.computer.compute_from_fasta(
+            fasta_file=fasta_file,
+            min_res_n=min_res_n,
+            batch_size_res=batch_size_res,
+            num_workers_res=num_workers_res,
+            num_nodes_res=num_nodes_res,
+            batch_size_chain=batch_size_chain,
+            num_workers_chain=num_workers_chain,
+            num_nodes_chain=num_nodes_chain,
+            devices=devices,
+            strategy=strategy,
+        )
+        self._create(output_db, chain_ids, embeddings, use_gpu_index, start_time)
+
+    def update_from_structures(
+            self,
+            structure_dir: str,
+            output_db: str,
+            structure_format: StructureFormat = StructureFormat.mmcif,
+            min_res: int = 10,
+            granularity: Granularity = 'chain',
+            file_extension: Optional[str] = None,
+            use_gpu_index: bool = False,
+            batch_size_res: int = 1,
+            num_workers_res: int = 0,
+            num_nodes_res: int = 1,
+            batch_size_chain: int = 1,
+            num_workers_chain: int = 0,
+            num_nodes_chain: int = 1,
+            devices='auto',
+            strategy='auto',
+    ):
+        """Update an existing FAISS database with embeddings from structure files."""
+        logging.info("Updating FAISS database with embeddings from structures")
+        start_time = time.time()
+        chain_ids, embeddings = self.computer.compute_from_structures(
+            structure_dir=structure_dir,
+            structure_format=structure_format,
+            min_res=min_res,
+            granularity=granularity,
+            file_extension=file_extension,
+            batch_size_res=batch_size_res,
+            num_workers_res=num_workers_res,
+            num_nodes_res=num_nodes_res,
+            batch_size_chain=batch_size_chain,
+            num_workers_chain=num_workers_chain,
+            num_nodes_chain=num_nodes_chain,
+            devices=devices,
+            strategy=strategy,
+        )
+        self._update(output_db, chain_ids, embeddings, use_gpu_index, start_time)
+
+    def update_from_fasta(
+            self,
+            fasta_file: str,
+            output_db: str,
+            min_res_n: int = 0,
+            use_gpu_index: bool = False,
+            batch_size_res: int = 1,
+            num_workers_res: int = 0,
+            num_nodes_res: int = 1,
+            batch_size_chain: int = 1,
+            num_workers_chain: int = 0,
+            num_nodes_chain: int = 1,
+            devices='auto',
+            strategy='auto',
+    ):
+        """Update an existing FAISS database with embeddings from FASTA sequences."""
+        logging.info("Updating FAISS database with embeddings from FASTA")
+        start_time = time.time()
+        chain_ids, embeddings = self.computer.compute_from_fasta(
+            fasta_file=fasta_file,
+            min_res_n=min_res_n,
+            batch_size_res=batch_size_res,
+            num_workers_res=num_workers_res,
+            num_nodes_res=num_nodes_res,
+            batch_size_chain=batch_size_chain,
+            num_workers_chain=num_workers_chain,
+            num_nodes_chain=num_nodes_chain,
+            devices=devices,
+            strategy=strategy,
+        )
+        self._update(output_db, chain_ids, embeddings, use_gpu_index, start_time)
+
+    def _create(self, output_db, chain_ids, embeddings, use_gpu_index, compute_start):
+        db_dir, index_name, output_db = _parse_output_db(output_db)
         if _is_rank_zero():
-            embeddings_time = time.time() - start_time
+            embeddings_time = time.time() - compute_start
             logging.info(f"Creating embeddings completed in {embeddings_time:.2f} seconds")
 
             start_time = time.time()
+            db = FaissEmbeddingDatabase(db_path=str(db_dir), index_name=index_name)
+            db.create_database(chain_ids=chain_ids, embeddings=embeddings, use_gpu=use_gpu_index)
+            database_time = time.time() - start_time
+            logging.info(f"Creating database completed in {database_time:.2f} seconds")
+
+            logging.info("Database build complete!")
+            logging.info(f"Database location: {output_db}")
+            logging.info(f"Total embeddings: {len(db.chain_ids)}")
+
+        del chain_ids, embeddings
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+    def _update(self, output_db, chain_ids, embeddings, use_gpu_index, compute_start):
+        db_dir, index_name, output_db = _parse_output_db(output_db)
+        if _is_rank_zero():
+            embeddings_time = time.time() - compute_start
+            logging.info(f"Creating embeddings completed in {embeddings_time:.2f} seconds")
+
+            start_time = time.time()
+            db = FaissEmbeddingDatabase(db_path=str(db_dir), index_name=index_name)
+            db.load_database()
+            existing_count = len(db.chain_ids)
+            logging.info(f"Existing database contains {existing_count} embeddings")
             db.update_embeddings(chain_ids=chain_ids, embeddings=embeddings, use_gpu=use_gpu_index)
             database_time = time.time() - start_time
             logging.info(f"Updating database completed in {database_time:.2f} seconds")
@@ -325,45 +210,12 @@ class EmbeddingDatabaseBuilder:
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
-def _is_distributed():
-    """Check if the current process is running in distributed mode."""
-    return dist.is_available() and dist.is_initialized()
 
-def _is_rank_zero():
-    """Check if the current process is rank zero in distributed training."""
-    return not _is_distributed() or dist.get_rank() == 0
-
-def _consolidate_run_dirs(local_res_dir: Path, local_ch_dir: Path) -> tuple[Path, Path]:
-    """Unify the per-rank residue and chain temp dirs onto rank 0's paths.
-
-    Each rank ran ``mkdtemp`` independently in ``__init__``, so residue
-    embeddings were just written to a different directory on every rank.
-    Broadcast rank 0's paths to everyone, move per-rank residue files into
-    the canonical residue dir, and remove the now-empty per-rank scratch
-    dirs. The returned paths are identical on every rank, so subsequent
-    inference and tensor loads see one shared location.
-
-    Must be called with the process group already initialized.
-    """
-    rank = dist.get_rank()
-
-    res_payload = [str(local_res_dir)] if rank == 0 else [None]
-    dist.broadcast_object_list(res_payload, src=0)
-    canonical_res = Path(res_payload[0])
-
-    ch_payload = [str(local_ch_dir)] if rank == 0 else [None]
-    dist.broadcast_object_list(ch_payload, src=0)
-    canonical_ch = Path(ch_payload[0])
-
-    if rank != 0:
-        for f in local_res_dir.iterdir():
-            if f.is_file():
-                shutil.move(str(f), str(canonical_res / f.name))
-        # Per-rank res/ and ch/ live under the same parent run dir from mkdtemp.
-        local_run_dir = local_res_dir.parent
-        try:
-            shutil.rmtree(local_run_dir)
-        except OSError as e:
-            logger.warning(f"Failed to remove per-rank scratch dir {local_run_dir}: {e}")
-
-    return canonical_res, canonical_ch
+def _parse_output_db(output_db: str) -> tuple[Path, str, str]:
+    """Split a database path into (directory, index name, resolved path)."""
+    output_db_path = Path(output_db)
+    db_dir = output_db_path.parent
+    index_name = output_db_path.name or "embeddings"
+    if db_dir == Path('.'):
+        db_dir = Path.cwd()
+    return db_dir, index_name, str(db_dir / index_name)

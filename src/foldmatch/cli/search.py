@@ -122,18 +122,16 @@ def build_database_from_structures(
         logging.info("GPU acceleration for FAISS index: enabled")
 
     builder = EmbeddingDatabaseBuilder(
-        structure_dir=structure_folder,
         tmp_dir=tmp_embedding_folder,
-        structure_format=structure_format,
-        min_res=min_res,
-        accelerator=accelerator
+        accelerator=accelerator,
     )
 
-    builder.build_faiss_database(
+    builder.build_from_structures(
+        structure_dir=structure_folder,
         output_db=output_db,
+        structure_format=structure_format,
+        min_res=min_res,
         granularity=granularity,
-        devices=arg_devices(devices),
-        strategy=strategy,
         file_extension=file_extension,
         use_gpu_index=use_gpu_index,
         batch_size_res=batch_size_res,
@@ -141,7 +139,9 @@ def build_database_from_structures(
         num_nodes_res=num_nodes_res,
         batch_size_chain=batch_size_aggregator,
         num_workers_chain=num_workers_aggregator,
-        num_nodes_chain=num_nodes_aggregator
+        num_nodes_chain=num_nodes_aggregator,
+        devices=arg_devices(devices),
+        strategy=strategy,
     )
     import torch.distributed as dist
     if not (dist.is_available() and dist.is_initialized()) or dist.get_rank() == 0:
@@ -229,18 +229,16 @@ def update_database_from_structures(
         logging.info("GPU acceleration for FAISS index: enabled")
 
     builder = EmbeddingDatabaseBuilder(
-        structure_dir=structure_folder,
         tmp_dir=tmp_embedding_folder,
-        structure_format=structure_format,
-        min_res=min_res,
-        accelerator=accelerator
+        accelerator=accelerator,
     )
 
-    builder.update_faiss_database(
+    builder.update_from_structures(
+        structure_dir=structure_folder,
         output_db=output_db,
+        structure_format=structure_format,
+        min_res=min_res,
         granularity=granularity,
-        devices=arg_devices(devices),
-        strategy=strategy,
         file_extension=file_extension,
         use_gpu_index=use_gpu_index,
         batch_size_res=batch_size_res,
@@ -248,7 +246,9 @@ def update_database_from_structures(
         num_nodes_res=num_nodes_res,
         batch_size_chain=batch_size_aggregator,
         num_workers_chain=num_workers_aggregator,
-        num_nodes_chain=num_nodes_aggregator
+        num_nodes_chain=num_nodes_aggregator,
+        devices=arg_devices(devices),
+        strategy=strategy,
     )
     import torch.distributed as dist
     if not (dist.is_available() and dist.is_initialized()) or dist.get_rank() == 0:
@@ -388,21 +388,25 @@ def build_database_from_fasta(
 
     set_log_level(log_level)
 
-    db_dir, index_name, output_db = _parse_output_db(output_db)
-    chain_ids, embeddings = _compute_fasta_embeddings(
-        fasta_file=fasta_file, tmp_dir=tmp_embedding_folder, min_res_n=min_res_n,
-        accelerator=accelerator, devices=devices, strategy=strategy,
-        batch_size_res=batch_size_res, num_workers_res=num_workers_res, num_nodes_res=num_nodes_res,
-        batch_size_aggregator=batch_size_aggregator,
-        num_workers_aggregator=num_workers_aggregator,
-        num_nodes_aggregator=num_nodes_aggregator
+    builder = EmbeddingDatabaseBuilder(
+        tmp_dir=tmp_embedding_folder,
+        accelerator=accelerator,
     )
 
-    db = FaissEmbeddingDatabase(db_path=str(db_dir), index_name=index_name)
-    db.create_database(chain_ids=chain_ids, embeddings=embeddings, use_gpu=use_gpu_index)
-
-    logging.info(f"Database created: {output_db}")
-    logging.info(f"Total embeddings: {len(chain_ids)}")
+    builder.build_from_fasta(
+        fasta_file=fasta_file,
+        output_db=output_db,
+        min_res_n=min_res_n,
+        use_gpu_index=use_gpu_index,
+        batch_size_res=batch_size_res,
+        num_workers_res=num_workers_res,
+        num_nodes_res=num_nodes_res,
+        batch_size_chain=batch_size_aggregator,
+        num_workers_chain=num_workers_aggregator,
+        num_nodes_chain=num_nodes_aggregator,
+        devices=arg_devices(devices),
+        strategy=strategy,
+    )
 
 
 @update_db_app.command(
@@ -460,25 +464,25 @@ def update_database_from_fasta(
 
     set_log_level(log_level)
 
-    db_dir, index_name, output_db = _parse_output_db(output_db)
-    chain_ids, embeddings = _compute_fasta_embeddings(
-        fasta_file=fasta_file, tmp_dir=tmp_embedding_folder, min_res_n=min_res_n,
-        accelerator=accelerator, devices=devices, strategy=strategy,
-        batch_size_res=batch_size_res, num_workers_res=num_workers_res, num_nodes_res=num_nodes_res,
-        batch_size_aggregator=batch_size_aggregator,
-        num_workers_aggregator=num_workers_aggregator,
-        num_nodes_aggregator=num_nodes_aggregator
+    builder = EmbeddingDatabaseBuilder(
+        tmp_dir=tmp_embedding_folder,
+        accelerator=accelerator,
     )
 
-    db = FaissEmbeddingDatabase(db_path=str(db_dir), index_name=index_name)
-    db.load_database()
-
-    logging.info(f"Existing database contains {len(db.chain_ids)} embeddings")
-
-    db.update_embeddings(chain_ids=chain_ids, embeddings=embeddings, use_gpu=use_gpu_index)
-
-    logging.info(f"Database updated: {output_db}")
-    logging.info(f"Total embeddings: {len(db.chain_ids)}")
+    builder.update_from_fasta(
+        fasta_file=fasta_file,
+        output_db=output_db,
+        min_res_n=min_res_n,
+        use_gpu_index=use_gpu_index,
+        batch_size_res=batch_size_res,
+        num_workers_res=num_workers_res,
+        num_nodes_res=num_nodes_res,
+        batch_size_chain=batch_size_aggregator,
+        num_workers_chain=num_workers_aggregator,
+        num_nodes_chain=num_nodes_aggregator,
+        devices=arg_devices(devices),
+        strategy=strategy,
+    )
 
 
 @query_db_app.command(
@@ -558,9 +562,6 @@ def query_database_from_structure(
         device=torch_device,
         use_gpu_for_search=use_gpu_index
     )
-
-    # Display database statistics
-    stats = searcher.get_db_statistics()
 
     # Perform search
     logging.info("Performing search...")
@@ -716,14 +717,21 @@ def query_database_from_fasta(
 
     db_dir, index_name = _parse_database_path(db_path)
 
-    chain_ids, embeddings = _compute_fasta_embeddings(
-        fasta_file=fasta_file, tmp_dir=tmp_embedding_folder, min_res_n=min_res_n,
-        accelerator=accelerator, devices=devices, strategy=strategy,
-        batch_size_res=batch_size_res, num_workers_res=num_workers_res, num_nodes_res=num_nodes_res,
-        batch_size_aggregator=batch_size_aggregator,
-        num_workers_aggregator=num_workers_aggregator,
-        num_nodes_aggregator=num_nodes_aggregator
+    from foldmatch.search.embedding_computer import EmbeddingComputer
+    computer = EmbeddingComputer(tmp_dir=tmp_embedding_folder, accelerator=accelerator)
+    chain_ids, embeddings = computer.compute_from_fasta(
+        fasta_file=fasta_file,
+        min_res_n=min_res_n,
+        batch_size_res=batch_size_res,
+        num_workers_res=num_workers_res,
+        num_nodes_res=num_nodes_res,
+        batch_size_chain=batch_size_aggregator,
+        num_workers_chain=num_workers_aggregator,
+        num_nodes_chain=num_nodes_aggregator,
+        devices=arg_devices(devices),
+        strategy=strategy,
     )
+    logging.info(f"Computed {len(embeddings)} chain embeddings")
 
     logging.info("Loading database...")
     searcher = StructureSearch(
@@ -1036,56 +1044,6 @@ def _load_embeddings_from_dir(embedding_folder: str, file_extension: Optional[st
         chain_ids.append(chain_id)
         embeddings.append(embedding)
 
-    return chain_ids, embeddings
-
-
-def _compute_fasta_embeddings(
-        fasta_file, tmp_dir, min_res_n,
-        accelerator, devices, strategy,
-        batch_size_res, num_workers_res, num_nodes_res,
-        batch_size_aggregator, num_workers_aggregator, num_nodes_aggregator
-) -> tuple[list, list]:
-    """Compute chain embeddings from a FASTA file and return (chain_ids, embeddings)."""
-    from foldmatch.inference.sequence_inference import predict as sequence_predict
-    from foldmatch.inference.chain_inference import predict as chain_predict
-    from foldmatch.cli.sequence_embedding import scan_fasta_sequences
-    from foldmatch.types.api_types import SrcLocation, SrcTensorFrom, OutFormat
-
-    dev = arg_devices(devices)
-
-    logging.info("Computing residue embeddings from FASTA sequences...")
-    sequence_predict(
-        fasta_file=fasta_file,
-        min_res_n=min_res_n,
-        batch_size=batch_size_res,
-        num_workers=num_workers_res,
-        num_nodes=num_nodes_res,
-        accelerator=accelerator,
-        devices=dev,
-        out_format=OutFormat.separated,
-        out_path=tmp_dir,
-        strategy=strategy,
-        write_tensor=True
-    )
-
-    logging.info("Computing chain embeddings...")
-    src_stream = scan_fasta_sequences(fasta_file, tmp_dir)
-    structure_embeddings = chain_predict(
-        src_stream=src_stream,
-        src_location=SrcLocation.stream,
-        src_from=SrcTensorFrom.file,
-        batch_size=batch_size_aggregator,
-        num_workers=num_workers_aggregator,
-        num_nodes=num_nodes_aggregator,
-        accelerator=accelerator,
-        devices=dev,
-        strategy=strategy
-    )
-
-    chain_ids = [ch_id for _, chain_ids_batch in structure_embeddings for ch_id in chain_ids_batch]
-    embeddings = [embedding for embedding_tensor, _ in structure_embeddings for embedding in torch.split(embedding_tensor, 1, dim=0)]
-
-    logging.info(f"Computed {len(embeddings)} chain embeddings")
     return chain_ids, embeddings
 
 
