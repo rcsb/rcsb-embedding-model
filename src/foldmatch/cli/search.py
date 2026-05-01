@@ -8,6 +8,7 @@ from typing import Annotated, Optional, List
 
 from foldmatch import __version__
 from foldmatch.cli.args_utils import arg_devices, set_log_level
+from foldmatch.search.embedding_computer import _is_rank_zero
 from foldmatch.types.api_types import StructureFormat, Accelerator, Strategy, Granularity, LogLevel
 from foldmatch.search.database_builder import EmbeddingDatabaseBuilder
 from foldmatch.search.faiss_database import FaissEmbeddingDatabase
@@ -143,8 +144,8 @@ def build_database_from_structures(
         devices=arg_devices(devices),
         strategy=strategy,
     )
-    import torch.distributed as dist
-    if not (dist.is_available() and dist.is_initialized()) or dist.get_rank() == 0:
+
+    if _is_rank_zero():
         logging.info(f"You can now search this database using:")
         logging.info(f"   fm-search query structure --db-path {output_db} --query-structure <path_to_structure>")
 
@@ -250,8 +251,8 @@ def update_database_from_structures(
         devices=arg_devices(devices),
         strategy=strategy,
     )
-    import torch.distributed as dist
-    if not (dist.is_available() and dist.is_initialized()) or dist.get_rank() == 0:
+
+    if _is_rank_zero():
         logging.info(f"Database updated successfully: {output_db}")
 
 
@@ -408,8 +409,7 @@ def build_database_from_fasta(
         strategy=strategy,
     )
 
-    import torch.distributed as dist
-    if not (dist.is_available() and dist.is_initialized()) or dist.get_rank() == 0:
+    if _is_rank_zero():
         logging.info(f"You can now search this database using:")
         logging.info(f"   fm-search query sequences --db-path {output_db} --fasta-file <path_to_fasta_file>")
 
@@ -736,27 +736,29 @@ def query_database_from_fasta(
         devices=arg_devices(devices),
         strategy=strategy,
     )
-    logging.info(f"Computed {len(embeddings)} chain embeddings")
 
-    logging.info("Loading database...")
-    searcher = StructureSearch(
-        db_path=str(db_dir),
-        index_name=index_name,
-        use_gpu_for_search=use_gpu_index
-    )
+    if _is_rank_zero():
+        logging.info(f"Computed {len(embeddings)} chain embeddings")
 
-    logging.info(f"Performing search for {len(chain_ids)} sequence(s)...")
-    results = {}
-    for query_id, embedding in zip(chain_ids, embeddings):
-        matching_ids, scores = searcher.db.search(embedding, top_k=top_k)
-        results[query_id] = (matching_ids, scores)
+        logging.info("Loading database...")
+        searcher = StructureSearch(
+            db_path=str(db_dir),
+            index_name=index_name,
+            use_gpu_for_search=use_gpu_index
+        )
 
-    results = _filter_results_by_threshold(results, threshold)
+        logging.info(f"Performing search for {len(chain_ids)} sequence(s)...")
+        results = {}
+        for query_id, embedding in zip(chain_ids, embeddings):
+            matching_ids, scores = searcher.db.search(embedding, top_k=top_k)
+            results[query_id] = (matching_ids, scores)
 
-    searcher.print_results(results)
+        results = _filter_results_by_threshold(results, threshold)
 
-    if output_csv:
-        searcher.export_results(results, output_csv)
+        searcher.print_results(results)
+
+        if output_csv:
+            searcher.export_results(results, output_csv)
 
 
 @query_db_app.command(

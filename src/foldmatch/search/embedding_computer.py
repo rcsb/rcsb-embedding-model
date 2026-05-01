@@ -187,6 +187,9 @@ class EmbeddingComputer:
             dist.barrier()
 
     def _load_chain_tensors(self) -> tuple[list, list]:
+        """Load chain tensors from tmp_ch_dir. Non-rank-0 ranks return ([], [])."""
+        if not _is_rank_zero():
+            return [], []
         logging.info(f"Loading embedding tensors from: {self.tmp_ch_dir}")
         tensor_files = [f for f in self.tmp_ch_dir.iterdir() if f.is_file()]
         names = [f.stem for f in tensor_files]
