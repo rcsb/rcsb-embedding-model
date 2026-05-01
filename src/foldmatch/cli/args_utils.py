@@ -25,7 +25,7 @@ class RankFilter(logging.Filter):
             or os.environ.get("GLOBAL_RANK")
             or os.environ.get("SLURM_PROCID")
             or os.environ.get("LOCAL_RANK")
-            or "-"
+            or "0"
         )
         return True
 
