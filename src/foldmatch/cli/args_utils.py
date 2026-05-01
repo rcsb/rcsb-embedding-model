@@ -20,9 +20,14 @@ class RankFilter(logging.Filter):
                 return True
         except Exception:
             pass
-        record.rank = os.environ.get("RANK", "0")
+        record.rank = (
+            os.environ.get("RANK")
+            or os.environ.get("GLOBAL_RANK")
+            or os.environ.get("SLURM_PROCID")
+            or os.environ.get("LOCAL_RANK")
+            or "-"
+        )
         return True
-
 
 
 def set_log_level(level: LogLevel):
