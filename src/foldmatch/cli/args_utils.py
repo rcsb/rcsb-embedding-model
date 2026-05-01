@@ -13,7 +13,20 @@ def arg_devices(devices):
 
 class RankFilter(logging.Filter):
     def filter(self, record):
-        record.rank = os.environ.get("RANK", "0")
+        try:
+            import torch.distributed as dist
+            if dist.is_available() and dist.is_initialized():
+                record.rank = str(dist.get_rank())
+                return True
+        except Exception:
+            pass
+        record.rank = (
+            os.environ.get("RANK")
+            or os.environ.get("GLOBAL_RANK")
+            or os.environ.get("SLURM_PROCID")
+            or os.environ.get("LOCAL_RANK")
+            or "-"
+        )
         return True
 
 
