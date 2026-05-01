@@ -146,7 +146,7 @@ def build_database_from_structures(
     import torch.distributed as dist
     if not (dist.is_available() and dist.is_initialized()) or dist.get_rank() == 0:
         logging.info(f"You can now search this database using:")
-        logging.info(f"   fm-search query --db-path {output_db} --query-structure <path_to_structure>")
+        logging.info(f"   fm-search query structure --db-path {output_db} --query-structure <path_to_structure>")
 
 
 @update_db_app.command(
@@ -407,6 +407,11 @@ def build_database_from_fasta(
         devices=arg_devices(devices),
         strategy=strategy,
     )
+
+    import torch.distributed as dist
+    if not (dist.is_available() and dist.is_initialized()) or dist.get_rank() == 0:
+        logging.info(f"You can now search this database using:")
+        logging.info(f"   fm-search query sequences --db-path {output_db} --fasta-file <path_to_fasta_file>")
 
 
 @update_db_app.command(
