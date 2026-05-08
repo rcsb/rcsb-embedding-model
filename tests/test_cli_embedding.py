@@ -69,10 +69,9 @@ class TestCliEmbedding(unittest.TestCase):
             min_res_n=0,
             batch_size_res=1,
             num_workers_res=0,
-            num_nodes_res=1,
             batch_size_aggregator=1,
             num_workers_aggregator=0,
-            num_nodes_aggregator=1,
+            num_nodes=1,
             accelerator=Accelerator.cpu,
             compute_residue_embedding=False
         )
@@ -90,10 +89,9 @@ class TestCliEmbedding(unittest.TestCase):
             structure_format=StructureFormat.mmcif,
             batch_size_res=1,
             num_workers_res=0,
-            num_nodes_res=1,
             batch_size_aggregator=1,
             num_workers_aggregator=0,
-            num_nodes_aggregator=1,
+            num_nodes=1,
             accelerator=Accelerator.cpu,
             compute_residue_embedding=True
         )
@@ -115,10 +113,9 @@ class TestCliEmbedding(unittest.TestCase):
             structure_format=StructureFormat.mmcif,
             batch_size_res=1,
             num_workers_res=0,
-            num_nodes_res=1,
             batch_size_aggregator=1,
             num_workers_aggregator=0,
-            num_nodes_aggregator=1,
+            num_nodes=1,
             accelerator=Accelerator.cpu,
             compute_residue_embedding=False
         )
@@ -136,10 +133,9 @@ class TestCliEmbedding(unittest.TestCase):
             structure_format=StructureFormat.mmcif,
             batch_size_res=1,
             num_workers_res=0,
-            num_nodes_res=1,
             batch_size_aggregator=1,
             num_workers_aggregator=0,
-            num_nodes_aggregator=1,
+            num_nodes=1,
             accelerator=Accelerator.cpu,
             compute_residue_embedding=True
         )

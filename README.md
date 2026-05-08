@@ -144,8 +144,8 @@ fm-structure chain \
 - `--output-format`: `separated` (individual files) or `grouped` (single JSON)
 - `--output-name`: Filename when using `grouped` format (default: `inference`)
 - `--structure-file-extension`: Override the default file extension used to filter structure files in `--src-folder`. Pass an empty string to disable extension filtering.
-- `--batch-size-res`, `--num-workers-res`, `--num-nodes-res`: Residue embedding inference settings (used when `--compute-residue-embedding` is enabled)
-- `--batch-size-aggregator`, `--num-workers-aggregator`, `--num-nodes-aggregator`: Chain aggregator inference settings
+- `--batch-size-res`, `--num-workers-res`: Residue embedding inference settings (used when `--compute-residue-embedding` is enabled)
+- `--batch-size-aggregator`, `--num-workers-aggregator`: Chain aggregator inference settings
 - All other options similar to `fm-structure residue`
 
 ---
@@ -194,8 +194,8 @@ fm-structure assembly \
 - `--structure-file-extension`: Override the default file extension used to filter structure files in `--src-folder`. Pass an empty string to disable extension filtering.
 - `--min-res-n`: Minimum residues per chain (default: 0)
 - `--max-res-n`: Maximum total residues for assembly (default: unlimited)
-- `--batch-size-res`, `--num-workers-res`, `--num-nodes-res`: Residue embedding inference settings (used when `--compute-residue-embedding` is enabled)
-- `--batch-size-aggregator`, `--num-workers-aggregator`, `--num-nodes-aggregator`: Assembly aggregator inference settings
+- `--batch-size-res`, `--num-workers-res`: Residue embedding inference settings (used when `--compute-residue-embedding` is enabled)
+- `--batch-size-aggregator`, `--num-workers-aggregator`: Assembly aggregator inference settings
 - All other options similar to `fm-structure residue`
 
 ---
@@ -270,8 +270,8 @@ fm-sequence chain \
 - `--res-embedding-format`: Format of the pre-computed residue embedding files when `--no-compute-residue-embedding` is set. Options: `pt` (torch tensor files) or `csv` (default: `pt`). Ignored when residue embeddings are computed on-the-fly.
 - `--output-format`: `separated` (individual files) or `grouped` (single JSON)
 - `--output-name`: Filename when using `grouped` format (default: `inference`)
-- `--batch-size-res`, `--num-workers-res`, `--num-nodes-res`: Residue embedding inference settings (used when `--compute-residue-embedding` is enabled)
-- `--batch-size-aggregator`, `--num-workers-aggregator`, `--num-nodes-aggregator`: Chain aggregator inference settings
+- `--batch-size-res`, `--num-workers-res`: Residue embedding inference settings (used when `--compute-residue-embedding` is enabled)
+- `--batch-size-aggregator`, `--num-workers-aggregator`: Chain aggregator inference settings
 - All other options similar to `fm-sequence residue`
 
 ---
@@ -312,8 +312,8 @@ fm-search build structures \
 - `--min-res`: Minimum residue count (default: 10)
 - `--use-gpu-index`: Use GPU for FAISS index construction
 - `--accelerator`, `--devices`, `--strategy`: Inference device settings
-- `--batch-size-res`, `--num-workers-res`, `--num-nodes-res`: Residue embedding settings
-- `--batch-size-aggregator`, `--num-workers-aggregator`, `--num-nodes-aggregator`: Aggregator settings
+- `--batch-size-res`, `--num-workers-res`: Residue embedding settings
+- `--batch-size-aggregator`, `--num-workers-aggregator`: Aggregator settings
 
 ---
 
@@ -342,8 +342,8 @@ fm-search update structures \
 - `--min-res`: Minimum residue count (default: 10)
 - `--use-gpu-index`: Use GPU for FAISS index construction
 - `--accelerator`, `--devices`, `--strategy`: Inference device settings
-- `--batch-size-res`, `--num-workers-res`, `--num-nodes-res`: Residue embedding settings
-- `--batch-size-aggregator`, `--num-workers-aggregator`, `--num-nodes-aggregator`: Aggregator settings
+- `--batch-size-res`, `--num-workers-res`: Residue embedding settings
+- `--batch-size-aggregator`, `--num-workers-aggregator`: Aggregator settings
 - `--log-level`: Logging level - `info`, `warn`, or `debug` (default: `info`)
 
 ---
@@ -407,8 +407,8 @@ fm-search build sequences \
 - `--min-res-n`: Minimum residue count for sequence filtering (default: 0)
 - `--use-gpu-index`: Use GPU for FAISS index construction
 - `--accelerator`, `--devices`, `--strategy`: Inference device settings
-- `--batch-size-res`, `--num-workers-res`, `--num-nodes-res`: Residue embedding inference settings
-- `--batch-size-aggregator`, `--num-workers-aggregator`, `--num-nodes-aggregator`: Chain embedding inference settings
+- `--batch-size-res`, `--num-workers-res`: Residue embedding inference settings
+- `--batch-size-aggregator`, `--num-workers-aggregator`: Chain embedding inference settings
 - `--log-level`: Logging level (default: `info`)
 
 ---
@@ -432,8 +432,8 @@ fm-search update sequences \
 - `--min-res-n`: Minimum residue count for sequence filtering (default: 0)
 - `--use-gpu-index`: Use GPU for FAISS index construction
 - `--accelerator`, `--devices`, `--strategy`: Inference device settings
-- `--batch-size-res`, `--num-workers-res`, `--num-nodes-res`: Residue embedding inference settings
-- `--batch-size-aggregator`, `--num-workers-aggregator`, `--num-nodes-aggregator`: Chain embedding inference settings
+- `--batch-size-res`, `--num-workers-res`: Residue embedding inference settings
+- `--batch-size-aggregator`, `--num-workers-aggregator`: Chain embedding inference settings
 - `--log-level`: Logging level (default: `info`)
 
 ---
@@ -518,8 +518,8 @@ fm-search query sequences \
 - `--output-csv`: Export results to CSV (optional)
 - `--use-gpu-index`: Use GPU for FAISS search
 - `--accelerator`, `--devices`, `--strategy`: Inference device settings
-- `--batch-size-res`, `--num-workers-res`, `--num-nodes-res`: Residue embedding inference settings
-- `--batch-size-aggregator`, `--num-workers-aggregator`, `--num-nodes-aggregator`: Chain embedding inference settings
+- `--batch-size-res`, `--num-workers-res`: Residue embedding inference settings
+- `--batch-size-aggregator`, `--num-workers-aggregator`: Chain embedding inference settings
 - `--log-level`: Logging level (default: `info`)
 
 ---

@@ -76,6 +76,9 @@ def build_database_from_structures(
         devices: Annotated[List[str], typer.Option(
             help='The devices to use. Can be set to a positive number or "auto". Repeat this argument to indicate multiple indices of devices. "auto" for automatic selection based on the chosen accelerator.'
         )] = tuple(['auto']),
+        num_nodes: Annotated[int, typer.Option(
+            help='Number of nodes to use for inference.'
+        )] = 1,
         strategy: Annotated[Strategy, typer.Option(
             help='Lightning strategy to control distribution of inference.'
         )] = 'auto',
@@ -85,18 +88,12 @@ def build_database_from_structures(
         num_workers_res: Annotated[int, typer.Option(
             help='Number of subprocesses to use for data loading.'
         )] = 0,
-        num_nodes_res: Annotated[int, typer.Option(
-            help='Number of nodes to use for inference of residue embeddings.'
-        )] = 1,
         batch_size_aggregator: Annotated[int, typer.Option(
             help='Number of samples processed together in one iteration.'
         )] = 1,
         num_workers_aggregator: Annotated[int, typer.Option(
             help='Number of subprocesses to use for data loading.'
         )] = 0,
-        num_nodes_aggregator: Annotated[int, typer.Option(
-            help='Number of nodes to use for inference of embeddings.'
-        )] = 1,
         log_level: Annotated[LogLevel, typer.Option(
             help='Number of nodes to use for inference of embeddings.'
         )] = 'info'
@@ -137,10 +134,9 @@ def build_database_from_structures(
         use_gpu_index=use_gpu_index,
         batch_size_res=batch_size_res,
         num_workers_res=num_workers_res,
-        num_nodes_res=num_nodes_res,
         batch_size_chain=batch_size_aggregator,
         num_workers_chain=num_workers_aggregator,
-        num_nodes_chain=num_nodes_aggregator,
+        num_nodes=num_nodes,
         devices=arg_devices(devices),
         strategy=strategy,
     )
@@ -182,6 +178,9 @@ def update_database_from_structures(
         accelerator: Annotated[Accelerator, typer.Option(
             help='Device used for inference.'
         )] = "auto",
+        num_nodes: Annotated[int, typer.Option(
+            help='Number of nodes to use for inference.'
+        )] = 1,
         devices: Annotated[List[str], typer.Option(
             help='The devices to use. Can be set to a positive number or "auto". Repeat this argument to indicate multiple indices of devices. "auto" for automatic selection based on the chosen accelerator.'
         )] = tuple(['auto']),
@@ -194,18 +193,12 @@ def update_database_from_structures(
         num_workers_res: Annotated[int, typer.Option(
             help='Number of subprocesses to use for data loading.'
         )] = 0,
-        num_nodes_res: Annotated[int, typer.Option(
-            help='Number of nodes to use for inference of residue embeddings.'
-        )] = 1,
         batch_size_aggregator: Annotated[int, typer.Option(
             help='Number of samples processed together in one iteration.'
         )] = 1,
         num_workers_aggregator: Annotated[int, typer.Option(
             help='Number of subprocesses to use for data loading.'
         )] = 0,
-        num_nodes_aggregator: Annotated[int, typer.Option(
-            help='Number of nodes to use for inference of embeddings.'
-        )] = 1,
         log_level: Annotated[LogLevel, typer.Option(
             help='Number of nodes to use for inference of embeddings.'
         )] = 'info'
@@ -244,10 +237,9 @@ def update_database_from_structures(
         use_gpu_index=use_gpu_index,
         batch_size_res=batch_size_res,
         num_workers_res=num_workers_res,
-        num_nodes_res=num_nodes_res,
         batch_size_chain=batch_size_aggregator,
         num_workers_chain=num_workers_aggregator,
-        num_nodes_chain=num_nodes_aggregator,
+        num_nodes=num_nodes,
         devices=arg_devices(devices),
         strategy=strategy,
     )
@@ -357,6 +349,9 @@ def build_database_from_fasta(
         accelerator: Annotated[Accelerator, typer.Option(
             help='Device used for inference.'
         )] = "auto",
+        num_nodes: Annotated[int, typer.Option(
+            help='Number of nodes to use for inference.'
+        )] = 1,
         devices: Annotated[List[str], typer.Option(
             help='The devices to use. Can be set to a positive number or "auto".'
         )] = tuple(['auto']),
@@ -369,18 +364,12 @@ def build_database_from_fasta(
         num_workers_res: Annotated[int, typer.Option(
             help='Number of subprocesses to use for data loading.'
         )] = 0,
-        num_nodes_res: Annotated[int, typer.Option(
-            help='Number of nodes to use for residue embedding inference.'
-        )] = 1,
         batch_size_aggregator: Annotated[int, typer.Option(
             help='Number of samples processed together for chain embedding inference.'
         )] = 1,
         num_workers_aggregator: Annotated[int, typer.Option(
             help='Number of subprocesses to use for chain embedding data loading.'
         )] = 0,
-        num_nodes_aggregator: Annotated[int, typer.Option(
-            help='Number of nodes to use for chain embedding inference.'
-        )] = 1,
         log_level: Annotated[LogLevel, typer.Option(
             help='Logging level.'
         )] = 'info'
@@ -401,10 +390,9 @@ def build_database_from_fasta(
         use_gpu_index=use_gpu_index,
         batch_size_res=batch_size_res,
         num_workers_res=num_workers_res,
-        num_nodes_res=num_nodes_res,
         batch_size_chain=batch_size_aggregator,
         num_workers_chain=num_workers_aggregator,
-        num_nodes_chain=num_nodes_aggregator,
+        num_nodes=num_nodes,
         devices=arg_devices(devices),
         strategy=strategy,
     )
@@ -437,6 +425,9 @@ def update_database_from_fasta(
         accelerator: Annotated[Accelerator, typer.Option(
             help='Device used for inference.'
         )] = "auto",
+        num_nodes: Annotated[int, typer.Option(
+            help='Number of nodes to use for inference.'
+        )] = 1,
         devices: Annotated[List[str], typer.Option(
             help='The devices to use. Can be set to a positive number or "auto".'
         )] = tuple(['auto']),
@@ -449,18 +440,12 @@ def update_database_from_fasta(
         num_workers_res: Annotated[int, typer.Option(
             help='Number of subprocesses to use for data loading.'
         )] = 0,
-        num_nodes_res: Annotated[int, typer.Option(
-            help='Number of nodes to use for residue embedding inference.'
-        )] = 1,
         batch_size_aggregator: Annotated[int, typer.Option(
             help='Number of samples processed together for chain embedding inference.'
         )] = 1,
         num_workers_aggregator: Annotated[int, typer.Option(
             help='Number of subprocesses to use for chain embedding data loading.'
         )] = 0,
-        num_nodes_aggregator: Annotated[int, typer.Option(
-            help='Number of nodes to use for chain embedding inference.'
-        )] = 1,
         log_level: Annotated[LogLevel, typer.Option(
             help='Logging level.'
         )] = 'info'
@@ -481,10 +466,9 @@ def update_database_from_fasta(
         use_gpu_index=use_gpu_index,
         batch_size_res=batch_size_res,
         num_workers_res=num_workers_res,
-        num_nodes_res=num_nodes_res,
         batch_size_chain=batch_size_aggregator,
         num_workers_chain=num_workers_aggregator,
-        num_nodes_chain=num_nodes_aggregator,
+        num_nodes=num_nodes,
         devices=arg_devices(devices),
         strategy=strategy,
     )
@@ -688,6 +672,9 @@ def query_database_from_fasta(
         accelerator: Annotated[Accelerator, typer.Option(
             help='Device used for inference.'
         )] = "auto",
+        num_nodes: Annotated[int, typer.Option(
+            help='Number of nodes to use for inference.'
+        )] = 1,
         devices: Annotated[List[str], typer.Option(
             help='The devices to use. Can be set to a positive number or "auto".'
         )] = tuple(['auto']),
@@ -700,18 +687,12 @@ def query_database_from_fasta(
         num_workers_res: Annotated[int, typer.Option(
             help='Number of subprocesses to use for data loading.'
         )] = 0,
-        num_nodes_res: Annotated[int, typer.Option(
-            help='Number of nodes to use for residue embedding inference.'
-        )] = 1,
         batch_size_aggregator: Annotated[int, typer.Option(
             help='Number of samples processed together for chain embedding inference.'
         )] = 1,
         num_workers_aggregator: Annotated[int, typer.Option(
             help='Number of subprocesses to use for chain embedding data loading.'
         )] = 0,
-        num_nodes_aggregator: Annotated[int, typer.Option(
-            help='Number of nodes to use for chain embedding inference.'
-        )] = 1,
         log_level: Annotated[LogLevel, typer.Option(
             help='Logging level.'
         )] = 'info'
@@ -729,10 +710,9 @@ def query_database_from_fasta(
         min_res_n=min_res_n,
         batch_size_res=batch_size_res,
         num_workers_res=num_workers_res,
-        num_nodes_res=num_nodes_res,
         batch_size_chain=batch_size_aggregator,
         num_workers_chain=num_workers_aggregator,
-        num_nodes_chain=num_nodes_aggregator,
+        num_nodes=num_nodes,
         devices=arg_devices(devices),
         strategy=strategy,
     )

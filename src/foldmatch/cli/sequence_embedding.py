@@ -139,21 +139,18 @@ def chain_embedding(
         num_workers_res: Annotated[int, typer.Option(
             help='Number of subprocesses to use for data loading.'
         )] = 0,
-        num_nodes_res: Annotated[int, typer.Option(
-            help='Number of nodes to use for inference of residue embeddings.'
-        )] = 1,
         batch_size_aggregator: Annotated[int, typer.Option(
             help='Number of samples processed together in one iteration.'
         )] = 1,
         num_workers_aggregator: Annotated[int, typer.Option(
             help='Number of subprocesses to use for data loading.'
         )] = 0,
-        num_nodes_aggregator: Annotated[int, typer.Option(
-            help='Number of nodes to use for inference of embeddings.'
-        )] = 1,
         accelerator: Annotated[Accelerator, typer.Option(
             help='Device used for inference.'
         )] = 'auto',
+        num_nodes: Annotated[int, typer.Option(
+            help='Number of nodes to use for inference.'
+        )] = 1,
         devices: Annotated[List[str], typer.Option(
             help='The devices to use. Can be set to a positive number or "auto". Repeat this argument to indicate multiple indices of devices. "auto" for automatic selection based on the chosen accelerator.'
         )] = 'auto',
@@ -186,7 +183,7 @@ def chain_embedding(
             min_res_n=min_res_n,
             batch_size=batch_size_res,
             num_workers=num_workers_res,
-            num_nodes=num_nodes_res,
+            num_nodes=num_nodes,
             accelerator=accelerator,
             devices=dev,
             out_format=OutFormat.separated,
@@ -203,7 +200,7 @@ def chain_embedding(
         src_from=SrcTensorFrom.file,
         batch_size=batch_size_aggregator,
         num_workers=num_workers_aggregator,
-        num_nodes=num_nodes_aggregator,
+        num_nodes=num_nodes,
         accelerator=accelerator,
         devices=dev,
         out_path=output_path,
