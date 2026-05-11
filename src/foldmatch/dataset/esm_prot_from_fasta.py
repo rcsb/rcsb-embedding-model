@@ -12,6 +12,7 @@ def parse_fasta(fasta_file):
     current_name = None
     current_seq_lines = []
 
+    logger.info(f"parsing FASTA file {fasta_file}")
     with open(fasta_file, 'r') as f:
         for line in f:
             line = line.strip()
