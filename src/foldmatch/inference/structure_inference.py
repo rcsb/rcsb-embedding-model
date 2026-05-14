@@ -10,7 +10,7 @@ from foldmatch.types.api_types import StructureFormat, Accelerator, Devices, Str
     SrcProteinFrom, FileOrStreamTuple, SrcLocation
 from foldmatch.utils.data import identity_collate
 from foldmatch.utils.model import get_residue_model, get_aggregator_model
-from foldmatch.writer.batch_writer import JsonStorage
+from foldmatch.writer.batch_writer import ParquetBatchWriter
 
 
 def predict(
@@ -62,7 +62,7 @@ def predict(
     )
     logger.info(f"rcsb-esm + rcsb-aggregator module ready")
 
-    inference_writer = JsonStorage(out_path, out_name) if out_path is not None and out_name is not None else None
+    inference_writer = ParquetBatchWriter(out_path, out_name) if out_path is not None and out_name is not None else None
     trainer = Trainer(
         callbacks=[inference_writer] if inference_writer is not None else None,
         num_nodes=num_nodes,

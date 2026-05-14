@@ -75,7 +75,7 @@ class TestCliEmbedding(unittest.TestCase):
             accelerator=Accelerator.cpu,
             compute_residue_embedding=False
         )
-        self.assertTrue(os.path.exists(f"{self.__test_path}/resources/tmp/chain-inference-0.json.gz"))
+        self.assertTrue(os.path.exists(f"{self.__test_path}/resources/tmp/chain-inference-0.parquet"))
 
     def test_chain_embedding_end_to_end(self):
         _remove_files_in_directory(f"{self.__test_path}/resources/tmp")
@@ -99,7 +99,7 @@ class TestCliEmbedding(unittest.TestCase):
         self.assertTrue(os.path.exists(f"{self.__test_path}/resources/tmp/1acb.A.pt"))
         self.assertTrue(os.path.exists(f"{self.__test_path}/resources/tmp/2uzi.A.pt"))
         # Chain embeddings should be grouped
-        self.assertTrue(os.path.exists(f"{self.__test_path}/resources/tmp/chain-inference-0.json.gz"))
+        self.assertTrue(os.path.exists(f"{self.__test_path}/resources/tmp/chain-inference-0.parquet"))
 
     def test_assembly_embedding_with_precomputed_residues(self):
         _remove_files_in_directory(f"{self.__test_path}/resources/tmp")
@@ -119,7 +119,7 @@ class TestCliEmbedding(unittest.TestCase):
             accelerator=Accelerator.cpu,
             compute_residue_embedding=False
         )
-        self.assertTrue(os.path.exists(f"{self.__test_path}/resources/tmp/assembly-inference-0.json.gz"))
+        self.assertTrue(os.path.exists(f"{self.__test_path}/resources/tmp/assembly-inference-0.parquet"))
 
     def test_assembly_embedding_end_to_end(self):
         _remove_files_in_directory(f"{self.__test_path}/resources/tmp")
@@ -143,7 +143,7 @@ class TestCliEmbedding(unittest.TestCase):
         self.assertTrue(os.path.exists(f"{self.__test_path}/resources/tmp/1acb.A.pt"))
         self.assertTrue(os.path.exists(f"{self.__test_path}/resources/tmp/2uzi.A.pt"))
         # Assembly embeddings should be grouped
-        self.assertTrue(os.path.exists(f"{self.__test_path}/resources/tmp/assembly-inference-0.json.gz"))
+        self.assertTrue(os.path.exists(f"{self.__test_path}/resources/tmp/assembly-inference-0.parquet"))
 
 
 def _remove_files_in_directory(directory_path):

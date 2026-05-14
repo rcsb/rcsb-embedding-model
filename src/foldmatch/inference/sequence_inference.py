@@ -8,7 +8,7 @@ from foldmatch.modules.esm_module import EsmModule
 from foldmatch.types.api_types import Accelerator, Devices, Strategy, OptionalPath, OutFormat
 from foldmatch.utils.data import identity_collate
 from foldmatch.utils.model import get_residue_model
-from foldmatch.writer.batch_writer import TensorBatchWriter, CsvBatchWriter, JsonStorage
+from foldmatch.writer.batch_writer import TensorBatchWriter, CsvBatchWriter, ParquetBatchWriter
 
 
 def predict(
@@ -51,7 +51,7 @@ def predict(
 
     if out_path is not None:
         if out_format == OutFormat.grouped:
-            inference_writer = JsonStorage(out_path, out_name)
+            inference_writer = ParquetBatchWriter(out_path, out_name)
         elif write_tensor:
             inference_writer = TensorBatchWriter(out_path)
         else:
