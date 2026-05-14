@@ -203,6 +203,11 @@ def _is_rank_zero():
     """Check if the current process is rank zero in distributed training."""
     return not _is_distributed() or dist.get_rank() == 0
 
+def _get_rank():
+    if _is_distributed():
+        return dist.get_rank()
+    return 0
+
 
 def _consolidate_run_dirs(local_res_dir: Path, local_ch_dir: Path) -> tuple[Path, Path]:
     """Unify the per-rank residue and chain temp dirs onto rank 0's paths.

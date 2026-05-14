@@ -676,7 +676,7 @@ requires-dist = [
     { name = "importlib-metadata", specifier = "==8.7.1" },
     { name = "leidenalg", specifier = "==0.11.0" },
     { name = "lightning", specifier = "==2.6.1" },
-    { name = "pyarrow" },
+    { name = "pyarrow", specifier = "==24.0.0" },
     { name = "typer", specifier = "==0.24.1" },
 ]
 

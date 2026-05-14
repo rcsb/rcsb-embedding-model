@@ -1,10 +1,13 @@
 import os
+from pathlib import Path
+
 import typer
 
 from typing import Annotated, List
 
 from foldmatch import __version__
 from foldmatch.cli.args_utils import arg_devices, set_log_level
+from foldmatch.search.embedding_computer import _get_rank
 from foldmatch.types.api_types import Accelerator, OutFormat, Strategy, LogLevel, ResEmbeddingFormat
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -149,7 +152,7 @@ def chain_embedding(
         )] = 1,
         devices: Annotated[List[str], typer.Option(
             help='The devices to use. Can be set to a positive number or "auto". Repeat this argument to indicate multiple indices of devices. "auto" for automatic selection based on the chosen accelerator.'
-        )] = 'auto',
+        )] = tuple(['auto']),
         strategy: Annotated[Strategy, typer.Option(
             help='Lightning strategy to control distribution of inference.'
         )] = 'auto',
@@ -171,6 +174,8 @@ def chain_embedding(
     dev = arg_devices(devices)
 
     if compute_residue_embedding:
+        from secrets import token_hex
+        res_emb_file_name = f"res_emb_{token_hex(16)}"
         sequence_predict(
             fasta_file=fasta_file,
             min_res_n=min_res_n,
@@ -179,17 +184,18 @@ def chain_embedding(
             num_nodes=num_nodes,
             accelerator=accelerator,
             devices=dev,
-            out_format=OutFormat.pt,
+            out_format=OutFormat.parquet,
             out_path=res_embedding_folder,
+            out_name=res_emb_file_name,
             strategy=strategy
         )
-        res_embedding_format = ResEmbeddingFormat.pt
-
-    src_stream = scan_fasta_sequences(fasta_file, res_embedding_folder)
+        src_stream = Path(res_embedding_folder) / Path(f"{res_emb_file_name}-{_get_rank()}.parquet")
+    else:
+        src_stream = scan_fasta_sequences(fasta_file, res_embedding_folder)
     chain_predict(
         src_stream=src_stream,
         src_location=SrcLocation.stream,
-        src_from=SrcTensorFrom.file,
+        src_from=SrcTensorFrom.parquet if compute_residue_embedding else SrcTensorFrom(res_embedding_format),
         batch_size=batch_size_aggregator,
         num_workers=num_workers_aggregator,
         num_nodes=num_nodes,
