@@ -3,6 +3,7 @@ import torch
 from torch.utils.data import DataLoader
 from lightning import Trainer
 
+from foldmatch.dataset.residue_embedding_from_parquet import ResidueEmbeddingFromParquet
 from foldmatch.dataset.residue_embedding_from_structure import ResidueEmbeddingFromStructure
 from foldmatch.dataset.residue_embedding_from_tensor_file import ResidueEmbeddingFromTensorFile
 from foldmatch.modules.chain_module import ChainModule
@@ -30,23 +31,32 @@ def predict(
         out_name: str = 'inference',
         out_path: OptionalPath = None,
         inference_set=None,
-        res_embedding_format: ResEmbeddingFormat = ResEmbeddingFormat.pt
+        res_embedding_format: ResEmbeddingFormat = ResEmbeddingFormat.pt,
+        embedding_dim: int = 1536
 ):
     logger = logging.getLogger(__name__)
 
     if inference_set is None:
-        inference_set = ResidueEmbeddingFromTensorFile(
-            src_stream=src_stream,
-            src_location=src_location,
-            res_embedding_format=res_embedding_format
-        ) if src_from == SrcTensorFrom.file else ResidueEmbeddingFromStructure(
-            src_stream=src_stream,
-            res_embedding_location=res_embedding_location,
-            src_location=src_location,
-            structure_format=structure_format,
-            min_res_n=min_res_n,
-            res_embedding_format=res_embedding_format
-        )
+        if src_from == SrcTensorFrom.parquet:
+            inference_set = ResidueEmbeddingFromParquet(
+                parquet_path=src_stream,
+                embedding_dim=embedding_dim
+            )
+        elif src_from == SrcTensorFrom.file:
+            inference_set = ResidueEmbeddingFromTensorFile(
+                src_stream=src_stream,
+                src_location=src_location,
+                res_embedding_format=res_embedding_format
+            )
+        else:
+            inference_set = ResidueEmbeddingFromStructure(
+                src_stream=src_stream,
+                res_embedding_location=res_embedding_location,
+                src_location=src_location,
+                structure_format=structure_format,
+                min_res_n=min_res_n,
+                res_embedding_format=res_embedding_format
+            )
     logger.info(f"chain-inference set contains {len(inference_set)} samples")
 
     inference_dataloader = DataLoader(

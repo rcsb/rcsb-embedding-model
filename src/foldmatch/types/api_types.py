@@ -56,6 +56,7 @@ class SrcAssemblyFrom(str, Enum):
 class SrcTensorFrom(str, Enum):
     file = "file"
     structure = "structure"
+    parquet = "parquet"
 
 class OutFormat(str, Enum):
     csv = "csv"

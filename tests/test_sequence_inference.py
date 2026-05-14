@@ -106,6 +106,33 @@ class TestSequenceInference(unittest.TestCase):
         self.assertEqual(tuple(chain_embeddings[0][0][0].shape), (1536,))
         self.assertEqual(tuple(chain_embeddings[1][0][0].shape), (1536,))
 
+    def test_sequence_chain_inference_from_parquet(self):
+        _remove_files_in_directory(self.__tmp_path)
+        from foldmatch.inference.sequence_inference import predict as sequence_predict
+        from foldmatch.inference.chain_inference import predict as chain_predict
+
+        fasta_file = f"{self.__test_path}/resources/fasta/test_sequences.fasta"
+        parquet_path = f"{self.__tmp_path}/residue-embeddings-0.parquet"
+
+        sequence_predict(
+            fasta_file=fasta_file,
+            accelerator=Accelerator.cpu,
+            out_path=self.__tmp_path,
+            out_format=OutFormat.parquet,
+            out_name="residue-embeddings"
+        )
+        self.assertTrue(os.path.exists(parquet_path))
+
+        chain_embeddings = chain_predict(
+            src_stream=parquet_path,
+            src_from=SrcTensorFrom.parquet,
+            accelerator=Accelerator.cpu
+        )
+
+        self.assertEqual(len(chain_embeddings), 2)
+        self.assertEqual(tuple(chain_embeddings[0][0][0].shape), (1536,))
+        self.assertEqual(tuple(chain_embeddings[1][0][0].shape), (1536,))
+
 
 def _remove_files_in_directory(directory_path):
     os.makedirs(directory_path, exist_ok=True)
