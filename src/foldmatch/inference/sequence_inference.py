@@ -8,7 +8,7 @@ from foldmatch.modules.esm_module import EsmModule
 from foldmatch.types.api_types import Accelerator, Devices, Strategy, OptionalPath, OutFormat
 from foldmatch.utils.data import identity_collate
 from foldmatch.utils.model import get_residue_model
-from foldmatch.writer.batch_writer import TensorBatchWriter, CsvBatchWriter, ParquetBatchWriter
+from foldmatch.writer.batch_writer import TensorBatchWriter, CsvBatchWriter, ParquetBatchWriter, JsonStorage
 
 
 def predict(
@@ -20,10 +20,9 @@ def predict(
         accelerator: Accelerator = 'auto',
         devices: Devices = 'auto',
         strategy: Strategy = 'auto',
-        out_format: OutFormat = OutFormat.separated,
+        out_format: OutFormat = OutFormat.csv,
         out_name: str = 'inference',
-        out_path: OptionalPath = None,
-        write_tensor: bool = False
+        out_path: OptionalPath = None
 ):
     logger = logging.getLogger(__name__)
 
@@ -50,9 +49,11 @@ def predict(
     logger.info(f"rcsb-esm module ready")
 
     if out_path is not None:
-        if out_format == OutFormat.grouped:
+        if out_format == OutFormat.parquet:
             inference_writer = ParquetBatchWriter(out_path, out_name)
-        elif write_tensor:
+        elif out_format == OutFormat.json:
+            inference_writer = JsonStorage(out_path, out_name)
+        elif out_format == OutFormat.pt:
             inference_writer = TensorBatchWriter(out_path)
         else:
             inference_writer = CsvBatchWriter(out_path)

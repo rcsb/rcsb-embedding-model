@@ -60,7 +60,7 @@ class TestSequenceInference(unittest.TestCase):
         embeddings = predict(
             fasta_file=f"{self.__test_path}/resources/fasta/test_sequences.fasta",
             accelerator=Accelerator.cpu,
-            write_tensor=True
+            out_format=OutFormat.pt
         )
         self.assertEqual(len(embeddings), 2)
         # [batch_index][item_embedding,item_name][item_index]
@@ -74,8 +74,7 @@ class TestSequenceInference(unittest.TestCase):
             fasta_file=f"{self.__test_path}/resources/fasta/test_sequences.fasta",
             accelerator=Accelerator.cpu,
             out_path=self.__tmp_path,
-            out_format=OutFormat.separated,
-            write_tensor=True
+            out_format=OutFormat.pt
         )
         self.assertTrue(os.path.exists(f"{self.__tmp_path}/1acb_E.pt"))
         self.assertTrue(os.path.exists(f"{self.__tmp_path}/2uzi_A.pt"))
@@ -92,8 +91,7 @@ class TestSequenceInference(unittest.TestCase):
             fasta_file=fasta_file,
             accelerator=Accelerator.cpu,
             out_path=self.__tmp_path,
-            out_format=OutFormat.separated,
-            write_tensor=True
+            out_format=OutFormat.pt
         )
 
         src_stream = scan_fasta_sequences(fasta_file, self.__tmp_path)

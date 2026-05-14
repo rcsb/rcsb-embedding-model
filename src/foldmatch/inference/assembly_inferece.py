@@ -22,10 +22,9 @@ def predict(
         accelerator: Accelerator = 'auto',
         devices: Devices = 'auto',
         strategy: Strategy = 'auto',
-        out_format: OutFormat = OutFormat.separated,
+        out_format: OutFormat = OutFormat.csv,
         out_name: str = 'inference',
         out_path: OptionalPath = None,
-        write_tensor: bool = False,
         res_embedding_format: ResEmbeddingFormat = ResEmbeddingFormat.pt
 ):
     logger = logging.getLogger(__name__)
@@ -63,6 +62,5 @@ def predict(
         out_name=out_name,
         out_path=out_path,
         inference_set=inference_set,
-        write_tensor=write_tensor,
         res_embedding_format=res_embedding_format
     )

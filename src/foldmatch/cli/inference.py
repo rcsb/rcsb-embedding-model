@@ -39,10 +39,10 @@ def residue_embedding(
             help='Output path to store predictions. Embeddings are stored as torch tensor files.'
         )],
         output_format: Annotated[OutFormat, typer.Option(
-            help='Format of the output. Options: separated (predictions are stored in single files) or grouped (predictions are stored in a single JSON file).'
-        )] = OutFormat.separated,
+            help='Format of the output. Options: csv, pt, parquet, json.'
+        )] = OutFormat.pt,
         output_name: Annotated[str, typer.Option(
-            help='File name for storing embeddings as a single JSON file. Used when output-format=grouped.'
+            help='File name for storing embeddings. Used when output-format is parquet or json.'
         )] = 'inference',
         structure_format: Annotated[StructureFormat, typer.Option(
             help='Structure file format.'
@@ -89,8 +89,7 @@ def residue_embedding(
         out_format=output_format,
         out_name=output_name,
         out_path=output_path,
-        strategy=strategy,
-        write_tensor=True
+        strategy=strategy
     )
 
 
@@ -191,10 +190,10 @@ def chain_embedding(
             help='Path where residue level embeddings are located.'
         )],
         output_format: Annotated[OutFormat, typer.Option(
-            help='Format of the output. Options: separated (predictions are stored in single files) or grouped (predictions are stored in a single JSON file).'
-        )] = OutFormat.separated,
+            help='Format of the output. Options: csv, pt, parquet, json.'
+        )] = OutFormat.csv,
         output_name: Annotated[str, typer.Option(
-            help='File name for storing embeddings as a single JSON file. Used when output-format=grouped.'
+            help='File name for storing embeddings. Used when output-format is parquet or json.'
         )] = 'inference',
         structure_format: Annotated[StructureFormat, typer.Option(
             help='Structure file format.'
@@ -276,10 +275,10 @@ def assembly_embedding(
             help='Output path to store predictions. Embeddings are stored as csv files.'
         )],
         output_format: Annotated[OutFormat, typer.Option(
-            help='Format of the output. Options: separated (predictions are stored in single files) or grouped (predictions are stored in a single JSON file).'
-        )] = OutFormat.separated,
+            help='Format of the output. Options: csv, pt, parquet, json.'
+        )] = OutFormat.csv,
         output_name: Annotated[str, typer.Option(
-            help='File name for storing embeddings as a single JSON file. Used when output-format=grouped.'
+            help='File name for storing embeddings. Used when output-format is parquet or json.'
         )] = 'inference',
         structure_format: Annotated[StructureFormat, typer.Option(
             help='Structure file format.'
@@ -379,13 +378,13 @@ def complete_embedding(
             help='Output path to store assembly embeddings. Embeddings are stored as a single JSON file (see output_assembly_name).'
         )],
         output_format: Annotated[OutFormat, typer.Option(
-            help='Format of the output. Options: separated (predictions are stored in single files) or grouped (predictions are stored in a single JSON file).'
-        )] = OutFormat.separated,
+            help='Format of the output. Options: csv, pt, parquet, json.'
+        )] = OutFormat.csv,
         output_chain_name: Annotated[str, typer.Option(
-            help='File name for storing chain embeddings as a single JSON file. Used when output-format=grouped.'
+            help='File name for storing chain embeddings. Used when output-format is parquet or json.'
         )] = 'chain-inference',
         output_assembly_name: Annotated[str, typer.Option(
-            help='File name for storing chain embeddings as a single JSON file. Used when output-format=grouped.'
+            help='File name for storing assembly embeddings. Used when output-format is parquet or json.'
         )] = 'chain-inference',
         structure_format: Annotated[StructureFormat, typer.Option(
             help='Structure file format.'
@@ -434,7 +433,7 @@ def complete_embedding(
     residue_embedding(
         src_file=src_chain_file,
         output_path=output_res_path,
-        output_format=OutFormat.separated,
+        output_format=OutFormat.pt,
         structure_format=structure_format,
         min_res_n=min_res_n,
         batch_size=batch_size_res,

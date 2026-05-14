@@ -58,8 +58,10 @@ class SrcTensorFrom(str, Enum):
     structure = "structure"
 
 class OutFormat(str, Enum):
-    separated = "separated"
-    grouped = "grouped"
+    csv = "csv"
+    pt = "pt"
+    parquet = "parquet"
+    json = "json"
 
 
 class ResEmbeddingFormat(str, Enum):

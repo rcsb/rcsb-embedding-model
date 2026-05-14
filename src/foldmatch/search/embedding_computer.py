@@ -88,7 +88,7 @@ class EmbeddingComputer:
             num_nodes=num_nodes,
             devices=devices,
             strategy=strategy,
-            write_tensor=True,
+            out_format=OutFormat.pt,
         )
         self._consolidate_after_residue()
 
@@ -105,7 +105,7 @@ class EmbeddingComputer:
                 num_nodes=num_nodes,
                 devices=devices,
                 strategy=strategy,
-                write_tensor=True,
+                out_format=OutFormat.pt,
             )
         else:
             assembly_predict(
@@ -122,7 +122,7 @@ class EmbeddingComputer:
                 num_nodes=num_nodes,
                 devices=devices,
                 strategy=strategy,
-                write_tensor=True,
+                out_format=OutFormat.pt,
             )
         if _is_distributed():
             dist.barrier()
@@ -151,10 +151,9 @@ class EmbeddingComputer:
             num_nodes=num_nodes,
             accelerator=self.accelerator,
             devices=devices,
-            out_format=OutFormat.separated,
+            out_format=OutFormat.pt,
             out_path=self.tmp_res_dir,
             strategy=strategy,
-            write_tensor=True,
         )
         self._consolidate_after_residue()
 
@@ -170,7 +169,7 @@ class EmbeddingComputer:
             num_nodes=num_nodes,
             devices=devices,
             strategy=strategy,
-            write_tensor=True,
+            out_format=OutFormat.pt,
         )
         if _is_distributed():
             dist.barrier()

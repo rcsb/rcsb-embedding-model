@@ -40,14 +40,14 @@ class TestCliEmbedding(unittest.TestCase):
         residue_embedding(
             src_folder=f"{self.__test_path}/resources/pdb",
             output_path=f"{self.__test_path}/resources/tmp",
-            output_format=OutFormat.separated,
+            output_format=OutFormat.csv,
             structure_format=StructureFormat.mmcif,
             min_res_n=0,
             batch_size=1,
             num_workers=0,
             num_nodes=1,
             accelerator=Accelerator.cpu,
-            write_tensor=False
+
         )
         # 1acb has 2 chains (A, B), 2uzi has 3 chains (A, B, C) = 5 csv files
         self.assertTrue(os.path.exists(f"{self.__test_path}/resources/tmp/1acb.A.csv"))
@@ -63,7 +63,7 @@ class TestCliEmbedding(unittest.TestCase):
             src_folder=f"{self.__test_path}/resources/pdb",
             output_path=f"{self.__test_path}/resources/tmp",
             res_embedding_folder=f"{self.__test_path}/resources/embeddings",
-            output_format=OutFormat.grouped,
+            output_format=OutFormat.parquet,
             output_name="chain-inference",
             structure_format=StructureFormat.mmcif,
             min_res_n=0,
@@ -84,7 +84,7 @@ class TestCliEmbedding(unittest.TestCase):
             src_folder=f"{self.__test_path}/resources/pdb",
             output_path=f"{self.__test_path}/resources/tmp",
             res_embedding_folder=f"{self.__test_path}/resources/tmp",
-            output_format=OutFormat.grouped,
+            output_format=OutFormat.parquet,
             output_name="chain-inference",
             structure_format=StructureFormat.mmcif,
             batch_size_res=1,
@@ -108,7 +108,7 @@ class TestCliEmbedding(unittest.TestCase):
             src_folder=f"{self.__test_path}/resources/pdb",
             res_embedding_folder=f"{self.__test_path}/resources/embeddings",
             output_path=f"{self.__test_path}/resources/tmp",
-            output_format=OutFormat.grouped,
+            output_format=OutFormat.parquet,
             output_name="assembly-inference",
             structure_format=StructureFormat.mmcif,
             batch_size_res=1,
@@ -128,7 +128,7 @@ class TestCliEmbedding(unittest.TestCase):
             src_folder=f"{self.__test_path}/resources/pdb",
             res_embedding_folder=f"{self.__test_path}/resources/tmp",
             output_path=f"{self.__test_path}/resources/tmp",
-            output_format=OutFormat.grouped,
+            output_format=OutFormat.parquet,
             output_name="assembly-inference",
             structure_format=StructureFormat.mmcif,
             batch_size_res=1,

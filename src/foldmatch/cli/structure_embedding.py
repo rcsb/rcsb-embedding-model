@@ -72,10 +72,10 @@ def residue_embedding(
             help='Output path to store predictions. Embeddings are stored as csv or tensor files.'
         )],
         output_format: Annotated[OutFormat, typer.Option(
-            help='Format of the output. Options: separated (predictions are stored in single files) or grouped (predictions are stored in a single JSON file).'
-        )] = OutFormat.separated,
+            help='Format of the output. Options: csv, pt, parquet, json.'
+        )] = OutFormat.csv,
         output_name: Annotated[str, typer.Option(
-            help='File name for storing embeddings as a single JSON file. Used when output-format=grouped.'
+            help='File name for storing embeddings. Used when output-format is parquet or json.'
         )] = 'inference',
         structure_format: Annotated[StructureFormat, typer.Option(
             help='Structure file format.'
@@ -104,9 +104,6 @@ def residue_embedding(
         strategy: Annotated[Strategy, typer.Option(
             help='Lightning strategy to control distribution of inference.'
         )] = 'auto',
-        write_tensor: Annotated[bool, typer.Option(
-            help='If output-format=separated, write residue embeddings as torch tensor (.pt) files instead of csv files.'
-        )] = False,
         log_level: Annotated[LogLevel, typer.Option(
             help='Logging level.'
         )] = 'info'
@@ -129,8 +126,7 @@ def residue_embedding(
         out_format=output_format,
         out_name=output_name,
         out_path=output_path,
-        strategy=strategy,
-        write_tensor=write_tensor
+        strategy=strategy
     )
 
 
@@ -161,10 +157,10 @@ def chain_embedding(
             help='Path where residue level embeddings are located.'
         )],
         output_format: Annotated[OutFormat, typer.Option(
-            help='Format of the output. Options: separated (predictions are stored in single files) or grouped (predictions are stored in a single JSON file).'
-        )] = OutFormat.separated,
+            help='Format of the output. Options: csv, pt, parquet, json.'
+        )] = OutFormat.csv,
         output_name: Annotated[str, typer.Option(
-            help='File name for storing embeddings as a single JSON file. Used when output-format=grouped.'
+            help='File name for storing embeddings. Used when output-format is parquet or json.'
         )] = 'inference',
         structure_format: Annotated[StructureFormat, typer.Option(
             help='Structure file format.'
@@ -205,9 +201,6 @@ def chain_embedding(
         res_embedding_format: Annotated[ResEmbeddingFormat, typer.Option(
             help='Format of the precomputed residue embedding files read from res-embedding-location when compute-residue-embedding=False. Options: pt (torch tensor files) or csv.'
         )] = ResEmbeddingFormat.pt,
-        write_tensor: Annotated[bool, typer.Option(
-            help='If output-format=separated, write chain embeddings as torch tensor (.pt) files instead of csv files.'
-        )] = False,
         log_level: Annotated[LogLevel, typer.Option(
             help='Logging level.'
         )] = 'info'
@@ -230,10 +223,9 @@ def chain_embedding(
             num_nodes=num_nodes,
             accelerator=accelerator,
             devices=arg_devices(devices),
-            out_format=OutFormat.separated,
+            out_format=OutFormat.pt,
             out_path=res_embedding_folder,
-            strategy=strategy,
-            write_tensor=True
+            strategy=strategy
         )
         res_embedding_format = ResEmbeddingFormat.pt
 
@@ -253,7 +245,6 @@ def chain_embedding(
         out_format=output_format,
         out_name=output_name,
         strategy=strategy,
-        write_tensor=write_tensor,
         res_embedding_format=res_embedding_format
     )
 
@@ -285,10 +276,10 @@ def assembly_embedding(
             help='Output path to store predictions. Embeddings are stored as csv or tensor files.'
         )],
         output_format: Annotated[OutFormat, typer.Option(
-            help='Format of the output. Options: separated (predictions are stored in single files) or grouped (predictions are stored in a single JSON file).'
-        )] = OutFormat.separated,
+            help='Format of the output. Options: csv, pt, parquet, json.'
+        )] = OutFormat.csv,
         output_name: Annotated[str, typer.Option(
-            help='File name for storing embeddings as a single JSON file. Used when output-format=grouped.'
+            help='File name for storing embeddings. Used when output-format is parquet or json.'
         )] = 'inference',
         structure_format: Annotated[StructureFormat, typer.Option(
             help='Structure file format.'
@@ -332,9 +323,6 @@ def assembly_embedding(
         res_embedding_format: Annotated[ResEmbeddingFormat, typer.Option(
             help='Format of the precomputed residue embedding files read from res-embedding-location when compute-residue-embedding=False. Options: pt (torch tensor files) or csv.'
         )] = ResEmbeddingFormat.pt,
-        write_tensor: Annotated[bool, typer.Option(
-            help='If output-format=separated, write assembly embeddings as torch tensor (.pt) files instead of csv files.'
-        )] = False,
         log_level: Annotated[LogLevel, typer.Option(
             help='Logging level.'
         )] = 'info'
@@ -357,10 +345,9 @@ def assembly_embedding(
             num_nodes=num_nodes,
             accelerator=accelerator,
             devices=arg_devices(devices),
-            out_format=OutFormat.separated,
+            out_format=OutFormat.pt,
             out_path=res_embedding_folder,
-            strategy=strategy,
-            write_tensor=True
+            strategy=strategy
         )
         res_embedding_format = ResEmbeddingFormat.pt
 
@@ -381,7 +368,6 @@ def assembly_embedding(
         out_format=output_format,
         out_name=output_name,
         strategy=strategy,
-        write_tensor=write_tensor,
         res_embedding_format=res_embedding_format
     )
 

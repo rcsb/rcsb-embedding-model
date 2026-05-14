@@ -17,7 +17,7 @@ class TestCliInference(unittest.TestCase):
             output_res_path=f"{self.__test_path}/resources/tmp",
             output_chain_path=f"{self.__test_path}/resources/tmp",
             output_assembly_path=f"{self.__test_path}/resources/tmp",
-            output_format=OutFormat.grouped,
+            output_format=OutFormat.parquet,
             output_chain_name="instance-inference",
             output_assembly_name="assembly-inference",
             structure_format=StructureFormat.bciff,
