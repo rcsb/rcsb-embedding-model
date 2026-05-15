@@ -216,7 +216,7 @@ def chain_embedding(
 
     if compute_residue_embedding:
         from foldmatch.inference.esm_inference import predict as esm_predict
-        res_emb_file_name = _consolidate_id()
+        res_emb_file_name = f"res_emb_{_consolidate_id()}"
         esm_predict(
             src_stream=src_stream,
             src_location=SrcLocation.stream,

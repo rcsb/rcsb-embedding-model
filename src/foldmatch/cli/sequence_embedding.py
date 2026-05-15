@@ -176,7 +176,7 @@ def chain_embedding(
     dev = arg_devices(devices)
 
     if compute_residue_embedding:
-        res_emb_file_name = _consolidate_id()
+        res_emb_file_name = f"res_emb_{_consolidate_id()}"
         sequence_predict(
             fasta_file=fasta_file,
             min_res_n=min_res_n,
