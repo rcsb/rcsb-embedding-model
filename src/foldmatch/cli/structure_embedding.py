@@ -1,12 +1,15 @@
 import os
 import sys
 import logging
+from pathlib import Path
+
 import typer
 
 from typing import Annotated, List, Optional
 
 from foldmatch import __version__
 from foldmatch.cli.args_utils import arg_devices, set_log_level
+from foldmatch.search.embedding_computer import _is_distributed, _consolidate_id
 from foldmatch.types.api_types import StructureFormat, Accelerator, SrcLocation, SrcProteinFrom, \
     SrcAssemblyFrom, SrcTensorFrom, OutFormat, Strategy, LogLevel, ResEmbeddingFormat
 
@@ -206,12 +209,14 @@ def chain_embedding(
         )] = 'info'
 ):
     from foldmatch.inference.chain_inference import predict
+    import torch.distributed as dist
     set_log_level(log_level)
 
     src_stream = scan_structure_folder(src_folder, structure_format, structure_file_extension)
 
     if compute_residue_embedding:
         from foldmatch.inference.esm_inference import predict as esm_predict
+        res_emb_file_name = _consolidate_id()
         esm_predict(
             src_stream=src_stream,
             src_location=SrcLocation.stream,
@@ -223,17 +228,19 @@ def chain_embedding(
             num_nodes=num_nodes,
             accelerator=accelerator,
             devices=arg_devices(devices),
-            out_format=OutFormat.pt,
+            out_format=OutFormat.parquet,
             out_path=res_embedding_folder,
             strategy=strategy
         )
-        res_embedding_format = ResEmbeddingFormat.pt
+        if _is_distributed():
+            dist.barrier()
+        src_stream = tuple(sorted(Path(res_embedding_folder).glob(f"{res_emb_file_name}-*.parquet")))
 
     predict(
         src_stream=src_stream,
         res_embedding_location=res_embedding_folder,
         src_location=SrcLocation.stream,
-        src_from=SrcTensorFrom.structure,
+        src_from=SrcTensorFrom.parquet if compute_residue_embedding else SrcTensorFrom.structure,
         structure_format=structure_format,
         min_res_n=min_res_n,
         batch_size=batch_size_aggregator,

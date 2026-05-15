@@ -37,15 +37,15 @@ def set_log_level(level: LogLevel):
     if level == 'info':
         warnings.filterwarnings("ignore")
         logging.getLogger("lightning.pytorch").setLevel(logging.ERROR)
-        handler.setFormatter(logging.Formatter('[proc %(rank)s] %(message)s'))
+        handler.setFormatter(logging.Formatter('[proc-%(rank)s] %(message)s'))
         logging.basicConfig(level=logging.INFO, handlers=[handler], force=True)
     elif level == 'warning':
         handler.setFormatter(logging.Formatter(
-            '> %(asctime)s - [proc %(rank)s] - %(levelname)s - %(filename)s:%(lineno)d - %(message)s'
+            '> %(asctime)s - [proc-%(rank)s] - %(levelname)s - %(filename)s:%(lineno)d - %(message)s'
         ))
         logging.basicConfig(level=logging.WARN, handlers=[handler], force=True)
     elif level == 'debug':
         handler.setFormatter(logging.Formatter(
-            '> %(asctime)s - [proc %(rank)s] - %(levelname)s - %(filename)s:%(lineno)d - %(message)s'
+            '> %(asctime)s - [proc-%(rank)s] - %(levelname)s - %(filename)s:%(lineno)d - %(message)s'
         ))
         logging.basicConfig(level=logging.DEBUG, handlers=[handler], force=True)

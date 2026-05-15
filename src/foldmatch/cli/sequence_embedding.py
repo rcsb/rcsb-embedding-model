@@ -7,6 +7,7 @@ from typing import Annotated, List
 
 from foldmatch import __version__
 from foldmatch.cli.args_utils import arg_devices, set_log_level
+from foldmatch.search.embedding_computer import _consolidate_id
 from foldmatch.types.api_types import Accelerator, OutFormat, Strategy, LogLevel, ResEmbeddingFormat
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -175,8 +176,7 @@ def chain_embedding(
     dev = arg_devices(devices)
 
     if compute_residue_embedding:
-        from secrets import token_hex
-        res_emb_file_name = f"res_emb_{os.environ.get('SLURM_JOB_ID', token_hex(16))}"
+        res_emb_file_name = _consolidate_id()
         sequence_predict(
             fasta_file=fasta_file,
             min_res_n=min_res_n,

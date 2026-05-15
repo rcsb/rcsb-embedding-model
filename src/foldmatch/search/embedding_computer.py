@@ -6,6 +6,8 @@ from typing import Optional
 
 import torch
 import torch.distributed as dist
+import os
+from secrets import token_hex
 
 from foldmatch.inference.esm_inference import predict as esm_predict
 from foldmatch.inference.chain_inference import predict as chain_predict
@@ -243,3 +245,6 @@ def _consolidate_run_dirs(local_res_dir: Path, local_ch_dir: Path) -> tuple[Path
             logger.warning(f"Failed to remove per-rank scratch dir {local_run_dir}: {e}")
 
     return canonical_res, canonical_ch
+
+def _consolidate_id():
+    return os.environ.get('SLURM_JOB_ID', token_hex(16))
