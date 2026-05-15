@@ -230,6 +230,7 @@ def chain_embedding(
             devices=arg_devices(devices),
             out_format=OutFormat.parquet,
             out_path=res_embedding_folder,
+            out_name=res_emb_file_name,
             strategy=strategy
         )
         if _is_distributed():
