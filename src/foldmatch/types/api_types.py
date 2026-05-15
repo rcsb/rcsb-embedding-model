@@ -48,6 +48,11 @@ class SrcProteinFrom(str, Enum):
     structure = "structure"
 
 
+class SrcEsmFrom(str, Enum):
+    fasta = "fasta"
+    structure = "structure"
+
+
 class SrcAssemblyFrom(str, Enum):
     assembly = "assembly"
     structure = "structure"
