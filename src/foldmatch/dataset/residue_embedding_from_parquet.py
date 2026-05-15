@@ -1,14 +1,18 @@
+import logging
+
 import torch
 import pyarrow.parquet as pq
 
 from torch.utils.data import Dataset
 
+logger = logging.getLogger(__name__)
 
 class ResidueEmbeddingFromParquet(Dataset):
 
     def __init__(self, parquet_path, embedding_dim):
         super().__init__()
         self.embedding_dim = embedding_dim
+        logger.info(f"Loading parquet file: {parquet_path}")
         self.table = pq.read_table(parquet_path)
 
     def __len__(self):
