@@ -1,6 +1,8 @@
 import logging
+from pathlib import Path
 
 import torch
+import pyarrow as pa
 import pyarrow.parquet as pq
 
 from torch.utils.data import Dataset
@@ -12,8 +14,12 @@ class ResidueEmbeddingFromParquet(Dataset):
     def __init__(self, parquet_path, embedding_dim):
         super().__init__()
         self.embedding_dim = embedding_dim
-        logger.info(f"Loading parquet file: {parquet_path}")
-        self.table = pq.read_table(parquet_path)
+        if isinstance(parquet_path, (str, Path)):
+            paths = [parquet_path]
+        else:
+            paths = list(parquet_path)
+        logger.info(f"Loading {len(paths)} parquet file(s): {paths}")
+        self.table = pa.concat_tables([pq.read_table(p) for p in paths])
 
     def __len__(self):
         return len(self.table)

@@ -7,7 +7,6 @@ from typing import Annotated, List
 
 from foldmatch import __version__
 from foldmatch.cli.args_utils import arg_devices, set_log_level
-from foldmatch.search.embedding_computer import _get_rank
 from foldmatch.types.api_types import Accelerator, OutFormat, Strategy, LogLevel, ResEmbeddingFormat
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -168,14 +167,16 @@ def chain_embedding(
 ):
     from foldmatch.inference.sequence_inference import predict as sequence_predict
     from foldmatch.inference.chain_inference import predict as chain_predict
+    from foldmatch.search.embedding_computer import _is_distributed
     from foldmatch.types.api_types import SrcLocation, SrcTensorFrom
+    import torch.distributed as dist
     set_log_level(log_level)
 
     dev = arg_devices(devices)
 
     if compute_residue_embedding:
         from secrets import token_hex
-        res_emb_file_name = f"res_emb_{token_hex(16)}"
+        res_emb_file_name = f"res_emb_{os.environ.get('SLURM_JOB_ID', token_hex(16))}"
         sequence_predict(
             fasta_file=fasta_file,
             min_res_n=min_res_n,
@@ -189,7 +190,9 @@ def chain_embedding(
             out_name=res_emb_file_name,
             strategy=strategy
         )
-        src_stream = Path(res_embedding_folder) / Path(f"{res_emb_file_name}-{_get_rank()}.parquet")
+        if _is_distributed():
+            dist.barrier()
+        src_stream = tuple(sorted(Path(res_embedding_folder).glob(f"{res_emb_file_name}-*.parquet")))
     else:
         src_stream = scan_fasta_sequences(fasta_file, res_embedding_folder)
     chain_predict(
