@@ -18,7 +18,7 @@ class ResidueEmbeddingFromParquet(Dataset):
             paths = [parquet_path]
         else:
             paths = list(parquet_path)
-        logger.info(f"Loading {len(paths)} parquet file(s): {paths}")
+        logger.info(f"Loading {len(paths)} parquet file(s): {[str(p) for p in paths]}")
         self.table = pa.concat_tables([pq.read_table(p) for p in paths])
 
     def __len__(self):
