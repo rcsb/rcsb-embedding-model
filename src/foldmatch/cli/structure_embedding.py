@@ -198,6 +198,7 @@ def chain_embedding(
         src_stream=src_stream,
         src_location=SrcLocation.stream,
         src_from=SrcEsmFrom.structure,
+        structure_format=structure_format,
         min_res_n=min_res_n,
         batch_size=batch_size,
         num_workers=num_workers,
