@@ -34,6 +34,7 @@ def set_log_level(level: LogLevel):
     handler = logging.StreamHandler()
     handler.addFilter(RankFilter())
 
+    import lightning
     if level == 'info':
         warnings.filterwarnings("ignore")
         logging.getLogger("lightning.pytorch").setLevel(logging.ERROR)
