@@ -11,7 +11,7 @@ from foldmatch import __version__
 from foldmatch.cli.args_utils import arg_devices, set_log_level
 from foldmatch.search.embedding_computer import _is_distributed, _consolidate_id
 from foldmatch.types.api_types import StructureFormat, Accelerator, SrcLocation, SrcProteinFrom, \
-    SrcAssemblyFrom, SrcTensorFrom, OutFormat, Strategy, LogLevel, ResEmbeddingFormat
+    SrcAssemblyFrom, SrcTensorFrom, OutFormat, Strategy, LogLevel, ResEmbeddingFormat, SrcEsmFrom
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
@@ -174,16 +174,10 @@ def chain_embedding(
         min_res_n: Annotated[int, typer.Option(
             help='Consider only chains with more than <min_res_n> residues.'
         )] = 0,
-        batch_size_res: Annotated[int, typer.Option(
+        batch_size: Annotated[int, typer.Option(
             help='Number of samples processed together in one iteration.'
         )] = 1,
-        num_workers_res: Annotated[int, typer.Option(
-            help='Number of subprocesses to use for data loading.'
-        )] = 0,
-        batch_size_aggregator: Annotated[int, typer.Option(
-            help='Number of samples processed together in one iteration.'
-        )] = 1,
-        num_workers_aggregator: Annotated[int, typer.Option(
+        num_workers: Annotated[int, typer.Option(
             help='Number of subprocesses to use for data loading.'
         )] = 0,
         accelerator: Annotated[Accelerator, typer.Option(
@@ -198,62 +192,29 @@ def chain_embedding(
         strategy: Annotated[Strategy, typer.Option(
             help='Lightning strategy to control distribution of inference.'
         )] = 'auto',
-        compute_residue_embedding: Annotated[bool, typer.Option(
-            help='Compute residue level embeddings as a first step. When enabled, residue embeddings are stored in res-embedding-location before computing chain embeddings.'
-        )] = True,
-        res_embedding_format: Annotated[ResEmbeddingFormat, typer.Option(
-            help='Format of the precomputed residue embedding files read from res-embedding-location when compute-residue-embedding=False. Options: pt (torch tensor files) or csv.'
-        )] = ResEmbeddingFormat.pt,
         log_level: Annotated[LogLevel, typer.Option(
             help='Logging level.'
         )] = 'info'
 ):
-    from foldmatch.inference.chain_inference import predict
-    import torch.distributed as dist
+
     set_log_level(log_level)
 
     src_stream = scan_structure_folder(src_folder, structure_format, structure_file_extension)
-
-    if compute_residue_embedding:
-        from foldmatch.inference.esm_inference import predict as esm_predict
-        res_emb_file_name = f"res_emb_{_consolidate_id()}"
-        esm_predict(
-            src_stream=src_stream,
-            src_location=SrcLocation.stream,
-            src_from=SrcProteinFrom.structure,
-            structure_format=structure_format,
-            min_res_n=min_res_n,
-            batch_size=batch_size_res,
-            num_workers=num_workers_res,
-            num_nodes=num_nodes,
-            accelerator=accelerator,
-            devices=arg_devices(devices),
-            out_format=OutFormat.parquet,
-            out_path=res_embedding_folder,
-            out_name=res_emb_file_name,
-            strategy=strategy
-        )
-        if _is_distributed():
-            dist.barrier()
-        src_stream = tuple(sorted(Path(res_embedding_folder).glob(f"{res_emb_file_name}-*.parquet")))
-
+    from foldmatch.inference.full_inference import predict
     predict(
         src_stream=src_stream,
-        res_embedding_location=res_embedding_folder,
         src_location=SrcLocation.stream,
-        src_from=SrcTensorFrom.parquet if compute_residue_embedding else SrcTensorFrom.structure,
-        structure_format=structure_format,
+        src_from=SrcEsmFrom.structure,
         min_res_n=min_res_n,
-        batch_size=batch_size_aggregator,
-        num_workers=num_workers_aggregator,
+        batch_size=batch_size,
+        num_workers=num_workers,
         num_nodes=num_nodes,
         accelerator=accelerator,
         devices=arg_devices(devices),
-        out_path=output_path,
         out_format=output_format,
+        out_path=output_path,
         out_name=output_name,
-        strategy=strategy,
-        res_embedding_format=res_embedding_format
+        strategy=strategy
     )
 
 

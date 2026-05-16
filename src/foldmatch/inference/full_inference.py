@@ -7,10 +7,10 @@ from foldmatch.dataset.esm_prot_from_fasta import EsmProtFromFasta
 from foldmatch.dataset.esm_prot_from_structure import EsmProtFromStructure
 from foldmatch.modules.structure_module import StructureModule
 from foldmatch.types.api_types import StructureFormat, Accelerator, Devices, Strategy, OptionalPath, \
-    SrcEsmFrom, FileOrStreamTuple, SrcLocation
+    SrcEsmFrom, FileOrStreamTuple, SrcLocation, OutFormat
 from foldmatch.utils.data import identity_collate
 from foldmatch.utils.model import get_residue_model, get_aggregator_model
-from foldmatch.writer.batch_writer import ParquetBatchWriter
+from foldmatch.writer.batch_writer import ParquetBatchWriter, JsonStorage, TensorBatchWriter, CsvBatchWriter
 
 
 def predict(
@@ -25,6 +25,7 @@ def predict(
         accelerator: Accelerator = 'auto',
         devices: Devices = 'auto',
         strategy: Strategy = 'auto',
+        out_format: OutFormat = OutFormat.csv,
         out_name: str = 'inference',
         out_path: OptionalPath = None
 ):
@@ -61,7 +62,17 @@ def predict(
     )
     logger.info(f"rcsb-esm + rcsb-aggregator module ready")
 
-    inference_writer = ParquetBatchWriter(out_path, out_name) if out_path is not None and out_name is not None else None
+    if out_path is not None:
+        if out_format == OutFormat.parquet:
+            inference_writer = ParquetBatchWriter(out_path, out_name)
+        elif out_format == OutFormat.json:
+            inference_writer = JsonStorage(out_path, out_name)
+        elif out_format == OutFormat.pt:
+            inference_writer = TensorBatchWriter(out_path)
+        else:
+            inference_writer = CsvBatchWriter(out_path)
+    else:
+        inference_writer = None
     trainer = Trainer(
         callbacks=[inference_writer] if inference_writer is not None else None,
         num_nodes=num_nodes,

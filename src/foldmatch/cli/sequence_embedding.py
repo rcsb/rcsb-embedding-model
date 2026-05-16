@@ -158,6 +158,7 @@ def chain_embedding(
         num_nodes=num_nodes,
         accelerator=accelerator,
         devices=arg_devices(devices),
+        out_format=output_format,
         out_path=output_path,
         out_name=output_name,
         strategy=strategy

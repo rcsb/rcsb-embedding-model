@@ -1,4 +1,3 @@
-import gzip
 import torch
 import pandas as pd
 import pyarrow as pa
@@ -6,12 +5,11 @@ import pyarrow.parquet as pq
 
 from abc import abstractmethod
 from collections import deque
-from abc import ABC
 
 from lightning.pytorch.callbacks import BasePredictionWriter
 
 
-class CoreBatchWriter(BasePredictionWriter, ABC):
+class CoreBatchWriter(BasePredictionWriter):
     def __init__(
             self,
             output_path,
@@ -49,7 +47,7 @@ class CoreBatchWriter(BasePredictionWriter, ABC):
         pass
 
 
-class CsvBatchWriter(CoreBatchWriter, ABC):
+class CsvBatchWriter(CoreBatchWriter):
     def __init__(
             self,
             output_path,
@@ -66,7 +64,7 @@ class CsvBatchWriter(CoreBatchWriter, ABC):
         )
 
 
-class TensorBatchWriter(CoreBatchWriter, ABC):
+class TensorBatchWriter(CoreBatchWriter):
     def __init__(
             self,
             output_path,
@@ -84,7 +82,7 @@ class TensorBatchWriter(CoreBatchWriter, ABC):
         )
 
 
-class DataFrameStorage(CoreBatchWriter, ABC):
+class DataFrameStorage(CoreBatchWriter):
     def __init__(
             self,
             output_path,
@@ -117,7 +115,7 @@ class DataFrameStorage(CoreBatchWriter, ABC):
         )
 
 
-class JsonStorage(DataFrameStorage, ABC):
+class JsonStorage(DataFrameStorage):
     def __init__(
             self,
             output_path,
