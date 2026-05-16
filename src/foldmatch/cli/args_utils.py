@@ -37,7 +37,9 @@ def set_log_level(level: LogLevel):
     import lightning
     if level == 'info':
         warnings.filterwarnings("ignore")
-        logging.getLogger("lightning.pytorch").setLevel(logging.ERROR)
+        # logging.getLogger("lightning.pytorch").setLevel(logging.ERROR)
+        logging.getLogger("lightning.pytorch.core").addHandler(handler)
+        logging.getLogger("transformers").addHandler(handler)
         handler.setFormatter(logging.Formatter('[proc-%(rank)s] %(message)s'))
         logging.basicConfig(level=logging.INFO, handlers=[handler], force=True)
     elif level == 'warning':
