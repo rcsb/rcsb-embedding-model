@@ -152,13 +152,6 @@ def chain_embedding(
             resolve_path=True,
             help='Output path to store predictions. Embeddings are stored as csv or tensor files.'
         )],
-        res_embedding_folder: Annotated[str, typer.Option(
-            exists=True,
-            file_okay=False,
-            dir_okay=True,
-            resolve_path=True,
-            help='Path where residue level embeddings are located.'
-        )],
         output_format: Annotated[OutFormat, typer.Option(
             help='Format of the output. Options: csv, pt, parquet, json.'
         )] = OutFormat.csv,
