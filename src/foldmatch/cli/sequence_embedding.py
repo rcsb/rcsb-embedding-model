@@ -6,7 +6,7 @@ from typing import Annotated, List
 
 from foldmatch import __version__
 from foldmatch.cli.args_utils import arg_devices, set_log_level
-from foldmatch.types.api_types import Accelerator, OutFormat, Strategy, LogLevel, ResEmbeddingFormat, SrcEsmFrom
+from foldmatch.types.api_types import Accelerator, OutFormat, Strategy, LogLevel, SrcLocation, SrcEsmFrom
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
@@ -145,10 +145,7 @@ def chain_embedding(
             help='Logging level.'
         )] = 'info'
 ):
-    from foldmatch.types.api_types import SrcLocation
     set_log_level(log_level)
-
-    dev = arg_devices(devices)
 
     from foldmatch.inference.full_inference import predict
     predict(
@@ -160,7 +157,7 @@ def chain_embedding(
         num_workers=num_workers,
         num_nodes=num_nodes,
         accelerator=accelerator,
-        devices=dev,
+        devices=arg_devices(devices),
         out_path=output_path,
         out_name=output_name,
         strategy=strategy

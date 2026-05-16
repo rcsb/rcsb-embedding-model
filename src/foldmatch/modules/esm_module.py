@@ -14,7 +14,7 @@ class EsmModule(LightningModule):
         super().__init__()
         self.esm3 = model
 
-    def on_train_start(self):
+    def on_predict_start(self):
         logger.info(f"ESM device: {self.device}")
 
     def predict_step(self, prot_batch, batch_idx):

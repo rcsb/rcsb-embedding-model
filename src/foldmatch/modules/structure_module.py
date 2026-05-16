@@ -18,7 +18,7 @@ class StructureModule(LightningModule):
         self.esm3 = res_model
         self.aggregator =  aggregator_model
 
-    def on_train_start(self):
+    def on_predict_start(self):
         logger.info(f"ESM/Aggregator device: {self.device}")
 
     def predict_step(self, prot_batch, batch_idx):
