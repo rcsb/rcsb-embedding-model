@@ -1,7 +1,5 @@
 import os
 import sys
-import logging
-from pathlib import Path
 
 import typer
 
@@ -9,9 +7,8 @@ from typing import Annotated, List, Optional
 
 from foldmatch import __version__
 from foldmatch.cli.args_utils import arg_devices, set_log_level
-from foldmatch.search.embedding_computer import _is_distributed, _consolidate_id
 from foldmatch.types.api_types import StructureFormat, Accelerator, SrcLocation, SrcProteinFrom, \
-    SrcAssemblyFrom, SrcTensorFrom, OutFormat, Strategy, LogLevel, ResEmbeddingFormat, SrcEsmFrom
+    SrcAssemblyFrom, OutFormat, Strategy, LogLevel, ResEmbeddingFormat, SrcEsmFrom
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
