@@ -7,7 +7,7 @@ from foldmatch.utils.data import collate_seq_embeddings
 
 logger = logging.getLogger(__name__)
 
-class StructureModule(LightningModule):
+class ChainCompleteModule(LightningModule):
 
     def __init__(
             self,
@@ -19,7 +19,7 @@ class StructureModule(LightningModule):
         self.aggregator =  aggregator_model
 
     def on_predict_start(self):
-        logger.info(f"ESM/Aggregator device: {self.device}")
+        logger.info(f"ESM + Aggregator device: {self.device}")
 
     def predict_step(self, prot_batch, batch_idx):
         prot_embeddings = []

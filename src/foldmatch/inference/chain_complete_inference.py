@@ -5,7 +5,7 @@ from lightning import Trainer
 
 from foldmatch.dataset.esm_prot_from_fasta import EsmProtFromFasta
 from foldmatch.dataset.esm_prot_from_structure import EsmProtFromStructure
-from foldmatch.modules.structure_module import StructureModule
+from foldmatch.modules.chain_complete_module import ChainCompleteModule
 from foldmatch.types.api_types import StructureFormat, Accelerator, Devices, Strategy, OptionalPath, \
     SrcEsmFrom, FileOrStreamTuple, SrcLocation, OutFormat
 from foldmatch.utils.data import identity_collate
@@ -56,7 +56,7 @@ def predict(
     aggregator_model = get_aggregator_model(
         device=torch.device("cpu")
     )
-    module = StructureModule(
+    module = ChainCompleteModule(
         res_model=res_model,
         aggregator_model=aggregator_model
     )

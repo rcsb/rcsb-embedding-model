@@ -147,7 +147,7 @@ def chain_embedding(
 ):
     set_log_level(log_level)
 
-    from foldmatch.inference.full_inference import predict
+    from foldmatch.inference.chain_complete_inference import predict
     predict(
         src_stream=fasta_file,
         src_location=SrcLocation.file,

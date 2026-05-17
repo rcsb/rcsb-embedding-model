@@ -10,12 +10,12 @@ from torch.utils.data import IterableDataset, get_worker_info
 from foldmatch.dataset.utils import get_structure_location
 from foldmatch.types.api_types import StructureLocation, StructureFormat, SrcLocation
 from foldmatch.utils.data import stringio_from_url
-from foldmatch.utils.structure_parser import get_protein_chains, rename_atom_attr, filter_residues
+from foldmatch.utils.structure_parser import get_protein_chains, rename_atom_attr, filter_residues, get_assemblies
 from foldmatch.utils.structure_provider import StructureProvider
 
 logger = logging.getLogger(__name__)
 
-class EsmProtFromStructure(IterableDataset):
+class EsmAssemblyFromStructure(IterableDataset):
 
     STREAM_NAME_ATTR = 'stream_name'
     STREAM_ATTR = 'stream'
@@ -43,7 +43,7 @@ class EsmProtFromStructure(IterableDataset):
         self.data = pd.DataFrame(
             src_stream,
             dtype=str,
-            columns=EsmProtFromStructure.COLUMNS
+            columns=EsmAssemblyFromStructure.COLUMNS
         ) if self.src_location == SrcLocation.stream else pd.read_csv(
             src_stream,
             header=None,
@@ -88,37 +88,39 @@ class EsmProtFromStructure(IterableDataset):
 
         # Iterate through structures and yield chains
         for idx, row in iter_data.iterrows():
-            src_name = row[EsmProtFromStructure.STREAM_NAME_ATTR]
-            src_structure = row[EsmProtFromStructure.STREAM_ATTR]
-            item_name = row[EsmProtFromStructure.ITEM_NAME_ATTR]
+            src_name = row[EsmAssemblyFromStructure.STREAM_NAME_ATTR]
+            src_structure = row[EsmAssemblyFromStructure.STREAM_ATTR]
+            item_name = row[EsmAssemblyFromStructure.ITEM_NAME_ATTR]
 
-            # Load structure once
-            structure = self.__structure_provider.get_structure(
-                src_name=src_name,
-                src_structure=stringio_from_url(src_structure) if get_structure_location(src_structure) == StructureLocation.remote else src_structure,
-                structure_format=self.structure_format
-            )
+            structure = stringio_from_url(src_structure) if get_structure_location(src_structure) == StructureLocation.remote else src_structure
+            for assembly_id in get_assemblies(structure=structure, structure_format=self.structure_format):
+                structure = self.__structure_provider.get_structure(
+                    src_name=src_name,
+                    src_structure=structure,
+                    structure_format=self.structure_format,
+                    assembly_id=assembly_id
+                )
 
-            # Get all protein chains from structure
-            chain_ids = get_protein_chains(structure, self.min_res_n)
+                # Get all protein chains from structure
+                chain_ids = get_protein_chains(structure, self.min_res_n)
 
-            # Process each chain
-            for chain_id in chain_ids:
-                chain_structure = structure[structure.chain_id == chain_id]
+                protein_chain_list = []
+                # Process each chain
+                for chain_id in chain_ids:
+                    chain_structure = structure[structure.chain_id == chain_id]
+                    for atom_ch in chain_iter(chain_structure):
+                        if len(atom_ch) == 0:
+                            raise IOError(f"No atoms were found in structure chain {src_name}.{chain_id}")
+                        try:
+                            atom_ch = filter_residues(atom_ch)
+                            atom_ch = rename_atom_attr(atom_ch)
+                            protein_chain = ProteinChain.from_atomarray(atom_ch)
+                            protein_chain = ESMProtein.from_protein_chain(protein_chain)
+                        except Exception as e:
+                            raise IOError(f"Error while creating ESMProtein from structure chain {src_name}.{chain_id}: {e}")
 
-                for atom_ch in chain_iter(chain_structure):
-                    if len(atom_ch) == 0:
-                        raise IOError(f"No atoms were found in structure chain {src_name}.{chain_id}")
-                    try:
-                        atom_ch = filter_residues(atom_ch)
-                        atom_ch = rename_atom_attr(atom_ch)
-                        protein_chain = ProteinChain.from_atomarray(atom_ch)
-                        protein_chain = ESMProtein.from_protein_chain(protein_chain)
-                    except Exception as e:
-                        raise IOError(f"Error while creating ESMProtein from structure chain {src_name}.{chain_id}: {e}")
-
-                    if len(protein_chain) == 0:
-                        raise IOError(f"No atoms were found in structure chain {src_name}.{chain_id}")
-
-                    yield protein_chain, f"{item_name}.{chain_id}"
-                    break  # Only process first atom_ch (same as original logic)
+                        if len(protein_chain) == 0:
+                            raise IOError(f"No atoms were found in structure chain {src_name}.{chain_id}")
+                        protein_chain_list.append(protein_chain)
+                        break  # Only process first atom_ch (same as original logic)
+                yield protein_chain_list, f"{item_name}-{assembly_id}"

@@ -4,7 +4,7 @@ import sys
 import pandas as pd
 from torch.utils.data import Dataset, DataLoader
 
-from foldmatch.dataset.untils import get_structure_location
+from foldmatch.dataset.utils import get_structure_location
 from foldmatch.types.api_types import StructureLocation, StructureFormat, SrcLocation, ResEmbeddingFormat
 from foldmatch.utils.data import stringio_from_url, concatenate_tensors
 from foldmatch.utils.structure_parser import get_protein_chains

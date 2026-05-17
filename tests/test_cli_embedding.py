@@ -56,93 +56,55 @@ class TestCliEmbedding(unittest.TestCase):
         self.assertTrue(os.path.exists(f"{self.__test_path}/resources/tmp/2uzi.B.csv"))
         self.assertTrue(os.path.exists(f"{self.__test_path}/resources/tmp/2uzi.C.csv"))
 
-    def test_chain_embedding_with_precomputed_residues(self):
-        _remove_files_in_directory(f"{self.__test_path}/resources/tmp")
-        from foldmatch.cli.structure_embedding import chain_embedding
-        chain_embedding(
-            src_folder=f"{self.__test_path}/resources/pdb",
-            output_path=f"{self.__test_path}/resources/tmp",
-            res_embedding_folder=f"{self.__test_path}/resources/embeddings",
-            output_format=OutFormat.parquet,
-            output_name="chain-inference",
-            structure_format=StructureFormat.mmcif,
-            min_res_n=0,
-            batch_size_res=1,
-            num_workers_res=0,
-            batch_size_aggregator=1,
-            num_workers_aggregator=0,
-            num_nodes=1,
-            accelerator=Accelerator.cpu,
-            compute_residue_embedding=False
-        )
-        self.assertTrue(os.path.exists(f"{self.__test_path}/resources/tmp/chain-inference-0.parquet"))
-
     def test_chain_embedding_end_to_end(self):
         _remove_files_in_directory(f"{self.__test_path}/resources/tmp")
         from foldmatch.cli.structure_embedding import chain_embedding
         chain_embedding(
             src_folder=f"{self.__test_path}/resources/pdb",
             output_path=f"{self.__test_path}/resources/tmp",
-            res_embedding_folder=f"{self.__test_path}/resources/tmp",
             output_format=OutFormat.parquet,
             output_name="chain-inference",
             structure_format=StructureFormat.mmcif,
-            batch_size_res=1,
-            num_workers_res=0,
-            batch_size_aggregator=1,
-            num_workers_aggregator=0,
+            batch_size=1,
+            num_workers=0,
             num_nodes=1,
-            accelerator=Accelerator.cpu,
-            compute_residue_embedding=True
+            accelerator=Accelerator.cpu
         )
-        # Residue tensors should have been created
-        self.assertTrue(os.path.exists(f"{self.__test_path}/resources/tmp/1acb.A.pt"))
-        self.assertTrue(os.path.exists(f"{self.__test_path}/resources/tmp/2uzi.A.pt"))
+
         # Chain embeddings should be grouped
         self.assertTrue(os.path.exists(f"{self.__test_path}/resources/tmp/chain-inference-0.parquet"))
 
-    def test_assembly_embedding_with_precomputed_residues(self):
+    def test_fasta_embedding_end_to_end(self):
         _remove_files_in_directory(f"{self.__test_path}/resources/tmp")
-        from foldmatch.cli.structure_embedding import assembly_embedding
-        assembly_embedding(
-            src_folder=f"{self.__test_path}/resources/pdb",
-            res_embedding_folder=f"{self.__test_path}/resources/embeddings",
+        from foldmatch.cli.sequence_embedding import chain_embedding
+        chain_embedding(
+            fasta_file=f"{self.__test_path}/resources/fasta/test_sequences.fasta",
             output_path=f"{self.__test_path}/resources/tmp",
             output_format=OutFormat.parquet,
-            output_name="assembly-inference",
-            structure_format=StructureFormat.mmcif,
-            batch_size_res=1,
-            num_workers_res=0,
-            batch_size_aggregator=1,
-            num_workers_aggregator=0,
+            output_name="fasta-inference",
+            batch_size=1,
+            num_workers=0,
             num_nodes=1,
-            accelerator=Accelerator.cpu,
-            compute_residue_embedding=False
+            accelerator=Accelerator.cpu
         )
-        self.assertTrue(os.path.exists(f"{self.__test_path}/resources/tmp/assembly-inference-0.parquet"))
+
+        # Chain embeddings should be grouped
+        self.assertTrue(os.path.exists(f"{self.__test_path}/resources/tmp/fasta-inference-0.parquet"))
 
     def test_assembly_embedding_end_to_end(self):
         _remove_files_in_directory(f"{self.__test_path}/resources/tmp")
         from foldmatch.cli.structure_embedding import assembly_embedding
         assembly_embedding(
             src_folder=f"{self.__test_path}/resources/pdb",
-            res_embedding_folder=f"{self.__test_path}/resources/tmp",
             output_path=f"{self.__test_path}/resources/tmp",
             output_format=OutFormat.parquet,
             output_name="assembly-inference",
             structure_format=StructureFormat.mmcif,
-            batch_size_res=1,
-            num_workers_res=0,
-            batch_size_aggregator=1,
-            num_workers_aggregator=0,
+            batch_size=1,
+            num_workers=0,
             num_nodes=1,
-            accelerator=Accelerator.cpu,
-            compute_residue_embedding=True
+            accelerator=Accelerator.cpu
         )
-        # Residue tensors should have been created
-        self.assertTrue(os.path.exists(f"{self.__test_path}/resources/tmp/1acb.A.pt"))
-        self.assertTrue(os.path.exists(f"{self.__test_path}/resources/tmp/2uzi.A.pt"))
-        # Assembly embeddings should be grouped
         self.assertTrue(os.path.exists(f"{self.__test_path}/resources/tmp/assembly-inference-0.parquet"))
 
 

@@ -4,7 +4,7 @@ import pandas as pd
 from tqdm import tqdm
 
 from foldmatch.dataset.residue_assembly_embedding_from_tensor_file import ResidueAssemblyEmbeddingFromTensorFile
-from foldmatch.dataset.untils import get_structure_location
+from foldmatch.dataset.utils import get_structure_location
 from foldmatch.types.api_types import SrcLocation, StructureLocation, StructureFormat, ResEmbeddingFormat
 from foldmatch.utils.data import stringio_from_url
 from foldmatch.utils.structure_parser import get_assemblies

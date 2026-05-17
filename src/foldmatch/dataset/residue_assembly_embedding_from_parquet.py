@@ -7,7 +7,7 @@ import pyarrow.parquet as pq
 
 from torch.utils.data import Dataset
 
-from foldmatch.dataset.untils import get_structure_location
+from foldmatch.dataset.utils import get_structure_location
 from foldmatch.types.api_types import StructureLocation, StructureFormat, SrcLocation
 from foldmatch.utils.data import stringio_from_url
 from foldmatch.utils.structure_parser import get_protein_chains
