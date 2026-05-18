@@ -82,16 +82,10 @@ def build_database_from_structures(
         strategy: Annotated[Strategy, typer.Option(
             help='Lightning strategy to control distribution of inference.'
         )] = 'auto',
-        batch_size_res: Annotated[int, typer.Option(
+        batch_size: Annotated[int, typer.Option(
             help='Number of samples processed together in one iteration.'
         )] = 1,
-        num_workers_res: Annotated[int, typer.Option(
-            help='Number of subprocesses to use for data loading.'
-        )] = 0,
-        batch_size_aggregator: Annotated[int, typer.Option(
-            help='Number of samples processed together in one iteration.'
-        )] = 1,
-        num_workers_aggregator: Annotated[int, typer.Option(
+        num_workers: Annotated[int, typer.Option(
             help='Number of subprocesses to use for data loading.'
         )] = 0,
         log_level: Annotated[LogLevel, typer.Option(
@@ -132,10 +126,8 @@ def build_database_from_structures(
         granularity=granularity,
         file_extension=file_extension,
         use_gpu_index=use_gpu_index,
-        batch_size_res=batch_size_res,
-        num_workers_res=num_workers_res,
-        batch_size_chain=batch_size_aggregator,
-        num_workers_chain=num_workers_aggregator,
+        batch_size=batch_size,
+        num_workers=num_workers,
         num_nodes=num_nodes,
         devices=arg_devices(devices),
         strategy=strategy,
@@ -187,16 +179,10 @@ def update_database_from_structures(
         strategy: Annotated[Strategy, typer.Option(
             help='Lightning strategy to control distribution of inference.'
         )] = 'auto',
-        batch_size_res: Annotated[int, typer.Option(
+        batch_size: Annotated[int, typer.Option(
             help='Number of samples processed together in one iteration.'
         )] = 1,
-        num_workers_res: Annotated[int, typer.Option(
-            help='Number of subprocesses to use for data loading.'
-        )] = 0,
-        batch_size_aggregator: Annotated[int, typer.Option(
-            help='Number of samples processed together in one iteration.'
-        )] = 1,
-        num_workers_aggregator: Annotated[int, typer.Option(
+        num_workers: Annotated[int, typer.Option(
             help='Number of subprocesses to use for data loading.'
         )] = 0,
         log_level: Annotated[LogLevel, typer.Option(
@@ -235,10 +221,8 @@ def update_database_from_structures(
         granularity=granularity,
         file_extension=file_extension,
         use_gpu_index=use_gpu_index,
-        batch_size_res=batch_size_res,
-        num_workers_res=num_workers_res,
-        batch_size_chain=batch_size_aggregator,
-        num_workers_chain=num_workers_aggregator,
+        batch_size=batch_size,
+        num_workers=num_workers,
         num_nodes=num_nodes,
         devices=arg_devices(devices),
         strategy=strategy,
@@ -358,17 +342,11 @@ def build_database_from_fasta(
         strategy: Annotated[Strategy, typer.Option(
             help='Lightning strategy to control distribution of inference.'
         )] = 'auto',
-        batch_size_res: Annotated[int, typer.Option(
+        batch_size: Annotated[int, typer.Option(
             help='Number of samples processed together for residue embedding inference.'
         )] = 1,
-        num_workers_res: Annotated[int, typer.Option(
+        num_workers: Annotated[int, typer.Option(
             help='Number of subprocesses to use for data loading.'
-        )] = 0,
-        batch_size_aggregator: Annotated[int, typer.Option(
-            help='Number of samples processed together for chain embedding inference.'
-        )] = 1,
-        num_workers_aggregator: Annotated[int, typer.Option(
-            help='Number of subprocesses to use for chain embedding data loading.'
         )] = 0,
         log_level: Annotated[LogLevel, typer.Option(
             help='Logging level.'
@@ -388,10 +366,8 @@ def build_database_from_fasta(
         output_db=output_db,
         min_res_n=min_res_n,
         use_gpu_index=use_gpu_index,
-        batch_size_res=batch_size_res,
-        num_workers_res=num_workers_res,
-        batch_size_chain=batch_size_aggregator,
-        num_workers_chain=num_workers_aggregator,
+        batch_size=batch_size,
+        num_workers=num_workers,
         num_nodes=num_nodes,
         devices=arg_devices(devices),
         strategy=strategy,
@@ -434,17 +410,11 @@ def update_database_from_fasta(
         strategy: Annotated[Strategy, typer.Option(
             help='Lightning strategy to control distribution of inference.'
         )] = 'auto',
-        batch_size_res: Annotated[int, typer.Option(
+        batch_size: Annotated[int, typer.Option(
             help='Number of samples processed together for residue embedding inference.'
         )] = 1,
-        num_workers_res: Annotated[int, typer.Option(
+        num_workers: Annotated[int, typer.Option(
             help='Number of subprocesses to use for data loading.'
-        )] = 0,
-        batch_size_aggregator: Annotated[int, typer.Option(
-            help='Number of samples processed together for chain embedding inference.'
-        )] = 1,
-        num_workers_aggregator: Annotated[int, typer.Option(
-            help='Number of subprocesses to use for chain embedding data loading.'
         )] = 0,
         log_level: Annotated[LogLevel, typer.Option(
             help='Logging level.'
@@ -464,10 +434,8 @@ def update_database_from_fasta(
         output_db=output_db,
         min_res_n=min_res_n,
         use_gpu_index=use_gpu_index,
-        batch_size_res=batch_size_res,
-        num_workers_res=num_workers_res,
-        batch_size_chain=batch_size_aggregator,
-        num_workers_chain=num_workers_aggregator,
+        batch_size=batch_size,
+        num_workers=num_workers,
         num_nodes=num_nodes,
         devices=arg_devices(devices),
         strategy=strategy,
@@ -681,17 +649,11 @@ def query_database_from_fasta(
         strategy: Annotated[Strategy, typer.Option(
             help='Lightning strategy to control distribution of inference.'
         )] = 'auto',
-        batch_size_res: Annotated[int, typer.Option(
+        batch_size: Annotated[int, typer.Option(
             help='Number of samples processed together for residue embedding inference.'
         )] = 1,
-        num_workers_res: Annotated[int, typer.Option(
+        num_workers: Annotated[int, typer.Option(
             help='Number of subprocesses to use for data loading.'
-        )] = 0,
-        batch_size_aggregator: Annotated[int, typer.Option(
-            help='Number of samples processed together for chain embedding inference.'
-        )] = 1,
-        num_workers_aggregator: Annotated[int, typer.Option(
-            help='Number of subprocesses to use for chain embedding data loading.'
         )] = 0,
         log_level: Annotated[LogLevel, typer.Option(
             help='Logging level.'
@@ -708,10 +670,8 @@ def query_database_from_fasta(
     chain_ids, embeddings = computer.compute_from_fasta(
         fasta_file=fasta_file,
         min_res_n=min_res_n,
-        batch_size_res=batch_size_res,
-        num_workers_res=num_workers_res,
-        batch_size_chain=batch_size_aggregator,
-        num_workers_chain=num_workers_aggregator,
+        batch_size=batch_size,
+        num_workers=num_workers,
         num_nodes=num_nodes,
         devices=arg_devices(devices),
         strategy=strategy,

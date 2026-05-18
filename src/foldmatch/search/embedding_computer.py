@@ -2,6 +2,7 @@ import logging
 from pathlib import Path
 from typing import Optional
 
+import pandas as pd
 import torch
 import torch.distributed as dist
 import os
@@ -31,7 +32,7 @@ class EmbeddingComputer:
 
     def __init__(self, tmp_dir: str, accelerator: Accelerator = 'auto'):
         self.tmp_dir = tmp_dir
-        self.out_name = _consolidate_id()
+        self.out_name = f"emb_{_consolidate_id()}"
         self.accelerator = accelerator
 
     def compute_from_structures(
@@ -64,7 +65,7 @@ class EmbeddingComputer:
 
 
         if granularity == 'chain':
-            logging.info(f"Listing residue embedding files from: {self.tmp_res_dir}")
+            logging.info(f"Listing residue embedding files from: {self.tmp_dir}")
             chain_predict(
                 src_stream=[
                     (str_file.stem, str_file, str_file.stem)
@@ -80,7 +81,7 @@ class EmbeddingComputer:
                 num_nodes=num_nodes,
                 devices=devices,
                 strategy=strategy,
-                out_format=OutFormat.pt,
+                out_format=OutFormat.parquet,
             )
         else:
             assembly_predict(
@@ -106,8 +107,8 @@ class EmbeddingComputer:
             self,
             fasta_file: str,
             min_res_n: int = 0,
-            batch_size_res: int = 1,
-            num_workers_res: int = 0,
+            batch_size: int = 1,
+            num_workers: int = 0,
             num_nodes: int = 1,
             devices='auto',
             strategy='auto',
@@ -118,8 +119,8 @@ class EmbeddingComputer:
             src_stream=fasta_file,
             src_from=SrcEsmFrom.fasta,
             min_res_n=min_res_n,
-            batch_size=batch_size_res,
-            num_workers=num_workers_res,
+            batch_size=batch_size,
+            num_workers=num_workers,
             num_nodes=num_nodes,
             accelerator=self.accelerator,
             devices=devices,
@@ -134,13 +135,18 @@ class EmbeddingComputer:
         return self._load_chain_tensors()
 
     def _load_chain_tensors(self) -> tuple[list, list]:
-        """Load chain tensors from tmp_ch_dir. Non-rank-0 ranks return ([], [])."""
+        """Load chain embeddings from the per-rank Parquet shards. Non-rank-0 ranks return ([], [])."""
         if not _is_rank_zero():
             return [], []
-        logging.info(f"Loading embedding tensors from: {self.tmp_ch_dir}")
-        tensor_files = [f for f in self.tmp_ch_dir.iterdir() if f.is_file()]
-        names = [f.stem for f in tensor_files]
-        embeddings = [torch.load(f) for f in tensor_files]
+        parquet_files = sorted(Path(self.tmp_dir).glob(f"{self.out_name}-*.parquet"))
+        logging.info(f"Loading embeddings from {len(parquet_files)} Parquet shard(s) in: {self.tmp_dir}")
+        names: list = []
+        embeddings: list = []
+        for parquet_file in parquet_files:
+            logging.info(f"    Parquet file {parquet_file}")
+            df = pd.read_parquet(parquet_file)
+            names.extend(df['id'].tolist())
+            embeddings.extend(torch.tensor(emb, dtype=torch.float32) for emb in df['embedding'])
         return names, embeddings
 
 
