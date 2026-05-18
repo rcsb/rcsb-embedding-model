@@ -28,12 +28,6 @@ build_db_app = typer.Typer(
 )
 app.add_typer(build_db_app, name="build")
 
-update_db_app = typer.Typer(
-    add_completion=False,
-    help="Update an existing embedding database."
-)
-app.add_typer(update_db_app, name="update")
-
 query_db_app = typer.Typer(
     add_completion=False,
     help="Query an existing embedding database."
@@ -138,100 +132,6 @@ def build_database_from_structures(
         logging.info(f"   fm-search query structure --db-path {output_db} --query-structure <path_to_structure>")
 
 
-@update_db_app.command(
-    name="structures",
-    help="Update an existing embedding database with new or replacement structure files."
-)
-def update_database_from_structures(
-        structure_folder: Annotated[str, typer.Option(
-            help='Directory containing new or updated structure files.'
-        )],
-        output_db: Annotated[str, typer.Option(
-            help='Path to the existing FAISS database to update.'
-        )],
-        tmp_embedding_folder: Annotated[str, typer.Option(
-            help='Directory for intermediate embeddings.'
-        )],
-        structure_format: Annotated[StructureFormat, typer.Option(
-            help='Structure file format (mmcif, binarycif, or pdb).'
-        )] = StructureFormat.mmcif,
-        granularity: Annotated[Granularity, typer.Option(
-            help='Calculate embeddings for "chain" or "assembly" level.'
-        )] = 'chain',
-        file_extension: Annotated[Optional[str], typer.Option(
-            help='File extension to filter (e.g., .cif, .bcif, or .pdb). If not specified, uses default for format.'
-        )] = None,
-        min_res: Annotated[int, typer.Option(
-            help='Minimum residue length for chains.'
-        )] = 10,
-        use_gpu_index: Annotated[bool, typer.Option(
-            help='Use GPU for FAISS index (requires faiss-gpu).'
-        )] = False,
-        accelerator: Annotated[Accelerator, typer.Option(
-            help='Device used for inference.'
-        )] = "auto",
-        num_nodes: Annotated[int, typer.Option(
-            help='Number of nodes to use for inference.'
-        )] = 1,
-        devices: Annotated[List[str], typer.Option(
-            help='The devices to use. Can be set to a positive number or "auto". Repeat this argument to indicate multiple indices of devices. "auto" for automatic selection based on the chosen accelerator.'
-        )] = tuple(['auto']),
-        strategy: Annotated[Strategy, typer.Option(
-            help='Lightning strategy to control distribution of inference.'
-        )] = 'auto',
-        batch_size: Annotated[int, typer.Option(
-            help='Number of samples processed together in one iteration.'
-        )] = 1,
-        num_workers: Annotated[int, typer.Option(
-            help='Number of subprocesses to use for data loading.'
-        )] = 0,
-        log_level: Annotated[LogLevel, typer.Option(
-            help='Number of nodes to use for inference of embeddings.'
-        )] = 'info'
-):
-    """Update an existing embedding database with new or replacement structure files."""
-
-    set_log_level(log_level)
-
-    # Parse output_db into directory and prefix
-    output_db_path = Path(output_db)
-    db_dir = output_db_path.parent
-    index_name = output_db_path.name
-
-    if not index_name:
-        index_name = "embeddings"
-    if db_dir == Path('.'):
-        db_dir = Path.cwd()
-    output_db = str(db_dir / index_name)
-
-    logging.info(f"Using device for embeddings: {str(accelerator.value) if hasattr(accelerator, 'value') else accelerator}")
-    if use_gpu_index:
-        logging.info("GPU acceleration for FAISS index: enabled")
-
-    builder = EmbeddingDatabaseBuilder(
-        tmp_dir=tmp_embedding_folder,
-        accelerator=accelerator,
-    )
-
-    builder.update_from_structures(
-        structure_dir=structure_folder,
-        output_db=output_db,
-        structure_format=structure_format,
-        min_res=min_res,
-        granularity=granularity,
-        file_extension=file_extension,
-        use_gpu_index=use_gpu_index,
-        batch_size=batch_size,
-        num_workers=num_workers,
-        num_nodes=num_nodes,
-        devices=arg_devices(devices),
-        strategy=strategy,
-    )
-
-    if _is_rank_zero():
-        logging.info(f"Database updated successfully: {output_db}")
-
-
 @build_db_app.command(
     name="embeddings",
     help="Build an embedding database from a directory of pre-computed embedding files (.csv or .pt)."
@@ -267,47 +167,6 @@ def build_database_from_embeddings(
 
     logging.info(f"Database created: {output_db}")
     logging.info(f"Total embeddings: {len(chain_ids)}")
-
-
-@update_db_app.command(
-    name="embeddings",
-    help="Update an existing embedding database with new or replacement embeddings from pre-computed files (.csv or .pt)."
-)
-def update_database_from_embeddings(
-        embedding_folder: Annotated[str, typer.Option(
-            help='Directory containing pre-computed embedding files (.csv or .pt).'
-        )],
-        output_db: Annotated[str, typer.Option(
-            help='Path to the existing FAISS database to update.'
-        )],
-        file_extension: Annotated[Optional[str], typer.Option(
-            help='File extension to filter (e.g., .csv or .pt). If not specified, collects both.'
-        )] = None,
-        use_gpu_index: Annotated[bool, typer.Option(
-            help='Use GPU for FAISS index (requires faiss-gpu).'
-        )] = False,
-        log_level: Annotated[LogLevel, typer.Option(
-            help='Logging level.'
-        )] = 'info'
-):
-    """Update an existing embedding database with new or replacement embeddings from pre-computed files."""
-
-    set_log_level(log_level)
-
-    db_dir, index_name, output_db = _parse_output_db(output_db)
-    chain_ids, embeddings = _load_embeddings_from_dir(embedding_folder, file_extension)
-
-    logging.info(f"Loaded {len(embeddings)} embeddings from {embedding_folder}")
-
-    db = FaissEmbeddingDatabase(db_path=str(db_dir), index_name=index_name)
-    db.load_database()
-
-    logging.info(f"Existing database contains {len(db.chain_ids)} embeddings")
-
-    db.update_embeddings(chain_ids=chain_ids, embeddings=embeddings, use_gpu=use_gpu_index)
-
-    logging.info(f"Database updated: {output_db}")
-    logging.info(f"Total embeddings: {len(db.chain_ids)}")
 
 
 @build_db_app.command(
@@ -376,70 +235,6 @@ def build_database_from_fasta(
     if _is_rank_zero():
         logging.info(f"You can now search this database using:")
         logging.info(f"   fm-search query sequences --db-path {output_db} --fasta-file <path_to_fasta_file>")
-
-
-@update_db_app.command(
-    name="sequences",
-    help="Update an existing embedding database with new or replacement embeddings from protein sequences in a FASTA file."
-)
-def update_database_from_fasta(
-        fasta_file: Annotated[str, typer.Option(
-            help='FASTA file containing protein sequences.'
-        )],
-        output_db: Annotated[str, typer.Option(
-            help='Path to the existing FAISS database to update.'
-        )],
-        tmp_embedding_folder: Annotated[str, typer.Option(
-            help='Directory for intermediate embeddings.'
-        )],
-        min_res_n: Annotated[int, typer.Option(
-            help='Consider only sequences with at least <min_res_n> residues.'
-        )] = 0,
-        use_gpu_index: Annotated[bool, typer.Option(
-            help='Use GPU for FAISS index (requires faiss-gpu).'
-        )] = False,
-        accelerator: Annotated[Accelerator, typer.Option(
-            help='Device used for inference.'
-        )] = "auto",
-        num_nodes: Annotated[int, typer.Option(
-            help='Number of nodes to use for inference.'
-        )] = 1,
-        devices: Annotated[List[str], typer.Option(
-            help='The devices to use. Can be set to a positive number or "auto".'
-        )] = tuple(['auto']),
-        strategy: Annotated[Strategy, typer.Option(
-            help='Lightning strategy to control distribution of inference.'
-        )] = 'auto',
-        batch_size: Annotated[int, typer.Option(
-            help='Number of samples processed together for residue embedding inference.'
-        )] = 1,
-        num_workers: Annotated[int, typer.Option(
-            help='Number of subprocesses to use for data loading.'
-        )] = 0,
-        log_level: Annotated[LogLevel, typer.Option(
-            help='Logging level.'
-        )] = 'info'
-):
-    """Update an existing embedding database with new or replacement embeddings from FASTA sequences."""
-
-    set_log_level(log_level)
-
-    builder = EmbeddingDatabaseBuilder(
-        tmp_dir=tmp_embedding_folder,
-        accelerator=accelerator,
-    )
-
-    builder.update_from_fasta(
-        fasta_file=fasta_file,
-        output_db=output_db,
-        min_res_n=min_res_n,
-        use_gpu_index=use_gpu_index,
-        batch_size=batch_size,
-        num_workers=num_workers,
-        num_nodes=num_nodes,
-        devices=arg_devices(devices),
-        strategy=strategy,
-    )
 
 
 @query_db_app.command(
