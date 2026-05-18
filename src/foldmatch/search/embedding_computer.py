@@ -66,7 +66,6 @@ class EmbeddingComputer:
 
 
         if granularity == 'chain':
-            logging.info(f"Listing residue embedding files from: {self.tmp_dir}")
             chain_predict(
                 src_stream=[
                     (str_file.stem, str_file, str_file.stem)
