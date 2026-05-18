@@ -73,6 +73,7 @@ class EmbeddingComputer:
                     for str_file in structure_files
                 ],
                 src_location=SrcLocation.stream,
+                structure_format=structure_format,
                 min_res_n=min_res,
                 out_path=self.tmp_dir,
                 out_name=self.out_name,
@@ -91,6 +92,7 @@ class EmbeddingComputer:
                     for str_file in structure_files
                 ],
                 src_location=SrcLocation.stream,
+                structure_format=structure_format,
                 out_path=self.tmp_dir,
                 out_name=self.out_name,
                 accelerator=self.accelerator,
