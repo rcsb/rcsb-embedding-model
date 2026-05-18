@@ -244,7 +244,7 @@ class FaissEmbeddingDatabase:
             self.index = faiss.read_index(str(index_file))
 
         logger.info(
-            f"Loaded database with {len(self.chain_ids)} embeddings (index_type={self.index_type})"
+            f"Loaded database with {len(self.chain_ids)} embeddings (index_type={self.index_type.name})"
         )
 
         if use_gpu:
