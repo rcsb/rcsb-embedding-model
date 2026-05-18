@@ -1,11 +1,12 @@
 import os
 import logging
 import numpy as np
+import pyarrow.parquet as pq
 import torch
 import pandas as pd
 import typer
 from pathlib import Path
-from typing import Annotated, Optional, List
+from typing import Annotated, Iterator, Optional, List
 
 from foldmatch import __version__
 from foldmatch.cli.args_utils import arg_devices, set_log_level
@@ -154,17 +155,17 @@ def build_database_from_structures(
 
 @build_db_app.command(
     name="embeddings",
-    help="Build an embedding database from a directory of pre-computed embedding files (.csv or .pt)."
+    help="Build an embedding database from a directory of pre-computed embedding files (.pt, .csv, or .parquet)."
 )
 def build_database_from_embeddings(
         embedding_folder: Annotated[str, typer.Option(
-            help='Directory containing pre-computed embedding files (.csv or .pt).'
+            help='Directory containing pre-computed embedding files (.pt, .csv, or .parquet).'
         )],
         output_db: Annotated[str, typer.Option(
             help='Path to save the FAISS database.'
         )],
         file_extension: Annotated[Optional[str], typer.Option(
-            help='File extension to filter (e.g., .csv or .pt). If not specified, collects both.'
+            help='Restrict loading to a single extension (.pt, .csv, or .parquet). If unset, all three are collected.'
         )] = None,
         use_gpu_index: Annotated[bool, typer.Option(
             help='Use GPU for FAISS index (requires faiss-gpu).'
@@ -187,20 +188,17 @@ def build_database_from_embeddings(
     set_log_level(log_level)
 
     db_dir, index_name, output_db = _parse_output_db(output_db)
-    chain_ids, embeddings = _load_embeddings_from_dir(embedding_folder, file_extension)
-
-    logging.info(f"Loaded {len(embeddings)} embeddings from {embedding_folder}")
 
     db = FaissEmbeddingDatabase(db_path=str(db_dir), index_name=index_name)
     db.create_database(
-        batches=_legacy_embeddings_to_batches(chain_ids, embeddings),
+        batches=_stream_embeddings(embedding_folder, file_extension),
         index_type=index_type,
         index_config=IndexConfig(nlist=ivf_nlist, nprobe=ivf_nprobe),
         use_gpu=use_gpu_index,
     )
 
     logging.info(f"Database created: {output_db}")
-    logging.info(f"Total embeddings: {len(chain_ids)}")
+    logging.info(f"Total embeddings: {len(db.chain_ids)}")
 
 
 @build_db_app.command(
@@ -384,14 +382,14 @@ def query_database_from_structure(
 
 @query_db_app.command(
     name="embedding",
-    help="Search the database using a pre-computed embedding file (.csv or .pt)."
+    help="Search the database using a pre-computed embedding file (.pt, .csv, or .parquet)."
 )
 def query_database_from_embedding(
         db_path: Annotated[str, typer.Option(
             help='Path to the FAISS database.'
         )],
         embedding_file: Annotated[str, typer.Option(
-            help='Path to a pre-computed embedding file (.csv or .pt). The filename stem is used as the query ID.'
+            help='Path to a pre-computed embedding file. For .pt and .csv the filename stem is the query ID; for .parquet each row is a separate query with its ID taken from the "id" column.'
         )],
         top_k: Annotated[int, typer.Option(
             help='Number of top results to return.'
@@ -415,20 +413,6 @@ def query_database_from_embedding(
 
     db_dir, index_name = _parse_database_path(db_path)
 
-    emb_path = Path(embedding_file)
-    if not emb_path.exists():
-        raise ValueError(f"Embedding file does not exist: {embedding_file}")
-    if emb_path.suffix not in ('.csv', '.pt'):
-        raise ValueError(f"Unsupported file extension '{emb_path.suffix}'. Use .csv or .pt")
-
-    if emb_path.suffix == '.pt':
-        embedding = torch.load(emb_path, map_location='cpu', weights_only=True)
-    else:
-        df = pd.read_csv(emb_path, header=None)
-        embedding = torch.tensor(df.values, dtype=torch.float32).squeeze()
-
-    query_id = emb_path.stem
-
     logging.info("Loading database...")
     searcher = StructureSearch(
         db_path=str(db_dir),
@@ -436,10 +420,16 @@ def query_database_from_embedding(
         use_gpu_for_search=use_gpu_index
     )
 
-    logging.info(f"Searching with query: {query_id}")
-    matching_ids, scores = searcher.db.search(embedding, top_k=top_k)
-    results = {query_id: (matching_ids, scores)}
+    results = {}
+    for ids_batch, emb_batch in _stream_embeddings(embedding_file):
+        for query_id, embedding in zip(ids_batch, emb_batch):
+            matching_ids, scores = searcher.db.search(embedding, top_k=top_k)
+            results[query_id] = (matching_ids, scores)
 
+    if not results:
+        raise ValueError(f"No embeddings found in {embedding_file}")
+
+    logging.info(f"Searched {len(results)} query/queries from {embedding_file}")
     results = _filter_results_by_threshold(results, threshold)
 
     searcher.print_results(results)
@@ -802,57 +792,82 @@ def _parse_output_db(output_db: str) -> tuple[Path, str, str]:
     return db_dir, index_name, str(db_dir / index_name)
 
 
-def _load_embeddings_from_dir(embedding_folder: str, file_extension: Optional[str] = None) -> tuple[list, list]:
-    """Load embedding IDs and tensors from a directory of .csv/.pt files."""
-    embedding_path = Path(embedding_folder)
-    if not embedding_path.exists():
-        raise ValueError(f"Embedding directory does not exist: {embedding_folder}")
-
-    if file_extension is not None:
-        extensions = [file_extension]
-    else:
-        extensions = ['.csv', '.pt']
-
-    embedding_files = []
-    for ext in extensions:
-        embedding_files.extend(sorted(embedding_path.glob(f"*{ext}")))
-
-    if not embedding_files:
-        raise ValueError(f"No embedding files found with extensions {extensions} in {embedding_folder}")
-
-    chain_ids = []
-    embeddings = []
-    for emb_file in embedding_files:
-        chain_id = emb_file.stem
-        if emb_file.suffix == '.pt':
-            embedding = torch.load(emb_file, map_location='cpu', weights_only=True)
-        else:
-            df = pd.read_csv(emb_file, header=None)
-            embedding = torch.tensor(df.values, dtype=torch.float32).squeeze()
-        chain_ids.append(chain_id)
-        embeddings.append(embedding)
-
-    return chain_ids, embeddings
+_POINT_EXTS = ('.pt', '.csv')
+_BATCH_EXTS = ('.parquet',)
+_SUPPORTED_EXTS = _POINT_EXTS + _BATCH_EXTS
 
 
-def _legacy_embeddings_to_batches(
-        chain_ids: list,
-        embeddings: list,
-) -> list[tuple[list[str], np.ndarray]]:
-    """Wrap a list of per-chain tensors into the (ids, [N, D] ndarray) batch shape.
+def _stream_embeddings(
+        path: str,
+        file_extension: Optional[str] = None,
+        batch_size: int = 4096,
+) -> Iterator[tuple[list[str], np.ndarray]]:
+    """Yield (ids, [B, D] float32) batches from a file or directory of .pt / .csv / .parquet.
 
-    Mean-pools any 2-D embedding to match the database's per-chain pooled layout.
+    Parquet shards are streamed via ``ParquetFile.iter_batches`` (many chains per file).
+    .pt and .csv hold one chain per file (ID = filename stem) and are chunked into
+    batches of ``batch_size``. A single file is handled as a degenerate directory-of-one;
+    ``file_extension`` is ignored in that case.
     """
-    arrs = []
-    for emb in embeddings:
-        if isinstance(emb, torch.Tensor):
-            emb = emb.detach().cpu().numpy()
+    p = Path(path)
+    if not p.exists():
+        raise ValueError(f"Embeddings path does not exist: {path}")
+
+    if file_extension is not None and file_extension not in _SUPPORTED_EXTS:
+        raise ValueError(
+            f"Unsupported file extension '{file_extension}'. "
+            f"Use one of: {', '.join(_SUPPORTED_EXTS)}"
+        )
+
+    if p.is_file():
+        if p.suffix not in _SUPPORTED_EXTS:
+            raise ValueError(
+                f"Unsupported file extension '{p.suffix}'. "
+                f"Use one of: {', '.join(_SUPPORTED_EXTS)}"
+            )
+        files = [p]
+    else:
+        extensions = (file_extension,) if file_extension is not None else _SUPPORTED_EXTS
+        files = []
+        for ext in extensions:
+            files.extend(sorted(p.glob(f"*{ext}")))
+        if not files:
+            raise ValueError(
+                f"No embedding files found with extensions {list(extensions)} in {path}"
+            )
+
+    parquet_files = [f for f in files if f.suffix in _BATCH_EXTS]
+    point_files = [f for f in files if f.suffix in _POINT_EXTS]
+
+    for parquet_file in parquet_files:
+        pf = pq.ParquetFile(parquet_file)
+        for record in pf.iter_batches(batch_size=batch_size, columns=['id', 'embedding']):
+            ids = record.column('id').to_pylist()
+            flat = record.column('embedding').values.to_numpy(zero_copy_only=False)
+            arr = np.ascontiguousarray(
+                flat.reshape(len(record), -1).astype(np.float32, copy=False)
+            )
+            yield ids, arr
+
+    ids_buf: list[str] = []
+    emb_buf: list[np.ndarray] = []
+    for f in point_files:
+        if f.suffix == '.pt':
+            emb = torch.load(f, map_location='cpu', weights_only=True)
+            if isinstance(emb, torch.Tensor):
+                emb = emb.detach().cpu().numpy()
+        else:  # .csv
+            emb = pd.read_csv(f, header=None).values
+        emb = np.asarray(emb, dtype=np.float32)
         if emb.ndim > 1:
             emb = np.mean(emb, axis=0)
-        arrs.append(emb)
-    if not arrs:
-        return []
-    return [(list(chain_ids), np.ascontiguousarray(np.stack(arrs).astype(np.float32, copy=False)))]
+        ids_buf.append(f.stem)
+        emb_buf.append(emb.reshape(-1))
+        if len(ids_buf) >= batch_size:
+            yield ids_buf, np.ascontiguousarray(np.stack(emb_buf))
+            ids_buf, emb_buf = [], []
+    if ids_buf:
+        yield ids_buf, np.ascontiguousarray(np.stack(emb_buf))
 
 
 def _parse_database_path(db_path: str, default_index_name: str = "structure_embeddings") -> tuple[Path, str]:
