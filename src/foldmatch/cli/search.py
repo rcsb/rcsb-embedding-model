@@ -1,5 +1,6 @@
 import os
 import logging
+import numpy as np
 import torch
 import pandas as pd
 import typer
@@ -9,8 +10,17 @@ from typing import Annotated, Optional, List
 from foldmatch import __version__
 from foldmatch.cli.args_utils import arg_devices, set_log_level
 from foldmatch.search.embedding_computer import _is_rank_zero
-from foldmatch.types.api_types import StructureFormat, Accelerator, Strategy, Granularity, LogLevel
+from foldmatch.types.api_types import (
+    StructureFormat,
+    Accelerator,
+    Strategy,
+    Granularity,
+    IndexConfig,
+    IndexType,
+    LogLevel,
+)
 from foldmatch.search.database_builder import EmbeddingDatabaseBuilder
+from foldmatch.search.embedding_computer import collect_batches
 from foldmatch.search.faiss_database import FaissEmbeddingDatabase
 from foldmatch.search.structure_search import StructureSearch
 from foldmatch.search.clustering import EmbeddingClusterer
@@ -82,6 +92,15 @@ def build_database_from_structures(
         num_workers: Annotated[int, typer.Option(
             help='Number of subprocesses to use for data loading.'
         )] = 0,
+        index_type: Annotated[IndexType, typer.Option(
+            help='FAISS index variant: auto (legacy heuristic), flat, hnsw, or ivf_pq (on-disk).'
+        )] = IndexType.auto,
+        ivf_nlist: Annotated[int, typer.Option(
+            help='IVF cell count for ivf_pq index.'
+        )] = 16384,
+        ivf_nprobe: Annotated[Optional[int], typer.Option(
+            help='Cells probed per query for ivf_pq (defaults to nlist // 64).'
+        )] = None,
         log_level: Annotated[LogLevel, typer.Option(
             help='Number of nodes to use for inference of embeddings.'
         )] = 'info'
@@ -125,6 +144,8 @@ def build_database_from_structures(
         num_nodes=num_nodes,
         devices=arg_devices(devices),
         strategy=strategy,
+        index_type=index_type,
+        index_config=IndexConfig(nlist=ivf_nlist, nprobe=ivf_nprobe),
     )
 
     if _is_rank_zero():
@@ -149,6 +170,15 @@ def build_database_from_embeddings(
         use_gpu_index: Annotated[bool, typer.Option(
             help='Use GPU for FAISS index (requires faiss-gpu).'
         )] = False,
+        index_type: Annotated[IndexType, typer.Option(
+            help='FAISS index variant: auto (legacy heuristic), flat, hnsw, or ivf_pq (on-disk).'
+        )] = IndexType.auto,
+        ivf_nlist: Annotated[int, typer.Option(
+            help='IVF cell count for ivf_pq index.'
+        )] = 16384,
+        ivf_nprobe: Annotated[Optional[int], typer.Option(
+            help='Cells probed per query for ivf_pq (defaults to nlist // 64).'
+        )] = None,
         log_level: Annotated[LogLevel, typer.Option(
             help='Logging level.'
         )] = 'info'
@@ -163,7 +193,12 @@ def build_database_from_embeddings(
     logging.info(f"Loaded {len(embeddings)} embeddings from {embedding_folder}")
 
     db = FaissEmbeddingDatabase(db_path=str(db_dir), index_name=index_name)
-    db.create_database(chain_ids=chain_ids, embeddings=embeddings, use_gpu=use_gpu_index)
+    db.create_database(
+        batches=_legacy_embeddings_to_batches(chain_ids, embeddings),
+        index_type=index_type,
+        index_config=IndexConfig(nlist=ivf_nlist, nprobe=ivf_nprobe),
+        use_gpu=use_gpu_index,
+    )
 
     logging.info(f"Database created: {output_db}")
     logging.info(f"Total embeddings: {len(chain_ids)}")
@@ -207,6 +242,15 @@ def build_database_from_fasta(
         num_workers: Annotated[int, typer.Option(
             help='Number of subprocesses to use for data loading.'
         )] = 0,
+        index_type: Annotated[IndexType, typer.Option(
+            help='FAISS index variant: auto (legacy heuristic), flat, hnsw, or ivf_pq (on-disk).'
+        )] = IndexType.auto,
+        ivf_nlist: Annotated[int, typer.Option(
+            help='IVF cell count for ivf_pq index.'
+        )] = 16384,
+        ivf_nprobe: Annotated[Optional[int], typer.Option(
+            help='Cells probed per query for ivf_pq (defaults to nlist // 64).'
+        )] = None,
         log_level: Annotated[LogLevel, typer.Option(
             help='Logging level.'
         )] = 'info'
@@ -230,6 +274,8 @@ def build_database_from_fasta(
         num_nodes=num_nodes,
         devices=arg_devices(devices),
         strategy=strategy,
+        index_type=index_type,
+        index_config=IndexConfig(nlist=ivf_nlist, nprobe=ivf_nprobe),
     )
 
     if _is_rank_zero():
@@ -462,7 +508,7 @@ def query_database_from_fasta(
 
     from foldmatch.search.embedding_computer import EmbeddingComputer
     computer = EmbeddingComputer(tmp_dir=tmp_embedding_folder, accelerator=accelerator)
-    chain_ids, embeddings = computer.compute_from_fasta(
+    batches = computer.compute_from_fasta(
         fasta_file=fasta_file,
         min_res_n=min_res_n,
         batch_size=batch_size,
@@ -471,9 +517,10 @@ def query_database_from_fasta(
         devices=arg_devices(devices),
         strategy=strategy,
     )
+    chain_ids, embeddings = collect_batches(batches)
 
     if _is_rank_zero():
-        logging.info(f"Computed {len(embeddings)} chain embeddings")
+        logging.info(f"Computed {len(chain_ids)} chain embeddings")
 
         logging.info("Loading database...")
         searcher = StructureSearch(
@@ -787,6 +834,26 @@ def _load_embeddings_from_dir(embedding_folder: str, file_extension: Optional[st
         embeddings.append(embedding)
 
     return chain_ids, embeddings
+
+
+def _legacy_embeddings_to_batches(
+        chain_ids: list,
+        embeddings: list,
+) -> list[tuple[list[str], np.ndarray]]:
+    """Wrap a list of per-chain tensors into the (ids, [N, D] ndarray) batch shape.
+
+    Mean-pools any 2-D embedding to match the database's per-chain pooled layout.
+    """
+    arrs = []
+    for emb in embeddings:
+        if isinstance(emb, torch.Tensor):
+            emb = emb.detach().cpu().numpy()
+        if emb.ndim > 1:
+            emb = np.mean(emb, axis=0)
+        arrs.append(emb)
+    if not arrs:
+        return []
+    return [(list(chain_ids), np.ascontiguousarray(np.stack(arrs).astype(np.float32, copy=False)))]
 
 
 def _parse_database_path(db_path: str, default_index_name: str = "structure_embeddings") -> tuple[Path, str]:

@@ -1,12 +1,12 @@
 import logging
-from pathlib import Path
-from typing import Optional
-
-import pandas as pd
-import torch
-import torch.distributed as dist
 import os
+from pathlib import Path
 from secrets import token_hex
+from typing import Iterable, Iterator, Optional
+
+import numpy as np
+import pyarrow.parquet as pq
+import torch.distributed as dist
 
 from foldmatch.inference.assembly_complete_inference import predict as assembly_predict
 from foldmatch.inference.chain_complete_inference import predict as chain_predict
@@ -47,7 +47,8 @@ class EmbeddingComputer:
             num_nodes: int = 1,
             devices='auto',
             strategy='auto',
-    ) -> tuple[list, list]:
+            load_batch_size: int = 4096,
+    ) -> Iterator[tuple[list[str], np.ndarray]]:
         """Compute chain or assembly embeddings from a directory of structure files."""
         if file_extension is None:
             file_extension = '.cif' if structure_format == StructureFormat.mmcif else '.pdb'
@@ -101,7 +102,7 @@ class EmbeddingComputer:
             )
         if _is_distributed():
             dist.barrier()
-        return self._load_chain_tensors()
+        return self._load_chain_batches(load_batch_size)
 
     def compute_from_fasta(
             self,
@@ -112,7 +113,8 @@ class EmbeddingComputer:
             num_nodes: int = 1,
             devices='auto',
             strategy='auto',
-    ) -> tuple[list, list]:
+            load_batch_size: int = 4096,
+    ) -> Iterator[tuple[list[str], np.ndarray]]:
         """Compute chain embeddings from protein sequences in a FASTA file."""
 
         chain_predict(
@@ -132,22 +134,38 @@ class EmbeddingComputer:
 
         if _is_distributed():
             dist.barrier()
-        return self._load_chain_tensors()
+        return self._load_chain_batches(load_batch_size)
 
-    def _load_chain_tensors(self) -> tuple[list, list]:
-        """Load chain embeddings from the per-rank Parquet shards. Non-rank-0 ranks return ([], [])."""
+    def _load_chain_batches(self, batch_size: int) -> Iterator[tuple[list[str], np.ndarray]]:
+        """Stream (ids, [B, D] float32) batches from all per-rank Parquet shards. Rank-0 only."""
         if not _is_rank_zero():
-            return [], []
+            return
         parquet_files = sorted(Path(self.tmp_dir).glob(f"{self.out_name}-*.parquet"))
-        logging.info(f"Loading embeddings from {len(parquet_files)} Parquet shard(s) in: {self.tmp_dir}")
-        names: list = []
-        embeddings: list = []
+        logging.info(f"Streaming embeddings from {len(parquet_files)} Parquet shard(s) in: {self.tmp_dir}")
         for parquet_file in parquet_files:
             logging.info(f"    Parquet file {parquet_file}")
-            df = pd.read_parquet(parquet_file)
-            names.extend(df['id'].tolist())
-            embeddings.extend(torch.tensor(emb, dtype=torch.float32) for emb in df['embedding'])
-        return names, embeddings
+            pf = pq.ParquetFile(parquet_file)
+            for record in pf.iter_batches(batch_size=batch_size, columns=['id', 'embedding']):
+                ids = record.column('id').to_pylist()
+                flat = record.column('embedding').values.to_numpy(zero_copy_only=False)
+                arr = np.ascontiguousarray(
+                    flat.reshape(len(record), -1).astype(np.float32, copy=False)
+                )
+                yield ids, arr
+
+
+def collect_batches(
+        batches: Iterable[tuple[list[str], np.ndarray]]
+) -> tuple[list[str], np.ndarray]:
+    """Materialize a batch iterator into (ids, [N, D] float32). Use only for small N."""
+    ids_all: list[str] = []
+    arrs: list[np.ndarray] = []
+    for ids, arr in batches:
+        ids_all.extend(ids)
+        arrs.append(arr)
+    if not arrs:
+        return ids_all, np.zeros((0, 0), dtype=np.float32)
+    return ids_all, np.concatenate(arrs, axis=0)
 
 
 def _is_distributed():

@@ -4,7 +4,9 @@ import torch
 import numpy as np
 import pickle
 from pathlib import Path
-from typing import List, Dict, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple
+
+from foldmatch.types.api_types import IndexConfig, IndexType
 
 logger = logging.getLogger(__name__)
 
@@ -50,64 +52,157 @@ class FaissEmbeddingDatabase:
         self.dimension = None
         self.gpu_resources = None
         self.is_gpu_index = False
+        self.index_type = None
+        self.index_config: Optional[IndexConfig] = None
 
     def create_database(
             self,
-            chain_ids: List[str],
-            embeddings: List[torch.Tensor],
-            use_gpu: bool = False
+            batches: Iterable[Tuple[List[str], np.ndarray]],
+            index_type: IndexType = IndexType.auto,
+            index_config: Optional[IndexConfig] = None,
+            use_gpu: bool = False,
     ):
         """
-        Create a new FAISS database from chain embeddings.
+        Create a new FAISS database from a stream of embedding batches.
 
         Args:
-            chain_ids: List of chain identifiers (format: "structure_name:chain_id")
-            embeddings: List of embedding tensors (one per chain)
-            use_gpu: Whether to use GPU for indexing (if available)
+            batches: Iterable yielding ``(ids, [B, D] float32 ndarray)`` tuples.
+            index_type: FAISS index variant. See :class:`IndexType`.
+            index_config: Tuning knobs (see :class:`IndexConfig`). Defaults if None.
+            use_gpu: Move the in-memory index to GPU after build (ignored for ivf_pq).
         """
-        if len(chain_ids) != len(embeddings):
-            raise ValueError("Number of chain_ids must match number of embeddings")
+        config = index_config or IndexConfig()
+        self.index_config = config
+        self.index_type = index_type
+        if index_type == IndexType.ivf_pq:
+            if use_gpu:
+                logging.warning("use_gpu is not supported for ivf_pq builds; running on CPU.")
+            self._create_ivf_pq_ondisk(batches, config)
+        else:
+            self._create_in_memory(batches, index_type, config, use_gpu)
+        self._save()
 
-        # Convert embeddings to numpy array
-        embedding_array = []
-        for embedding in embeddings:
-            if isinstance(embedding, torch.Tensor):
-                embedding = embedding.detach().cpu().numpy()
-            # Ensure 1D
-            if embedding.ndim > 1:
-                embedding = np.mean(embedding, axis=0)
-            embedding_array.append(embedding)
+    def _create_in_memory(
+            self,
+            batches: Iterable[Tuple[List[str], np.ndarray]],
+            index_type: IndexType,
+            config: IndexConfig,
+            use_gpu: bool,
+    ):
+        """Build an in-memory FlatIP/HNSW index by materializing all batches."""
+        chain_ids: list[str] = []
+        arrs: list[np.ndarray] = []
+        for ids_batch, emb_batch in batches:
+            chain_ids.extend(ids_batch)
+            arrs.append(emb_batch)
+        if not arrs:
+            raise ValueError("No embeddings provided to create_database")
+        embedding_array = np.ascontiguousarray(np.concatenate(arrs, axis=0), dtype=np.float32)
+        del arrs
 
-        embedding_array = np.array(embedding_array, dtype=np.float32)
         self.dimension = embedding_array.shape[1]
         n_embeddings = embedding_array.shape[0]
 
-        # Normalize embeddings for cosine similarity
         _normalize_L2_batched(embedding_array)
 
-        # Choose index type based on dataset size
-        if n_embeddings < 10000:
-            # Small dataset: use exact search (IndexFlatIP)
+        if index_type == IndexType.flat:
             self.index = faiss.IndexFlatIP(self.dimension)
-        else:
-            # Large dataset: use HNSW for approximate search
-            self.index = faiss.IndexHNSWFlat(self.dimension, 32, faiss.METRIC_INNER_PRODUCT)
+        elif index_type == IndexType.hnsw:
+            self.index = faiss.IndexHNSWFlat(
+                self.dimension, config.hnsw_m, faiss.METRIC_INNER_PRODUCT
+            )
+        else:  # IndexType.auto — preserves legacy heuristic
+            if n_embeddings < 10000:
+                self.index = faiss.IndexFlatIP(self.dimension)
+            else:
+                self.index = faiss.IndexHNSWFlat(
+                    self.dimension, config.hnsw_m, faiss.METRIC_INNER_PRODUCT
+                )
 
-        # Move to GPU if requested and available
         if use_gpu:
             if _has_gpu_support():
                 self.gpu_resources = faiss.StandardGpuResources()
-                # Allow up to 1GB of temporary memory for GPU operations
                 self.gpu_resources.setTempMemory(1024 * 1024 * 1024)
                 self.index = faiss.index_cpu_to_gpu(self.gpu_resources, 0, self.index)
                 self.is_gpu_index = True
 
-        # Add vectors to index
         _index_add_batched(self.index, embedding_array)
         self.chain_ids = chain_ids
 
-        # Save to disk
-        self._save()
+    def _create_ivf_pq_ondisk(
+            self,
+            batches: Iterable[Tuple[List[str], np.ndarray]],
+            config: IndexConfig,
+    ):
+        """Build OPQ + IVF-PQ with OnDiskInvertedLists. Bounded RAM ≈ training sample size."""
+        self.db_path.mkdir(parents=True, exist_ok=True)
+        invlists_path = str(self.db_path / f"{self.index_name}.invlists")
+
+        # Phase A: accumulate the training sample. Keep raw (un-normalized) batches so
+        # we can add them to the index after training without double-normalization.
+        train_buffer: list[tuple[list[str], np.ndarray]] = []
+        n_buffered = 0
+        batches_iter = iter(batches)
+        for ids_batch, emb_batch in batches_iter:
+            train_buffer.append((ids_batch, emb_batch))
+            n_buffered += emb_batch.shape[0]
+            if n_buffered >= config.opq_train_size:
+                break
+        if not train_buffer:
+            raise ValueError("No embeddings provided to create_database")
+
+        self.dimension = train_buffer[0][1].shape[1]
+        if self.dimension % config.m != 0:
+            raise ValueError(
+                f"PQ subquantizer count m={config.m} must divide embedding dim D={self.dimension}"
+            )
+
+        # Phase B: build the empty index, train on a normalized copy of the sample.
+        factory_string = f"OPQ{config.m},IVF{config.nlist},PQ{config.m}x{config.nbits}"
+        logging.info(
+            f"Training {factory_string} on {n_buffered} vectors (cap {config.opq_train_size})"
+        )
+        self.index = faiss.index_factory(
+            self.dimension, factory_string, faiss.METRIC_INNER_PRODUCT
+        )
+
+        train_arr = np.ascontiguousarray(
+            np.concatenate([a for _, a in train_buffer], axis=0)[:config.opq_train_size],
+            dtype=np.float32,
+        )
+        faiss.normalize_L2(train_arr)
+        self.index.train(train_arr)
+        del train_arr
+
+        # Phase C: swap inverted lists onto disk so subsequent add() writes go to mmap.
+        ivf_index = faiss.extract_index_ivf(self.index)
+        invlists = faiss.OnDiskInvertedLists(
+            ivf_index.nlist, ivf_index.code_size, invlists_path
+        )
+        ivf_index.replace_invlists(invlists, True)
+
+        # Phase D: add the training-sample batches, then the rest of the stream.
+        self.chain_ids = []
+        total_added = 0
+        for ids_batch, emb_batch in train_buffer:
+            total_added += self._normalize_and_add(ids_batch, emb_batch)
+        del train_buffer
+        for ids_batch, emb_batch in batches_iter:
+            total_added += self._normalize_and_add(ids_batch, emb_batch)
+
+        if config.nprobe is None:
+            config.nprobe = max(1, config.nlist // 64)
+        ivf_index.nprobe = config.nprobe
+
+        logging.info(f"IVF-PQ build complete: {total_added} vectors, nprobe={config.nprobe}")
+
+    def _normalize_and_add(self, ids_batch: list[str], emb_batch: np.ndarray) -> int:
+        """Normalize a copy of the batch and add to the index. Returns the count added."""
+        arr = np.ascontiguousarray(emb_batch, dtype=np.float32).copy()
+        faiss.normalize_L2(arr)
+        self.index.add(arr)
+        self.chain_ids.extend(ids_batch)
+        return arr.shape[0]
 
     def load_database(self, use_gpu: bool = False):
         """
@@ -122,18 +217,32 @@ class FaissEmbeddingDatabase:
         if not index_file.exists() or not metadata_file.exists():
             raise ValueError(f"Database files not found in: {self.db_path}")
 
-        # Load FAISS index (always loads to CPU first)
-        self.index = faiss.read_index(str(index_file))
-
-        # Load metadata
         with open(metadata_file, 'rb') as f:
             metadata = pickle.load(f)
-            self.chain_ids = metadata['embedding_ids']
-            self.dimension = metadata['dimension']
+        self.chain_ids = metadata['embedding_ids']
+        self.dimension = metadata['dimension']
+        self.index_type = metadata.get('index_type', IndexType.auto)
+        self.index_config = metadata.get('index_config')
 
-        logging.info(f"Loaded database with {len(self.chain_ids)} embeddings")
+        if self.index_type == IndexType.ivf_pq:
+            # OnDiskInvertedLists has the absolute path baked in at write time; skip
+            # loading them and re-point at the local file so the DB stays portable.
+            self.index = faiss.read_index(str(index_file), faiss.IO_FLAG_SKIP_IVF_DATA)
+            invlists_path = str(self.db_path / f"{self.index_name}.invlists")
+            ivf_index = faiss.extract_index_ivf(self.index)
+            new_invlists = faiss.OnDiskInvertedLists(
+                ivf_index.nlist, ivf_index.code_size, invlists_path
+            )
+            ivf_index.replace_invlists(new_invlists, True)
+            if self.index_config is not None and self.index_config.nprobe is not None:
+                ivf_index.nprobe = self.index_config.nprobe
+        else:
+            self.index = faiss.read_index(str(index_file))
 
-        # Move to GPU if requested
+        logging.info(
+            f"Loaded database with {len(self.chain_ids)} embeddings (index_type={self.index_type})"
+        )
+
         if use_gpu:
             self.move_to_gpu()
 
@@ -280,24 +389,22 @@ class FaissEmbeddingDatabase:
 
     def _save(self):
         """Save FAISS index and metadata to disk."""
-        # Create directory if it doesn't exist
         self.db_path.mkdir(parents=True, exist_ok=True)
 
         index_file = self.db_path / f"{self.index_name}.index"
         metadata_file = self.db_path / f"{self.index_name}.metadata"
 
-        # Save FAISS index
-        # If GPU index, convert to CPU before saving
-        if hasattr(self.index, 'index'):  # GPU index wrapper
+        if self.is_gpu_index:
             cpu_index = faiss.index_gpu_to_cpu(self.index)
             faiss.write_index(cpu_index, str(index_file))
         else:
             faiss.write_index(self.index, str(index_file))
 
-        # Save metadata
         metadata = {
             'embedding_ids': self.chain_ids,
-            'dimension': self.dimension
+            'dimension': self.dimension,
+            'index_type': self.index_type,
+            'index_config': self.index_config,
         }
         with open(metadata_file, 'wb') as f:
             pickle.dump(metadata, f)

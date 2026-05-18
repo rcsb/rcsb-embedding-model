@@ -179,6 +179,7 @@ class TestCliSearch(unittest.TestCase):
     def test_07_faiss_database_class(self):
         """Test FaissEmbeddingDatabase class directly."""
         from foldmatch.search.faiss_database import FaissEmbeddingDatabase
+        import numpy as np
         import torch
 
         db_path = os.path.join(self.__temp_dir, "test_chroma_direct")
@@ -186,10 +187,12 @@ class TestCliSearch(unittest.TestCase):
 
         # Create some dummy embeddings
         chain_ids = ["test1:A", "test2:A", "test3:B"]
-        embeddings = [torch.randn(256) for _ in range(3)]
+        embeddings_arr = np.stack(
+            [torch.randn(256).numpy() for _ in range(3)]
+        ).astype(np.float32)
 
-        # Create database
-        db.create_database(chain_ids=chain_ids, embeddings=embeddings)
+        # Create database (new batch-iterator API)
+        db.create_database(batches=[(chain_ids, embeddings_arr)])
 
         # Load database
         db2 = FaissEmbeddingDatabase(db_path=db_path, index_name="test_direct")

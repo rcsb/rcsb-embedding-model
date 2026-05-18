@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from enum import Enum
 from typing import IO, Tuple, List, Optional, Literal
 
@@ -78,3 +79,24 @@ class LogLevel(str, Enum):
     info = "info"
     warn = "warn"
     debug = "debug"
+
+
+class IndexType(str, Enum):
+    """FAISS index variant used when building an embedding database."""
+    auto = "auto"        # IndexFlatIP if N<10k else IndexHNSWFlat (legacy default)
+    flat = "flat"        # IndexFlatIP — exact, RAM-resident
+    hnsw = "hnsw"        # IndexHNSWFlat — approximate, RAM-resident
+    ivf_pq = "ivf_pq"    # OPQ + IVF-PQ with OnDiskInvertedLists — approximate, on-disk
+
+
+@dataclass
+class IndexConfig:
+    """Tuning knobs for IndexType. All fields are optional; sensible defaults apply."""
+    # IVF-PQ
+    nlist: int = 16384            # number of IVF cells
+    m: int = 64                   # PQ subquantizers (must divide D)
+    nbits: int = 8                # bits per PQ subcode
+    nprobe: Optional[int] = None  # search-time cells probed; defaults to nlist // 64
+    opq_train_size: int = 1_000_000  # training sample size for OPQ + IVF-PQ
+    # HNSW
+    hnsw_m: int = 32              # HNSW graph connectivity

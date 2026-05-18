@@ -5,7 +5,13 @@ from typing import Optional
 
 import torch
 
-from foldmatch.types.api_types import StructureFormat, Accelerator, Granularity
+from foldmatch.types.api_types import (
+    StructureFormat,
+    Accelerator,
+    Granularity,
+    IndexConfig,
+    IndexType,
+)
 from foldmatch.search.faiss_database import FaissEmbeddingDatabase
 from foldmatch.search.embedding_computer import EmbeddingComputer, _is_rank_zero
 
@@ -41,11 +47,13 @@ class EmbeddingDatabaseBuilder:
             num_nodes: int = 1,
             devices='auto',
             strategy='auto',
+            index_type: IndexType = IndexType.auto,
+            index_config: Optional[IndexConfig] = None,
     ):
         """Build a FAISS database from a directory of structure files."""
         logging.info("Building embeddings and FAISS database from structures")
         start_time = time.time()
-        chain_ids, embeddings = self.computer.compute_from_structures(
+        batches = self.computer.compute_from_structures(
             structure_dir=structure_dir,
             structure_format=structure_format,
             min_res=min_res,
@@ -57,7 +65,7 @@ class EmbeddingDatabaseBuilder:
             devices=devices,
             strategy=strategy,
         )
-        self._create(output_db, chain_ids, embeddings, use_gpu_index, start_time)
+        self._create(output_db, batches, use_gpu_index, index_type, index_config, start_time)
 
     def build_from_fasta(
             self,
@@ -70,11 +78,13 @@ class EmbeddingDatabaseBuilder:
             num_nodes: int = 1,
             devices='auto',
             strategy='auto',
+            index_type: IndexType = IndexType.auto,
+            index_config: Optional[IndexConfig] = None,
     ):
         """Build a FAISS database from protein sequences in a FASTA file."""
         logging.info("Building embeddings and FAISS database from FASTA")
         start_time = time.time()
-        chain_ids, embeddings = self.computer.compute_from_fasta(
+        batches = self.computer.compute_from_fasta(
             fasta_file=fasta_file,
             min_res_n=min_res_n,
             batch_size=batch_size,
@@ -83,9 +93,9 @@ class EmbeddingDatabaseBuilder:
             devices=devices,
             strategy=strategy,
         )
-        self._create(output_db, chain_ids, embeddings, use_gpu_index, start_time)
+        self._create(output_db, batches, use_gpu_index, index_type, index_config, start_time)
 
-    def _create(self, output_db, chain_ids, embeddings, use_gpu_index, compute_start):
+    def _create(self, output_db, batches, use_gpu_index, index_type, index_config, compute_start):
         db_dir, index_name, output_db = _parse_output_db(output_db)
         if _is_rank_zero():
             embeddings_time = time.time() - compute_start
@@ -93,7 +103,12 @@ class EmbeddingDatabaseBuilder:
 
             start_time = time.time()
             db = FaissEmbeddingDatabase(db_path=str(db_dir), index_name=index_name)
-            db.create_database(chain_ids=chain_ids, embeddings=embeddings, use_gpu=use_gpu_index)
+            db.create_database(
+                batches=batches,
+                index_type=index_type,
+                index_config=index_config,
+                use_gpu=use_gpu_index,
+            )
             database_time = time.time() - start_time
             logging.info(f"Creating database completed in {database_time:.2f} seconds")
 
@@ -101,7 +116,6 @@ class EmbeddingDatabaseBuilder:
             logging.info(f"Database location: {output_db}")
             logging.info(f"Total embeddings: {len(db.chain_ids)}")
 
-        del chain_ids, embeddings
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
