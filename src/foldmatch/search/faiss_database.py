@@ -37,6 +37,8 @@ def _index_add_batched(index, embedding_array: np.ndarray, batch_size: int = 100
 class FaissEmbeddingDatabase:
     """FAISS-based database for structure chain embeddings."""
 
+    N_EMBEDDINGS_DB_THR = 10000
+
     def __init__(self, db_path: str, index_name: str = "structure_embeddings"):
         """
         Initialize FAISS database.
@@ -76,7 +78,7 @@ class FaissEmbeddingDatabase:
         self.index_type = index_type
         if index_type == IndexType.ivf_pq:
             if use_gpu:
-                logging.warning("use_gpu is not supported for ivf_pq builds; running on CPU.")
+                logger.warning("use_gpu is not supported for ivf_pq builds; running on CPU.")
             self._create_ivf_pq_ondisk(batches, config)
         else:
             self._create_in_memory(batches, index_type, config, use_gpu)
@@ -105,19 +107,19 @@ class FaissEmbeddingDatabase:
 
         _normalize_L2_batched(embedding_array)
 
+        if index_type == IndexType.auto:
+            if n_embeddings < FaissEmbeddingDatabase.N_EMBEDDINGS_DB_THR:
+                index_type = IndexType.flat
+            else:
+                index_type = IndexType.hnsw
+
+        logger.info(f"Building {index_type.name} index with {n_embeddings} embeddings")
         if index_type == IndexType.flat:
             self.index = faiss.IndexFlatIP(self.dimension)
         elif index_type == IndexType.hnsw:
             self.index = faiss.IndexHNSWFlat(
                 self.dimension, config.hnsw_m, faiss.METRIC_INNER_PRODUCT
             )
-        else:  # IndexType.auto — preserves legacy heuristic
-            if n_embeddings < 10000:
-                self.index = faiss.IndexFlatIP(self.dimension)
-            else:
-                self.index = faiss.IndexHNSWFlat(
-                    self.dimension, config.hnsw_m, faiss.METRIC_INNER_PRODUCT
-                )
 
         if use_gpu:
             if _has_gpu_support():
@@ -135,6 +137,8 @@ class FaissEmbeddingDatabase:
             config: IndexConfig,
     ):
         """Build OPQ + IVF-PQ with OnDiskInvertedLists. Bounded RAM ≈ training sample size."""
+
+        logger.info(f"Building {IndexType.ivf_pq.name} index")
         self.db_path.mkdir(parents=True, exist_ok=True)
         invlists_path = str(self.db_path / f"{self.index_name}.invlists")
 
@@ -159,7 +163,7 @@ class FaissEmbeddingDatabase:
 
         # Phase B: build the empty index, train on a normalized copy of the sample.
         factory_string = f"OPQ{config.m},IVF{config.nlist},PQ{config.m}x{config.nbits}"
-        logging.info(
+        logger.info(
             f"Training {factory_string} on {n_buffered} vectors (cap {config.opq_train_size})"
         )
         self.index = faiss.index_factory(
@@ -194,7 +198,7 @@ class FaissEmbeddingDatabase:
             config.nprobe = max(1, config.nlist // 64)
         ivf_index.nprobe = config.nprobe
 
-        logging.info(f"IVF-PQ build complete: {total_added} vectors, nprobe={config.nprobe}")
+        logger.info(f"IVF-PQ build complete: {total_added} vectors, nprobe={config.nprobe}")
 
     def _normalize_and_add(self, ids_batch: list[str], emb_batch: np.ndarray) -> int:
         """Normalize a copy of the batch and add to the index. Returns the count added."""
@@ -239,7 +243,7 @@ class FaissEmbeddingDatabase:
         else:
             self.index = faiss.read_index(str(index_file))
 
-        logging.info(
+        logger.info(
             f"Loaded database with {len(self.chain_ids)} embeddings (index_type={self.index_type})"
         )
 
@@ -254,35 +258,35 @@ class FaissEmbeddingDatabase:
             gpu_id: GPU device ID to use (default: 0)
         """
         if self.is_gpu_index:
-            logging.info("Index is already on GPU")
+            logger.info("Index is already on GPU")
             return
 
         if not _has_gpu_support():
-            logging.info("WARNING: GPU not available. Keeping index on CPU.")
-            logging.info("To enable GPU support, install: pip install faiss-gpu")
+            logger.info("WARNING: GPU not available. Keeping index on CPU.")
+            logger.info("To enable GPU support, install: pip install faiss-gpu")
             return
 
         if self.index is None:
             raise ValueError("No index loaded. Call load_database() first.")
 
-        logging.info(f"Moving index to GPU {gpu_id}...")
+        logger.info(f"Moving index to GPU {gpu_id}...")
         self.gpu_resources = faiss.StandardGpuResources()
         self.gpu_resources.setTempMemory(1024 * 1024 * 1024)  # 1GB temp memory
         self.index = faiss.index_cpu_to_gpu(self.gpu_resources, gpu_id, self.index)
         self.is_gpu_index = True
-        logging.info("Index successfully moved to GPU")
+        logger.info("Index successfully moved to GPU")
 
     def move_to_cpu(self):
         """Move the index from GPU to CPU."""
         if not self.is_gpu_index:
-            logging.info("Index is already on CPU")
+            logger.info("Index is already on CPU")
             return
 
-        logging.info("Moving index to CPU...")
+        logger.info("Moving index to CPU...")
         self.index = faiss.index_gpu_to_cpu(self.index)
         self.is_gpu_index = False
         self.gpu_resources = None
-        logging.info("Index successfully moved to CPU")
+        logger.info("Index successfully moved to CPU")
 
     def search(
             self,
@@ -352,7 +356,7 @@ class FaissEmbeddingDatabase:
             try:
                 # Find the index of this chain
                 if query_chain_id not in self.chain_ids:
-                    logging.info(f"Chain {query_chain_id} not found in database")
+                    logger.info(f"Chain {query_chain_id} not found in database")
                     continue
 
                 chain_idx = self.chain_ids.index(query_chain_id)
@@ -367,7 +371,7 @@ class FaissEmbeddingDatabase:
                 results_dict[query_chain_id] = (result_chain_ids, scores[0].tolist())
 
             except Exception as e:
-                logging.info(f"Error searching for {query_chain_id}: {e}")
+                logger.info(f"Error searching for {query_chain_id}: {e}")
                 continue
 
         return results_dict
