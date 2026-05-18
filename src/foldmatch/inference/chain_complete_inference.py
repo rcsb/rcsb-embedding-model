@@ -40,7 +40,7 @@ def predict(
         fasta_file=src_stream
     )
 
-    logger.info(f"{str(src_from)}-inference set running as iterator")
+    logger.info(f"{src_from.name}-inference set running as iterator")
 
     inference_dataloader = DataLoader(
         dataset=inference_set,
@@ -82,7 +82,7 @@ def predict(
         logger=False
     )
 
-    logger.info(f"{str(src_from)}-inference starts")
+    logger.info(f"{src_from.name}-inference starts")
     prediction = trainer.predict(
         module,
         inference_dataloader
