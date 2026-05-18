@@ -1,6 +1,4 @@
 import logging
-import shutil
-import tempfile
 from pathlib import Path
 from typing import Optional
 
@@ -9,19 +7,14 @@ import torch.distributed as dist
 import os
 from secrets import token_hex
 
-from foldmatch.inference.esm_inference import predict as esm_predict
-from foldmatch.inference.chain_inference import predict as chain_predict
-from foldmatch.inference.assembly_inferece import predict as assembly_predict
-from foldmatch.inference.sequence_inference import predict as sequence_predict
+from foldmatch.inference.assembly_complete_inference import predict as assembly_predict
+from foldmatch.inference.chain_complete_inference import predict as chain_predict
 from foldmatch.types.api_types import (
     StructureFormat,
     SrcLocation,
-    SrcProteinFrom,
-    SrcAssemblyFrom,
-    SrcTensorFrom,
     OutFormat,
     Accelerator,
-    Granularity,
+    Granularity, SrcEsmFrom,
 )
 
 logger = logging.getLogger(__name__)
@@ -37,11 +30,8 @@ class EmbeddingComputer:
     """
 
     def __init__(self, tmp_dir: str, accelerator: Accelerator = 'auto'):
-        run_dir = tempfile.mkdtemp(prefix="run_", dir=tmp_dir)
-        self.tmp_res_dir = Path(run_dir) / "res"
-        self.tmp_res_dir.mkdir(parents=True, exist_ok=True)
-        self.tmp_ch_dir = Path(run_dir) / "ch"
-        self.tmp_ch_dir.mkdir(parents=True, exist_ok=True)
+        self.tmp_dir = tmp_dir
+        self.out_name = _consolidate_id()
         self.accelerator = accelerator
 
     def compute_from_structures(
@@ -51,10 +41,8 @@ class EmbeddingComputer:
             min_res: int = 10,
             granularity: Granularity = 'chain',
             file_extension: Optional[str] = None,
-            batch_size_res: int = 1,
-            num_workers_res: int = 0,
-            batch_size_chain: int = 1,
-            num_workers_chain: int = 0,
+            batch_size: int = 1,
+            num_workers: int = 0,
             num_nodes: int = 1,
             devices='auto',
             strategy='auto',
@@ -74,36 +62,21 @@ class EmbeddingComputer:
                 f"No structure files found with extension {file_extension} in {structure_dir}"
             )
 
-        esm_predict(
-            src_stream=[
-                (str_file.stem, str_file, str_file.stem)
-                for str_file in structure_files
-            ],
-            src_location=SrcLocation.stream,
-            src_from=SrcProteinFrom.structure,
-            structure_format=structure_format,
-            min_res_n=min_res,
-            out_path=self.tmp_res_dir,
-            accelerator=self.accelerator,
-            batch_size=batch_size_res,
-            num_workers=num_workers_res,
-            num_nodes=num_nodes,
-            devices=devices,
-            strategy=strategy,
-            out_format=OutFormat.pt,
-        )
-        self._consolidate_after_residue()
 
         if granularity == 'chain':
             logging.info(f"Listing residue embedding files from: {self.tmp_res_dir}")
-            esm_embedding_files = list(self.tmp_res_dir.glob("*pt"))
             chain_predict(
-                src_stream=[(f, f.stem) for f in esm_embedding_files],
+                src_stream=[
+                    (str_file.stem, str_file, str_file.stem)
+                    for str_file in structure_files
+                ],
                 src_location=SrcLocation.stream,
-                out_path=self.tmp_ch_dir,
+                min_res_n=min_res,
+                out_path=self.tmp_dir,
+                out_name=self.out_name,
                 accelerator=self.accelerator,
-                batch_size=batch_size_chain,
-                num_workers=num_workers_chain,
+                batch_size=batch_size,
+                num_workers=num_workers,
                 num_nodes=num_nodes,
                 devices=devices,
                 strategy=strategy,
@@ -115,16 +88,15 @@ class EmbeddingComputer:
                     (str_file.stem, str_file, str_file.stem)
                     for str_file in structure_files
                 ],
-                res_embedding_location=str(self.tmp_res_dir),
                 src_location=SrcLocation.stream,
-                out_path=self.tmp_ch_dir,
-                src_from=SrcAssemblyFrom.structure,
+                out_path=self.tmp_dir,
+                out_name=self.out_name,
                 accelerator=self.accelerator,
-                num_workers=num_workers_chain,
+                num_workers=num_workers,
                 num_nodes=num_nodes,
                 devices=devices,
                 strategy=strategy,
-                out_format=OutFormat.pt,
+                out_format=OutFormat.parquet,
             )
         if _is_distributed():
             dist.barrier()
@@ -136,54 +108,30 @@ class EmbeddingComputer:
             min_res_n: int = 0,
             batch_size_res: int = 1,
             num_workers_res: int = 0,
-            batch_size_chain: int = 1,
-            num_workers_chain: int = 0,
             num_nodes: int = 1,
             devices='auto',
             strategy='auto',
     ) -> tuple[list, list]:
         """Compute chain embeddings from protein sequences in a FASTA file."""
-        from foldmatch.cli.sequence_embedding import scan_fasta_sequences
 
-        sequence_predict(
-            fasta_file=fasta_file,
+        chain_predict(
+            src_stream=fasta_file,
+            src_from=SrcEsmFrom.fasta,
             min_res_n=min_res_n,
             batch_size=batch_size_res,
             num_workers=num_workers_res,
             num_nodes=num_nodes,
             accelerator=self.accelerator,
             devices=devices,
-            out_format=OutFormat.pt,
-            out_path=self.tmp_res_dir,
+            out_format=OutFormat.parquet,
+            out_path=self.tmp_dir,
+            out_name=self.out_name,
             strategy=strategy,
         )
-        self._consolidate_after_residue()
 
-        src_stream = scan_fasta_sequences(fasta_file, str(self.tmp_res_dir))
-        chain_predict(
-            src_stream=src_stream,
-            src_location=SrcLocation.stream,
-            src_from=SrcTensorFrom.file,
-            out_path=self.tmp_ch_dir,
-            accelerator=self.accelerator,
-            batch_size=batch_size_chain,
-            num_workers=num_workers_chain,
-            num_nodes=num_nodes,
-            devices=devices,
-            strategy=strategy,
-            out_format=OutFormat.pt,
-        )
         if _is_distributed():
             dist.barrier()
         return self._load_chain_tensors()
-
-    def _consolidate_after_residue(self):
-        if _is_distributed():
-            dist.barrier()
-            self.tmp_res_dir, self.tmp_ch_dir = _consolidate_run_dirs(
-                self.tmp_res_dir, self.tmp_ch_dir
-            )
-            dist.barrier()
 
     def _load_chain_tensors(self) -> tuple[list, list]:
         """Load chain tensors from tmp_ch_dir. Non-rank-0 ranks return ([], [])."""
@@ -200,7 +148,6 @@ def _is_distributed():
     """Check if the current process is running in distributed mode."""
     return dist.is_available() and dist.is_initialized()
 
-
 def _is_rank_zero():
     """Check if the current process is rank zero in distributed training."""
     return not _is_distributed() or dist.get_rank() == 0
@@ -209,42 +156,6 @@ def _get_rank():
     if _is_distributed():
         return dist.get_rank()
     return 0
-
-
-def _consolidate_run_dirs(local_res_dir: Path, local_ch_dir: Path) -> tuple[Path, Path]:
-    """Unify the per-rank residue and chain temp dirs onto rank 0's paths.
-
-    Each rank ran ``mkdtemp`` independently in ``__init__``, so residue
-    embeddings were just written to a different directory on every rank.
-    Broadcast rank 0's paths to everyone, move per-rank residue files into
-    the canonical residue dir, and remove the now-empty per-rank scratch
-    dirs. The returned paths are identical on every rank, so subsequent
-    inference and tensor loads see one shared location.
-
-    Must be called with the process group already initialized.
-    """
-    rank = dist.get_rank()
-
-    res_payload = [str(local_res_dir)] if rank == 0 else [None]
-    dist.broadcast_object_list(res_payload, src=0)
-    canonical_res = Path(res_payload[0])
-
-    ch_payload = [str(local_ch_dir)] if rank == 0 else [None]
-    dist.broadcast_object_list(ch_payload, src=0)
-    canonical_ch = Path(ch_payload[0])
-
-    if rank != 0:
-        for f in local_res_dir.iterdir():
-            if f.is_file():
-                shutil.move(str(f), str(canonical_res / f.name))
-        # Per-rank res/ and ch/ live under the same parent run dir from mkdtemp.
-        local_run_dir = local_res_dir.parent
-        try:
-            shutil.rmtree(local_run_dir)
-        except OSError as e:
-            logger.warning(f"Failed to remove per-rank scratch dir {local_run_dir}: {e}")
-
-    return canonical_res, canonical_ch
 
 def _consolidate_id():
     return os.environ.get('SLURM_JOB_ID', token_hex(16))
