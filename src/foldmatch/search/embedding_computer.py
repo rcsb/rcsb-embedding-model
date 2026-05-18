@@ -144,7 +144,7 @@ class EmbeddingComputer:
         parquet_files = sorted(Path(self.tmp_dir).glob(f"{self.out_name}-*.parquet"))
         logging.info(f"Streaming embeddings from {len(parquet_files)} Parquet shard(s) in: {self.tmp_dir}")
         for parquet_file in parquet_files:
-            logging.info(f"    Parquet file {parquet_file}")
+            logging.info(f"   Parquet file {parquet_file}")
             pf = pq.ParquetFile(parquet_file)
             for record in pf.iter_batches(batch_size=batch_size, columns=['id', 'embedding']):
                 ids = record.column('id').to_pylist()
