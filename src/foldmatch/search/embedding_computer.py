@@ -84,6 +84,7 @@ class EmbeddingComputer:
                 devices=devices,
                 strategy=strategy,
                 out_format=OutFormat.parquet,
+                return_predictions=False,
             )
         else:
             assembly_predict(
@@ -101,6 +102,7 @@ class EmbeddingComputer:
                 devices=devices,
                 strategy=strategy,
                 out_format=OutFormat.parquet,
+                return_predictions=False,
             )
         if _is_distributed():
             dist.barrier()
@@ -132,6 +134,7 @@ class EmbeddingComputer:
             out_path=self.tmp_dir,
             out_name=self.out_name,
             strategy=strategy,
+            return_predictions=False,
         )
 
         if _is_distributed():

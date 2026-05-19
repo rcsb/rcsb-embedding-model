@@ -25,7 +25,8 @@ def predict(
         out_format: OutFormat = OutFormat.csv,
         out_name: str = 'inference',
         out_path: OptionalPath = None,
-        res_embedding_format: ResEmbeddingFormat = ResEmbeddingFormat.pt
+        res_embedding_format: ResEmbeddingFormat = ResEmbeddingFormat.pt,
+        return_predictions: bool = True,
 ):
     logger = logging.getLogger(__name__)
 
@@ -62,5 +63,6 @@ def predict(
         out_name=out_name,
         out_path=out_path,
         inference_set=inference_set,
-        res_embedding_format=res_embedding_format
+        res_embedding_format=res_embedding_format,
+        return_predictions=return_predictions,
     )

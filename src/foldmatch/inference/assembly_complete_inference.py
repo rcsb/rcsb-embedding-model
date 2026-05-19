@@ -26,7 +26,8 @@ def predict(
         strategy: Strategy = 'auto',
         out_format: OutFormat = OutFormat.csv,
         out_name: str = 'inference',
-        out_path: OptionalPath = None
+        out_path: OptionalPath = None,
+        return_predictions: bool = True,
 ):
     logger = logging.getLogger(__name__)
 
@@ -83,7 +84,8 @@ def predict(
     logger.info("assembly-inference starts")
     prediction = trainer.predict(
         module,
-        inference_dataloader
+        inference_dataloader,
+        return_predictions=return_predictions,
     )
 
     return prediction

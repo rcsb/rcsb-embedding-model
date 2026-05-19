@@ -32,7 +32,8 @@ def predict(
         out_path: OptionalPath = None,
         inference_set=None,
         res_embedding_format: ResEmbeddingFormat = ResEmbeddingFormat.pt,
-        embedding_dim: int = 1536
+        embedding_dim: int = 1536,
+        return_predictions: bool = True,
 ):
     logger = logging.getLogger(__name__)
 
@@ -98,7 +99,8 @@ def predict(
     logger.info(f"chain-inference starts")
     prediction = trainer.predict(
         module,
-        inference_dataloader
+        inference_dataloader,
+        return_predictions=return_predictions,
     )
 
     return prediction

@@ -91,7 +91,8 @@ def residue_embedding(
         out_format=output_format,
         out_name=output_name,
         out_path=output_path,
-        strategy=strategy
+        strategy=strategy,
+        return_predictions=False,
     )
 
 
@@ -161,7 +162,8 @@ def chain_embedding(
         out_format=output_format,
         out_path=output_path,
         out_name=output_name,
-        strategy=strategy
+        strategy=strategy,
+        return_predictions=False,
     )
 
 
