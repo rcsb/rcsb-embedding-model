@@ -7,7 +7,7 @@ from typing import Annotated, Optional, List
 
 from foldmatch import __version__
 from foldmatch.cli.args_utils import arg_devices, set_log_level
-from foldmatch.search.embedding_computer import _is_rank_zero, stream_embeddings
+from foldmatch.search.embedding_computer import is_rank_zero, stream_embeddings
 from foldmatch.types.api_types import (
     StructureFormat,
     Accelerator,
@@ -144,7 +144,7 @@ def build_database_from_structures(
         index_config=IndexConfig(nlist=ivf_nlist, nprobe=ivf_nprobe),
     )
 
-    if _is_rank_zero():
+    if is_rank_zero():
         logging.info(f"You can now search this database using:")
         logging.info(f"   fm-search query structure --db-path {output_db} --query-structure <path_to_structure>")
 
@@ -271,7 +271,7 @@ def build_database_from_fasta(
         index_config=IndexConfig(nlist=ivf_nlist, nprobe=ivf_nprobe),
     )
 
-    if _is_rank_zero():
+    if is_rank_zero():
         logging.info(f"You can now search this database using:")
         logging.info(f"   fm-search query sequences --db-path {output_db} --fasta-file <path_to_fasta_file>")
 
@@ -507,7 +507,7 @@ def query_database_from_fasta(
         strategy=strategy,
     )
 
-    if _is_rank_zero():
+    if is_rank_zero():
         logging.info(f"Searched {len(results)} sequence(s)")
         results = _filter_results_by_threshold(results, threshold)
         searcher.print_results(results)

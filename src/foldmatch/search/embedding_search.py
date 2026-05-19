@@ -7,7 +7,7 @@ from tqdm import tqdm
 from foldmatch.foldmatch import FoldMatch
 from foldmatch.search.embedding_computer import (
     EmbeddingComputer,
-    _is_rank_zero,
+    is_rank_zero,
     stream_embeddings,
 )
 from foldmatch.search.faiss_database import FaissEmbeddingDatabase
@@ -234,7 +234,7 @@ class EmbeddingSearch:
         )
 
         results: Dict[str, Tuple[List[str], List[float]]] = {}
-        if not _is_rank_zero():
+        if not is_rank_zero():
             return results
         for ids_batch, emb_batch in batches:
             batch_results = self.db.search_batch(emb_batch, top_k=top_k)

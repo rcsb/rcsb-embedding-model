@@ -143,7 +143,7 @@ class EmbeddingComputer:
 
     def _load_chain_batches(self, batch_size: int) -> Iterator[tuple[list[str], np.ndarray]]:
         """Stream (ids, [B, D] float32) batches from all per-rank Parquet shards. Rank-0 only."""
-        if not _is_rank_zero():
+        if not is_rank_zero():
             return
         parquet_files = sorted(Path(self.tmp_dir).glob(f"{self.out_name}-*.parquet"))
         logging.info(f"Streaming embeddings from {len(parquet_files)} Parquet shard(s) in: {self.tmp_dir}")
@@ -241,14 +241,9 @@ def _is_distributed():
     """Check if the current process is running in distributed mode."""
     return dist.is_available() and dist.is_initialized()
 
-def _is_rank_zero():
+def is_rank_zero():
     """Check if the current process is rank zero in distributed training."""
     return not _is_distributed() or dist.get_rank() == 0
-
-def _get_rank():
-    if _is_distributed():
-        return dist.get_rank()
-    return 0
 
 def _consolidate_id():
     return os.environ.get('SLURM_JOB_ID', token_hex(16))

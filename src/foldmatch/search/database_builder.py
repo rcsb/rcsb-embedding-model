@@ -13,7 +13,7 @@ from foldmatch.types.api_types import (
     IndexType,
 )
 from foldmatch.search.faiss_database import FaissEmbeddingDatabase
-from foldmatch.search.embedding_computer import EmbeddingComputer, _is_rank_zero
+from foldmatch.search.embedding_computer import EmbeddingComputer, is_rank_zero
 
 logger = logging.getLogger(__name__)
 
@@ -97,7 +97,7 @@ class EmbeddingDatabaseBuilder:
 
     def _create(self, output_db, batches, use_gpu_index, index_type, index_config, compute_start):
         db_dir, index_name, output_db = _parse_output_db(output_db)
-        if _is_rank_zero():
+        if is_rank_zero():
             embeddings_time = time.time() - compute_start
             logging.info(f"Creating embeddings completed in {embeddings_time:.2f} seconds")
 
