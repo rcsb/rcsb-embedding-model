@@ -1,14 +1,16 @@
 import logging
 import torch
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Iterator
 from tqdm import tqdm
+import numpy as np
+import pyarrow.parquet as pq
+import pandas as pd
 
 from foldmatch.foldmatch import FoldMatch
 from foldmatch.search.embedding_computer import (
     EmbeddingComputer,
     is_rank_zero,
-    stream_embeddings,
 )
 from foldmatch.search.faiss_database import FaissEmbeddingDatabase
 from foldmatch.types.api_types import Accelerator, Granularity, StructureFormat
@@ -285,3 +287,80 @@ class EmbeddingSearch:
     def get_db_statistics(self) -> Dict:
         """Get database statistics."""
         return self.db.get_statistics()
+
+_POINT_EXTS = ('.pt', '.csv')
+_BATCH_EXTS = ('.parquet',)
+_SUPPORTED_EXTS = _POINT_EXTS + _BATCH_EXTS
+
+
+def stream_embeddings(
+        path: str,
+        file_extension: Optional[str] = None,
+        batch_size: int = 4096,
+) -> Iterator[tuple[list[str], np.ndarray]]:
+    """Yield (ids, [B, D] float32) batches from a file or directory of .pt / .csv / .parquet.
+
+    Parquet shards are streamed via ``ParquetFile.iter_batches`` (many chains per file).
+    .pt and .csv hold one chain per file (ID = filename stem) and are chunked into
+    batches of ``batch_size``. A single file is handled as a degenerate directory-of-one;
+    ``file_extension`` is ignored in that case.
+    """
+    p = Path(path)
+    if not p.exists():
+        raise ValueError(f"Embeddings path does not exist: {path}")
+
+    if file_extension is not None and file_extension not in _SUPPORTED_EXTS:
+        raise ValueError(
+            f"Unsupported file extension '{file_extension}'. "
+            f"Use one of: {', '.join(_SUPPORTED_EXTS)}"
+        )
+
+    if p.is_file():
+        if p.suffix not in _SUPPORTED_EXTS:
+            raise ValueError(
+                f"Unsupported file extension '{p.suffix}'. "
+                f"Use one of: {', '.join(_SUPPORTED_EXTS)}"
+            )
+        files = [p]
+    else:
+        extensions = (file_extension,) if file_extension is not None else _SUPPORTED_EXTS
+        files = []
+        for ext in extensions:
+            files.extend(sorted(p.glob(f"*{ext}")))
+        if not files:
+            raise ValueError(
+                f"No embedding files found with extensions {list(extensions)} in {path}"
+            )
+
+    parquet_files = [f for f in files if f.suffix in _BATCH_EXTS]
+    point_files = [f for f in files if f.suffix in _POINT_EXTS]
+
+    for parquet_file in parquet_files:
+        pf = pq.ParquetFile(parquet_file)
+        for record in pf.iter_batches(batch_size=batch_size, columns=['id', 'embedding']):
+            ids = record.column('id').to_pylist()
+            flat = record.column('embedding').values.to_numpy(zero_copy_only=False)
+            arr = np.ascontiguousarray(
+                flat.reshape(len(record), -1).astype(np.float32, copy=False)
+            )
+            yield ids, arr
+
+    ids_buf: list[str] = []
+    emb_buf: list[np.ndarray] = []
+    for f in point_files:
+        if f.suffix == '.pt':
+            emb = torch.load(f, map_location='cpu', weights_only=True)
+            if isinstance(emb, torch.Tensor):
+                emb = emb.detach().cpu().numpy()
+        else:  # .csv
+            emb = pd.read_csv(f, header=None).values
+        emb = np.asarray(emb, dtype=np.float32)
+        if emb.ndim > 1:
+            emb = np.mean(emb, axis=0)
+        ids_buf.append(f.stem)
+        emb_buf.append(emb.reshape(-1))
+        if len(ids_buf) >= batch_size:
+            yield ids_buf, np.ascontiguousarray(np.stack(emb_buf))
+            ids_buf, emb_buf = [], []
+    if ids_buf:
+        yield ids_buf, np.ascontiguousarray(np.stack(emb_buf))

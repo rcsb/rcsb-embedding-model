@@ -180,7 +180,7 @@ def build_database_from_embeddings(
 
     db_dir, index_name, output_db = _parse_output_db(output_db)
 
-    from foldmatch.search.embedding_computer import stream_embeddings
+    from foldmatch.search.embedding_search import stream_embeddings
     from foldmatch.search.faiss_database import FaissEmbeddingDatabase
     db = FaissEmbeddingDatabase(db_path=str(db_dir), index_name=index_name)
     db.create_database(
