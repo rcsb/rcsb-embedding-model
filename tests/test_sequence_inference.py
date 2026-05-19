@@ -83,7 +83,6 @@ class TestSequenceInference(unittest.TestCase):
         _remove_files_in_directory(self.__tmp_path)
         from foldmatch.inference.sequence_inference import predict as sequence_predict
         from foldmatch.inference.chain_inference import predict as chain_predict
-        from foldmatch.cli.sequence_embedding import scan_fasta_sequences
 
         fasta_file = f"{self.__test_path}/resources/fasta/test_sequences.fasta"
 
@@ -94,7 +93,13 @@ class TestSequenceInference(unittest.TestCase):
             out_format=OutFormat.pt
         )
 
-        src_stream = scan_fasta_sequences(fasta_file, self.__tmp_path)
+        # Build (tensor_path, sequence_name) stream from the FASTA we just
+        # produced .pt files for, to feed the chain-level inference.
+        sequences = parse_fasta(fasta_file)
+        src_stream = tuple(
+            (os.path.join(self.__tmp_path, f"{name}.pt"), name)
+            for name, _ in sequences
+        )
         chain_embeddings = chain_predict(
             src_stream=src_stream,
             src_location=SrcLocation.stream,

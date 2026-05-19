@@ -45,6 +45,5 @@ build-backend = "hatchling.build"
 
 [project.scripts]
 inference = "foldmatch.cli.inference:app"
-fm-structure = "foldmatch.cli.structure_embedding:app"
+fm-embedding = "foldmatch.cli.embedding:app"
 fm-search = "foldmatch.cli.search:app"
-fm-sequence = "foldmatch.cli.sequence_embedding:app"

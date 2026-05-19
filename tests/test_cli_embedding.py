@@ -3,7 +3,7 @@ import os
 import shutil
 import unittest
 
-from foldmatch.cli.structure_embedding import scan_structure_folder
+from foldmatch.cli.embedding import scan_structure_folder
 from foldmatch.types.api_types import OutFormat, StructureFormat, Accelerator
 
 
@@ -36,8 +36,8 @@ class TestCliEmbedding(unittest.TestCase):
 
     def test_residue_embedding(self):
         _remove_files_in_directory(f"{self.__test_path}/resources/tmp")
-        from foldmatch.cli.structure_embedding import residue_embedding
-        residue_embedding(
+        from foldmatch.cli.embedding import from_structures_residue
+        from_structures_residue(
             src_folder=f"{self.__test_path}/resources/pdb",
             output_path=f"{self.__test_path}/resources/tmp",
             output_format=OutFormat.csv,
@@ -58,8 +58,8 @@ class TestCliEmbedding(unittest.TestCase):
 
     def test_chain_embedding_end_to_end(self):
         _remove_files_in_directory(f"{self.__test_path}/resources/tmp")
-        from foldmatch.cli.structure_embedding import chain_embedding
-        chain_embedding(
+        from foldmatch.cli.embedding import from_structures_chain
+        from_structures_chain(
             src_folder=f"{self.__test_path}/resources/pdb",
             output_path=f"{self.__test_path}/resources/tmp",
             output_format=OutFormat.parquet,
@@ -76,8 +76,8 @@ class TestCliEmbedding(unittest.TestCase):
 
     def test_fasta_embedding_end_to_end(self):
         _remove_files_in_directory(f"{self.__test_path}/resources/tmp")
-        from foldmatch.cli.sequence_embedding import chain_embedding
-        chain_embedding(
+        from foldmatch.cli.embedding import from_sequences_chain
+        from_sequences_chain(
             fasta_file=f"{self.__test_path}/resources/fasta/test_sequences.fasta",
             output_path=f"{self.__test_path}/resources/tmp",
             output_format=OutFormat.parquet,
@@ -93,8 +93,8 @@ class TestCliEmbedding(unittest.TestCase):
 
     def test_assembly_embedding_end_to_end(self):
         _remove_files_in_directory(f"{self.__test_path}/resources/tmp")
-        from foldmatch.cli.structure_embedding import assembly_embedding
-        assembly_embedding(
+        from foldmatch.cli.embedding import from_structures_assembly
+        from_structures_assembly(
             src_folder=f"{self.__test_path}/resources/pdb",
             output_path=f"{self.__test_path}/resources/tmp",
             output_format=OutFormat.parquet,
