@@ -208,9 +208,9 @@ class TestCliSearch(unittest.TestCase):
         self.assertEqual(len(results_ids), 2)
         self.assertEqual(len(results_distances), 2)
 
-    def test_08_structure_search_class(self):
-        """Test StructureSearch class directly."""
-        from foldmatch.search.structure_search import StructureSearch
+    def test_08_embedding_search_class(self):
+        """Test EmbeddingSearch class directly."""
+        from foldmatch.search.embedding_search import EmbeddingSearch
         from pathlib import Path
 
         query_structure = f"{self.__test_path}/resources/pdb/2uzi.cif"
@@ -220,7 +220,7 @@ class TestCliSearch(unittest.TestCase):
         db_dir = db_path_obj.parent
         index_name = db_path_obj.name
 
-        searcher = StructureSearch(
+        searcher = EmbeddingSearch(
             db_path=str(db_dir),
             index_name=index_name,
             min_res=10,
@@ -247,7 +247,7 @@ class TestCliSearch(unittest.TestCase):
             self.assertEqual(len(matching_ids), len(distances))
 
         # Test export
-        output_csv = os.path.join(self.__temp_dir, "structure_search_export.csv")
+        output_csv = os.path.join(self.__temp_dir, "embedding_search_export.csv")
         searcher.export_results(results, output_csv)
         self.assertTrue(os.path.exists(output_csv))
 
@@ -335,16 +335,16 @@ class TestCliSearch(unittest.TestCase):
             lines = f.readlines()
             self.assertGreater(len(lines), 1)
 
-    def test_12_structure_search_search_by_database(self):
-        """Test StructureSearch database-to-database search API."""
+    def test_12_embedding_search_search_by_database(self):
+        """Test EmbeddingSearch database-to-database search API."""
         from pathlib import Path
-        from foldmatch.search.structure_search import StructureSearch
+        from foldmatch.search.embedding_search import EmbeddingSearch
 
         db_path_obj = Path(self.__db_path)
         db_dir = db_path_obj.parent
         index_name = db_path_obj.name
 
-        searcher = StructureSearch(
+        searcher = EmbeddingSearch(
             db_path=str(db_dir),
             index_name=index_name
         )

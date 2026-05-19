@@ -1,16 +1,13 @@
 import os
 import logging
-import numpy as np
-import pyarrow.parquet as pq
 import torch
-import pandas as pd
 import typer
 from pathlib import Path
-from typing import Annotated, Iterator, Optional, List
+from typing import Annotated, Optional, List
 
 from foldmatch import __version__
 from foldmatch.cli.args_utils import arg_devices, set_log_level
-from foldmatch.search.embedding_computer import _is_rank_zero
+from foldmatch.search.embedding_computer import _is_rank_zero, stream_embeddings
 from foldmatch.types.api_types import (
     StructureFormat,
     Accelerator,
@@ -22,7 +19,7 @@ from foldmatch.types.api_types import (
 )
 from foldmatch.search.database_builder import EmbeddingDatabaseBuilder
 from foldmatch.search.faiss_database import FaissEmbeddingDatabase
-from foldmatch.search.structure_search import StructureSearch
+from foldmatch.search.embedding_search import EmbeddingSearch
 from foldmatch.search.clustering import EmbeddingClusterer
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -190,7 +187,7 @@ def build_database_from_embeddings(
 
     db = FaissEmbeddingDatabase(db_path=str(db_dir), index_name=index_name)
     db.create_database(
-        batches=_stream_embeddings(embedding_folder, file_extension),
+        batches=stream_embeddings(embedding_folder, file_extension),
         index_type=index_type,
         index_config=IndexConfig(nlist=ivf_nlist, nprobe=ivf_nprobe),
         use_gpu=use_gpu_index,
@@ -348,7 +345,7 @@ def query_database_from_structure(
 
     # Initialize search
     logging.info("Loading database...")
-    searcher = StructureSearch(
+    searcher = EmbeddingSearch(
         db_path=str(db_dir),
         index_name=index_name,
         min_res=min_res,
@@ -413,17 +410,13 @@ def query_database_from_embedding(
     db_dir, index_name = _parse_database_path(db_path)
 
     logging.info("Loading database...")
-    searcher = StructureSearch(
+    searcher = EmbeddingSearch(
         db_path=str(db_dir),
         index_name=index_name,
         use_gpu_for_search=use_gpu_index
     )
 
-    results = {}
-    for ids_batch, emb_batch in _stream_embeddings(embedding_file):
-        batch_results = searcher.db.search_batch(emb_batch, top_k=top_k)
-        for qid, res in zip(ids_batch, batch_results):
-            results[qid] = res
+    results = searcher.search_by_embeddings(embedding_file, top_k=top_k)
 
     if not results:
         raise ValueError(f"No embeddings found in {embedding_file}")
@@ -494,37 +487,30 @@ def query_database_from_fasta(
 
     db_dir, index_name = _parse_database_path(db_path)
 
-    from foldmatch.search.embedding_computer import EmbeddingComputer
-    computer = EmbeddingComputer(tmp_dir=tmp_embedding_folder, accelerator=accelerator)
-    batches = computer.compute_from_fasta(
+    logging.info("Loading database...")
+    searcher = EmbeddingSearch(
+        db_path=str(db_dir),
+        index_name=index_name,
+        use_gpu_for_search=use_gpu_index,
+        tmp_dir=tmp_embedding_folder,
+        accelerator=accelerator,
+    )
+
+    results = searcher.search_by_fasta(
         fasta_file=fasta_file,
         min_res_n=min_res_n,
+        top_k=top_k,
         batch_size=batch_size,
         num_workers=num_workers,
         num_nodes=num_nodes,
         devices=arg_devices(devices),
         strategy=strategy,
     )
+
     if _is_rank_zero():
-        logging.info("Loading database...")
-        searcher = StructureSearch(
-            db_path=str(db_dir),
-            index_name=index_name,
-            use_gpu_for_search=use_gpu_index
-        )
-
-        results = {}
-        for ids_batch, emb_batch in batches:
-            batch_results = searcher.db.search_batch(emb_batch, top_k=top_k)
-            for qid, res in zip(ids_batch, batch_results):
-                results[qid] = res
-
         logging.info(f"Searched {len(results)} sequence(s)")
-
         results = _filter_results_by_threshold(results, threshold)
-
         searcher.print_results(results)
-
         if output_csv:
             searcher.export_results(results, output_csv)
 
@@ -569,7 +555,7 @@ def query_database_with_database(
 
     # Load subject database
     logging.info("\nLoading subject database...")
-    searcher = StructureSearch(
+    searcher = EmbeddingSearch(
         db_path=str(subject_db_dir),
         index_name=subject_index_name,
         use_gpu_for_search=use_gpu_index
@@ -617,7 +603,7 @@ def show_statistics(
 
     # Parse db_path into directory and index name
     db_dir, index_name = _parse_database_path(db_path)
-    searcher = StructureSearch(db_path=str(db_dir), index_name=index_name)
+    searcher = EmbeddingSearch(db_path=str(db_dir), index_name=index_name)
     stats = searcher.get_db_statistics()
 
     logging.info("DATABASE STATISTICS")
@@ -787,84 +773,6 @@ def _parse_output_db(output_db: str) -> tuple[Path, str, str]:
         db_dir = Path.cwd()
 
     return db_dir, index_name, str(db_dir / index_name)
-
-
-_POINT_EXTS = ('.pt', '.csv')
-_BATCH_EXTS = ('.parquet',)
-_SUPPORTED_EXTS = _POINT_EXTS + _BATCH_EXTS
-
-
-def _stream_embeddings(
-        path: str,
-        file_extension: Optional[str] = None,
-        batch_size: int = 4096,
-) -> Iterator[tuple[list[str], np.ndarray]]:
-    """Yield (ids, [B, D] float32) batches from a file or directory of .pt / .csv / .parquet.
-
-    Parquet shards are streamed via ``ParquetFile.iter_batches`` (many chains per file).
-    .pt and .csv hold one chain per file (ID = filename stem) and are chunked into
-    batches of ``batch_size``. A single file is handled as a degenerate directory-of-one;
-    ``file_extension`` is ignored in that case.
-    """
-    p = Path(path)
-    if not p.exists():
-        raise ValueError(f"Embeddings path does not exist: {path}")
-
-    if file_extension is not None and file_extension not in _SUPPORTED_EXTS:
-        raise ValueError(
-            f"Unsupported file extension '{file_extension}'. "
-            f"Use one of: {', '.join(_SUPPORTED_EXTS)}"
-        )
-
-    if p.is_file():
-        if p.suffix not in _SUPPORTED_EXTS:
-            raise ValueError(
-                f"Unsupported file extension '{p.suffix}'. "
-                f"Use one of: {', '.join(_SUPPORTED_EXTS)}"
-            )
-        files = [p]
-    else:
-        extensions = (file_extension,) if file_extension is not None else _SUPPORTED_EXTS
-        files = []
-        for ext in extensions:
-            files.extend(sorted(p.glob(f"*{ext}")))
-        if not files:
-            raise ValueError(
-                f"No embedding files found with extensions {list(extensions)} in {path}"
-            )
-
-    parquet_files = [f for f in files if f.suffix in _BATCH_EXTS]
-    point_files = [f for f in files if f.suffix in _POINT_EXTS]
-
-    for parquet_file in parquet_files:
-        pf = pq.ParquetFile(parquet_file)
-        for record in pf.iter_batches(batch_size=batch_size, columns=['id', 'embedding']):
-            ids = record.column('id').to_pylist()
-            flat = record.column('embedding').values.to_numpy(zero_copy_only=False)
-            arr = np.ascontiguousarray(
-                flat.reshape(len(record), -1).astype(np.float32, copy=False)
-            )
-            yield ids, arr
-
-    ids_buf: list[str] = []
-    emb_buf: list[np.ndarray] = []
-    for f in point_files:
-        if f.suffix == '.pt':
-            emb = torch.load(f, map_location='cpu', weights_only=True)
-            if isinstance(emb, torch.Tensor):
-                emb = emb.detach().cpu().numpy()
-        else:  # .csv
-            emb = pd.read_csv(f, header=None).values
-        emb = np.asarray(emb, dtype=np.float32)
-        if emb.ndim > 1:
-            emb = np.mean(emb, axis=0)
-        ids_buf.append(f.stem)
-        emb_buf.append(emb.reshape(-1))
-        if len(ids_buf) >= batch_size:
-            yield ids_buf, np.ascontiguousarray(np.stack(emb_buf))
-            ids_buf, emb_buf = [], []
-    if ids_buf:
-        yield ids_buf, np.ascontiguousarray(np.stack(emb_buf))
 
 
 def _parse_database_path(db_path: str, default_index_name: str = "structure_embeddings") -> tuple[Path, str]:
