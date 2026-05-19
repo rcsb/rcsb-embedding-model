@@ -180,18 +180,16 @@ def build_database_from_embeddings(
 
     db_dir, index_name, output_db = _parse_output_db(output_db)
 
-    from foldmatch.search.embedding_search import stream_embeddings
-    from foldmatch.search.faiss_database import FaissEmbeddingDatabase
-    db = FaissEmbeddingDatabase(db_path=str(db_dir), index_name=index_name)
-    db.create_database(
-        batches=stream_embeddings(embedding_folder, file_extension),
+    from foldmatch.search.database_builder import EmbeddingDatabaseBuilder
+    builder = EmbeddingDatabaseBuilder()
+    builder.build_from_embeddings(
+        embedding_path=embedding_folder,
+        output_db=output_db,
+        file_extension=file_extension,
+        use_gpu_index=use_gpu_index,
         index_type=index_type,
         index_config=IndexConfig(nlist=ivf_nlist, nprobe=ivf_nprobe),
-        use_gpu=use_gpu_index,
     )
-
-    logging.info(f"Database created: {output_db}")
-    logging.info(f"Total embeddings: {len(db.chain_ids)}")
 
 
 @build_db_app.command(

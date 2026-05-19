@@ -25,13 +25,31 @@ class EmbeddingDatabaseBuilder:
     only rank 0 materializes the FAISS database.
     """
 
-    def __init__(self, tmp_dir: str, accelerator: Accelerator = 'auto'):
+    def __init__(self, tmp_dir: Optional[str] = None, accelerator: Accelerator = 'auto'):
         """
         Args:
             tmp_dir: Directory under which per-run scratch directories are created.
+                Required for the structure / FASTA build paths (which run inference);
+                optional for :meth:`build_from_embeddings` which only reads disk.
             accelerator: Device to use for inference.
         """
-        self.computer = EmbeddingComputer(tmp_dir=tmp_dir, accelerator=accelerator)
+        self.tmp_dir = tmp_dir
+        self.accelerator = accelerator
+        self._computer: Optional[EmbeddingComputer] = None
+
+    @property
+    def computer(self) -> EmbeddingComputer:
+        """Lazy ``EmbeddingComputer`` — instantiated on first inference-based build."""
+        if self._computer is None:
+            if self.tmp_dir is None:
+                raise ValueError(
+                    "tmp_dir is required for inference-based builds "
+                    "(build_from_structures, build_from_fasta)"
+                )
+            self._computer = EmbeddingComputer(
+                tmp_dir=self.tmp_dir, accelerator=self.accelerator
+            )
+        return self._computer
 
     def build_from_structures(
             self,
@@ -65,6 +83,27 @@ class EmbeddingDatabaseBuilder:
             devices=devices,
             strategy=strategy,
         )
+        self._create(output_db, batches, use_gpu_index, index_type, index_config, start_time)
+
+    def build_from_embeddings(
+            self,
+            embedding_path: str,
+            output_db: str,
+            file_extension: Optional[str] = None,
+            use_gpu_index: bool = False,
+            index_type: IndexType = IndexType.auto,
+            index_config: Optional[IndexConfig] = None,
+    ):
+        """Build a FAISS database from a directory or file of pre-computed embeddings.
+
+        Supports ``.pt``, ``.csv``, and ``.parquet`` inputs via
+        :func:`foldmatch.search.embedding_computer.stream_embeddings`. No
+        inference is performed; ``tmp_dir`` is not required.
+        """
+        from foldmatch.search.embedding_search import stream_embeddings
+        logging.info("Building FAISS database from pre-computed embeddings")
+        start_time = time.time()
+        batches = stream_embeddings(embedding_path, file_extension)
         self._create(output_db, batches, use_gpu_index, index_type, index_config, start_time)
 
     def build_from_fasta(
