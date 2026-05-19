@@ -117,7 +117,8 @@ class StructureSearch:
             self,
             query_db_path: str,
             query_index_name: str = "structure_embeddings",
-            top_k: int = 10
+            top_k: int = 10,
+            batch_size: int = 4096,
     ) -> Dict[str, Tuple[List[str], List[float]]]:
         """
         Search the subject database using every chain embedding from another database.
@@ -126,6 +127,7 @@ class StructureSearch:
             query_db_path: Path to the query FAISS database directory
             query_index_name: Name of the query FAISS index
             top_k: Number of top results to return per query chain
+            batch_size: Number of query vectors processed per FAISS call.
 
         Returns:
             Dictionary mapping query chain ID to (matching_chain_ids, similarity_scores)
@@ -134,13 +136,19 @@ class StructureSearch:
         query_db = FaissEmbeddingDatabase(query_db_path, query_index_name)
         query_db.load_database()
 
-        logging.info(f"Query database contains {len(query_db.chain_ids)} embeddings")
+        n = len(query_db.chain_ids)
+        logging.info(f"Query database contains {n} embeddings")
 
         results = {}
-        for chain_idx, query_chain_id in enumerate(tqdm(query_db.chain_ids, desc="Querying database")):
-            query_embedding = torch.from_numpy(query_db.index.reconstruct(chain_idx))
-            matching_ids, scores = self.db.search(query_embedding, top_k=top_k)
-            results[query_chain_id] = (matching_ids, scores)
+        with tqdm(total=n, desc="Querying database") as pbar:
+            for start in range(0, n, batch_size):
+                end = min(start + batch_size, n)
+                batch_ids = query_db.chain_ids[start:end]
+                batch_vecs = query_db.index.reconstruct_n(start, end - start)
+                batch_results = self.db.search_batch(batch_vecs, top_k=top_k)
+                for qid, res in zip(batch_ids, batch_results):
+                    results[qid] = res
+                pbar.update(end - start)
 
         logging.info(f"Completed {len(results)} queries")
         return results

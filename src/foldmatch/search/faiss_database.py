@@ -288,49 +288,66 @@ class FaissEmbeddingDatabase:
         self.gpu_resources = None
         logger.info("Index successfully moved to CPU")
 
-    def search(
+    def search_batch(
             self,
-            query_embedding: torch.Tensor,
-            top_k: int = 10
-    ) -> Tuple[List[str], List[float]]:
+            query_embeddings,
+            top_k: int = 10,
+    ) -> List[Tuple[List[str], List[float]]]:
         """
-        Search the database for similar chains.
+        Batched cosine-similarity search for one or many query vectors.
 
         Args:
-            query_embedding: Query embedding tensor (protein-level)
-            top_k: Number of top results to return
+            query_embeddings: torch.Tensor or np.ndarray. 1-D is treated as a single
+                query; 2-D as a ``[B, D]`` batch.
+            top_k: Number of top results per query.
 
         Returns:
-            Tuple of (chain_ids, similarity_scores) for the top matches.
-            Similarity scores range from -1 to 1, where 1.0 indicates a perfect match (similar to TM-score).
+            One ``(chain_ids, scores)`` tuple per query, in input order. Scores are
+            cosine similarities in ``[-1, 1]`` (1.0 means identical, like TM-score).
         """
         if self.index is None:
             raise ValueError("Database not loaded. Call load_database() first.")
 
-        # Convert query embedding to numpy
+        if isinstance(query_embeddings, torch.Tensor):
+            query_embeddings = query_embeddings.detach().cpu().numpy()
+
+        arr = np.ascontiguousarray(query_embeddings, dtype=np.float32).copy()
+        if arr.ndim == 1:
+            arr = arr.reshape(1, -1)
+        elif arr.ndim != 2:
+            raise ValueError(
+                f"query_embeddings must be 1-D or 2-D, got {arr.ndim}-D"
+            )
+
+        faiss.normalize_L2(arr)
+        scores, indices = self.index.search(arr, top_k)
+
+        results: List[Tuple[List[str], List[float]]] = []
+        for i in range(arr.shape[0]):
+            ids = [self.chain_ids[idx] for idx in indices[i] if idx >= 0]
+            sc = [scores[i][j] for j, idx in enumerate(indices[i]) if idx >= 0]
+            results.append((ids, sc))
+        return results
+
+    def search(
+            self,
+            query_embedding,
+            top_k: int = 10,
+    ) -> Tuple[List[str], List[float]]:
+        """
+        Cosine-similarity search for a single query vector.
+
+        For batched queries use :meth:`search_batch`.
+        """
         if isinstance(query_embedding, torch.Tensor):
             query_embedding = query_embedding.detach().cpu().numpy()
-
-        # Ensure 1D and correct shape
-        if query_embedding.ndim > 1:
-            query_embedding = np.mean(query_embedding, axis=0)
-
-        query_embedding = query_embedding.astype(np.float32).reshape(1, -1)
-
-        # Normalize for cosine similarity
-        faiss.normalize_L2(query_embedding)
-
-        # Search
-        # Note: FAISS returns inner product (higher is better)
-        # After L2 normalization, inner product equals cosine similarity
-        # Cosine similarity ranges from -1 to 1, where 1.0 = identical (like TM-score)
-        scores, indices = self.index.search(query_embedding, top_k)
-
-        # Get chain IDs for the results
-        result_chain_ids = [self.chain_ids[idx] for idx in indices[0] if idx >= 0]
-        result_scores = [scores[0][idx] for idx, jdx in enumerate(indices[0]) if jdx >= 0]
-
-        return result_chain_ids, result_scores
+        arr = np.asarray(query_embedding)
+        if arr.ndim != 1:
+            raise ValueError(
+                f"search() takes a single 1-D query (got {arr.ndim}-D). "
+                f"Use search_batch for [B, D] inputs."
+            )
+        return self.search_batch(arr, top_k=top_k)[0]
 
     def search_by_chain_ids(
             self,
@@ -338,43 +355,30 @@ class FaissEmbeddingDatabase:
             top_k: int = 10
     ) -> Dict[str, Tuple[List[str], List[float]]]:
         """
-        Search database using existing chain IDs.
+        Search database using existing chain IDs as queries.
 
-        Args:
-            query_chain_ids: List of chain IDs to use as queries
-            top_k: Number of top results per query
-
-        Returns:
-            Dictionary mapping query chain ID to (matching_chain_ids, similarity_scores).
-            Similarity scores range from -1 to 1, where 1.0 indicates a perfect match (similar to TM-score).
+        Missing IDs are logged and skipped. Returns one entry per resolved ID.
         """
         if self.index is None:
             raise ValueError("Database not loaded. Call load_database() first.")
 
-        results_dict = {}
-        for query_chain_id in query_chain_ids:
-            try:
-                # Find the index of this chain
-                if query_chain_id not in self.chain_ids:
-                    logger.info(f"Chain {query_chain_id} not found in database")
-                    continue
-
-                chain_idx = self.chain_ids.index(query_chain_id)
-
-                # Get the embedding from the index
-                query_embedding = self.index.reconstruct(chain_idx).reshape(1, -1)
-
-                # Search
-                scores, indices = self.index.search(query_embedding, top_k)
-
-                result_chain_ids = [self.chain_ids[idx] for idx in indices[0]]
-                results_dict[query_chain_id] = (result_chain_ids, scores[0].tolist())
-
-            except Exception as e:
-                logger.info(f"Error searching for {query_chain_id}: {e}")
+        id_to_idx = {cid: i for i, cid in enumerate(self.chain_ids)}
+        resolved_ids: List[str] = []
+        resolved_idxs: List[int] = []
+        for cid in query_chain_ids:
+            idx = id_to_idx.get(cid)
+            if idx is None:
+                logger.info(f"Chain {cid} not found in database")
                 continue
+            resolved_ids.append(cid)
+            resolved_idxs.append(idx)
 
-        return results_dict
+        if not resolved_ids:
+            return {}
+
+        embeddings = np.stack([self.index.reconstruct(i) for i in resolved_idxs])
+        batch_results = self.search_batch(embeddings, top_k=top_k)
+        return dict(zip(resolved_ids, batch_results))
 
     def get_statistics(self) -> Dict:
         """Get database statistics."""

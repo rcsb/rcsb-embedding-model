@@ -21,7 +21,6 @@ from foldmatch.types.api_types import (
     LogLevel,
 )
 from foldmatch.search.database_builder import EmbeddingDatabaseBuilder
-from foldmatch.search.embedding_computer import collect_batches
 from foldmatch.search.faiss_database import FaissEmbeddingDatabase
 from foldmatch.search.structure_search import StructureSearch
 from foldmatch.search.clustering import EmbeddingClusterer
@@ -422,9 +421,9 @@ def query_database_from_embedding(
 
     results = {}
     for ids_batch, emb_batch in _stream_embeddings(embedding_file):
-        for query_id, embedding in zip(ids_batch, emb_batch):
-            matching_ids, scores = searcher.db.search(embedding, top_k=top_k)
-            results[query_id] = (matching_ids, scores)
+        batch_results = searcher.db.search_batch(emb_batch, top_k=top_k)
+        for qid, res in zip(ids_batch, batch_results):
+            results[qid] = res
 
     if not results:
         raise ValueError(f"No embeddings found in {embedding_file}")
@@ -506,11 +505,7 @@ def query_database_from_fasta(
         devices=arg_devices(devices),
         strategy=strategy,
     )
-    chain_ids, embeddings = collect_batches(batches)
-
     if _is_rank_zero():
-        logging.info(f"Computed {len(chain_ids)} chain embeddings")
-
         logging.info("Loading database...")
         searcher = StructureSearch(
             db_path=str(db_dir),
@@ -518,11 +513,13 @@ def query_database_from_fasta(
             use_gpu_for_search=use_gpu_index
         )
 
-        logging.info(f"Performing search for {len(chain_ids)} sequence(s)...")
         results = {}
-        for query_id, embedding in zip(chain_ids, embeddings):
-            matching_ids, scores = searcher.db.search(embedding, top_k=top_k)
-            results[query_id] = (matching_ids, scores)
+        for ids_batch, emb_batch in batches:
+            batch_results = searcher.db.search_batch(emb_batch, top_k=top_k)
+            for qid, res in zip(ids_batch, batch_results):
+                results[qid] = res
+
+        logging.info(f"Searched {len(results)} sequence(s)")
 
         results = _filter_results_by_threshold(results, threshold)
 

@@ -2,7 +2,7 @@ import logging
 import os
 from pathlib import Path
 from secrets import token_hex
-from typing import Iterable, Iterator, Optional
+from typing import Iterator, Optional
 
 import numpy as np
 import pyarrow.parquet as pq
@@ -19,7 +19,6 @@ from foldmatch.types.api_types import (
 )
 
 logger = logging.getLogger(__name__)
-
 
 class EmbeddingComputer:
     """Compute chain or assembly embeddings via a residue->chain inference pipeline.
@@ -153,21 +152,6 @@ class EmbeddingComputer:
                     flat.reshape(len(record), -1).astype(np.float32, copy=False)
                 )
                 yield ids, arr
-
-
-def collect_batches(
-        batches: Iterable[tuple[list[str], np.ndarray]]
-) -> tuple[list[str], np.ndarray]:
-    """Materialize a batch iterator into (ids, [N, D] float32). Use only for small N."""
-    ids_all: list[str] = []
-    arrs: list[np.ndarray] = []
-    for ids, arr in batches:
-        ids_all.extend(ids)
-        arrs.append(arr)
-    if not arrs:
-        return ids_all, np.zeros((0, 0), dtype=np.float32)
-    return ids_all, np.concatenate(arrs, axis=0)
-
 
 def _is_distributed():
     """Check if the current process is running in distributed mode."""

@@ -59,6 +59,8 @@ pip install -e .
 
 - `faiss-gpu` for GPU-accelerated similarity search (instead of `faiss-cpu`)
 
+
+
 ## Usage
 
 The package provides two main interfaces:
@@ -858,6 +860,36 @@ After installation, run the test suite:
 ```bash
 pytest
 ```
+
+### macOS notes
+
+**The problem.** PyPI wheels for `faiss-cpu` and `torch` (pulled in via `lightning`) each bundle their own copy of `libomp.dylib`. On macOS, both copies get loaded into the same Python process. Whenever FAISS enters an OpenMP-parallel section (batched search with more than one query vector, `IndexHNSWFlat` graph construction, IVF-PQ training) the second OpenMP runtime fails to `pthread_mutex_init` and the call deadlocks — the CLI appears to hang indefinitely. Linux installs are unaffected because both libraries share a single OpenMP runtime.
+
+**Affected commands** on macOS without mitigation:
+
+- `fm-search build` with `--index-type hnsw` or `auto` past ~10k vectors, and any `--index-type ivf_pq`.
+- `fm-search query embedding` with a multi-row `.parquet` file.
+- `fm-search query sequences` with more than one input sequence.
+- `fm-search query db` (database-to-database).
+
+Single-query paths (`fm-search query structure`, small `--index-type flat` builds) are unaffected.
+
+**Possible fixes.**
+
+1. **Fix the install environment** — install both libraries against a unified OpenMP runtime. On conda-forge:
+   ```bash
+   conda install -c conda-forge faiss-cpu pytorch llvm-openmp
+   ```
+   Once a single libomp is loaded, FAISS's parallel paths just work and you keep the full multi-threaded performance.
+
+2. **Force single-threaded FAISS via environment variable** — set `OMP_NUM_THREADS=1` before invoking Python:
+   ```bash
+   export OMP_NUM_THREADS=1
+   fm-search query db ...
+   ```
+   Sidesteps the parallel section entirely. Toolkit works, but FAISS runs single-threaded so large builds and queries are slower.
+
+**What this package does by default.** To prevent macOS users from hitting a silent hang out of the box, `foldmatch/__init__.py` calls `os.environ.setdefault("OMP_NUM_THREADS", "1")` on `darwin` only — before any `torch` or `faiss` import. This is option 2 above, applied automatically. Linux installs are not touched (the branch is skipped). A user on macOS who has fixed their environment per option 1 can opt back into parallelism by exporting `OMP_NUM_THREADS=N` before launching Python — `setdefault` respects an existing value.
 
 ---
 
