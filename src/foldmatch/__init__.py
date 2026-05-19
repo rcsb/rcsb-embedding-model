@@ -13,11 +13,25 @@ if sys.platform == "darwin":
     os.environ.setdefault("OMP_NUM_THREADS", "1")
 
 from importlib_metadata import version, PackageNotFoundError
-from foldmatch.foldmatch import FoldMatch
 
 try:
     __version__ = version("foldmatch")
 except PackageNotFoundError:
     __version__ = "0.0.0"
+
+
+def __getattr__(name: str):
+    """Lazy attribute access for heavy modules.
+
+    Importing :class:`FoldMatch` transitively loads torch + ESM + lightning,
+    which takes ~1s. Resolving it here on first attribute access means
+    `from foldmatch import __version__` (used by every CLI module) doesn't
+    pay that cost.
+    """
+    if name == "FoldMatch":
+        from foldmatch.foldmatch import FoldMatch as _FoldMatch
+        return _FoldMatch
+    raise AttributeError(f"module 'foldmatch' has no attribute {name!r}")
+
 
 __all__ = ["FoldMatch", "__version__"]

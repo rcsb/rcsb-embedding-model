@@ -9,8 +9,6 @@ from foldmatch import __version__
 from foldmatch.cli.args_utils import arg_devices, set_log_level
 from foldmatch.types.api_types import StructureFormat, Accelerator, SrcLocation, SrcProteinFrom, \
     SrcAssemblyFrom, SrcTensorFrom, OutFormat, Strategy, LogLevel, ResEmbeddingFormat
-from foldmatch.utils.data import adapt_csv_to_embedding_chain_stream
-
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 app = typer.Typer(
@@ -229,6 +227,7 @@ def chain_embedding(
         )] = 'info'
 ):
     from foldmatch.inference.chain_inference import predict
+    from foldmatch.utils.data import adapt_csv_to_embedding_chain_stream
     set_log_level(log_level)
 
     predict(
