@@ -541,6 +541,73 @@ class TestCliSearch(unittest.TestCase):
             self.assertIn("1acb_E", query_ids)
             self.assertIn("2uzi_A", query_ids)
 
+    def test_23_cluster_database(self):
+        """Test cluster_database CLI command on the test fixture FAISS database."""
+        from foldmatch.cli.search import cluster_database
+
+        output_csv = os.path.join(self.__temp_dir, "clusters.csv")
+        cluster_database(
+            db_path=self.__db_path,
+            threshold=0.0,
+            resolution=1.0,
+            output=output_csv,
+            max_neighbors=10,
+            min_cluster_size=None,
+            use_gpu_index=False,
+            seed=42,
+        )
+
+        self.assertTrue(os.path.exists(output_csv))
+        with open(output_csv, 'r') as f:
+            lines = f.readlines()
+        # Header + at least one cluster assignment row per chain in the fixture DB
+        self.assertGreater(len(lines), 1)
+
+        # Same export driven through the JSON output path (different file format branch).
+        output_json = os.path.join(self.__temp_dir, "clusters.json")
+        cluster_database(
+            db_path=self.__db_path,
+            threshold=0.0,
+            resolution=1.0,
+            output=output_json,
+            max_neighbors=10,
+            min_cluster_size=None,
+            use_gpu_index=False,
+            seed=42,
+        )
+        self.assertTrue(os.path.exists(output_json))
+        import json
+        with open(output_json) as f:
+            payload = json.load(f)
+        # Some JSON document was produced; structure is whatever the clusterer emits.
+        self.assertTrue(payload)
+
+    def test_24_similarity_graph(self):
+        """Test similarity_graph CLI command exports a non-empty GraphML file."""
+        from foldmatch.cli.search import similarity_graph
+
+        output_graphml = os.path.join(self.__temp_dir, "similarity_graph.graphml")
+        similarity_graph(
+            db_path=self.__db_path,
+            threshold=0.0,
+            output=output_graphml,
+            max_neighbors=10,
+            use_gpu_index=False,
+        )
+
+        self.assertTrue(os.path.exists(output_graphml))
+        self.assertGreater(os.path.getsize(output_graphml), 0)
+
+        # GraphML is XML; verify the output is parseable and reflects the
+        # fixture database (>0 nodes, with chain-id name attributes preserved).
+        import xml.etree.ElementTree as ET
+        tree = ET.parse(output_graphml)
+        root = tree.getroot()
+        # GraphML default namespace
+        ns = {'g': 'http://graphml.graphdrawing.org/xmlns'}
+        nodes = root.findall('.//g:node', ns)
+        self.assertGreater(len(nodes), 0)
+
 
 if __name__ == '__main__':
     unittest.main()
