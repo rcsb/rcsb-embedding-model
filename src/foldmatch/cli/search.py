@@ -668,8 +668,11 @@ def cluster_database(
     # Initialize clusterer
     logging.info("Initializing clusterer...")
     from foldmatch.search.clustering import EmbeddingClusterer
-    clusterer = EmbeddingClusterer(db_path=str(db_dir), index_name=index_name)
-    clusterer.load_database(use_gpu=use_gpu_index)
+    clusterer = EmbeddingClusterer(
+        db_path=str(db_dir),
+        index_name=index_name,
+        use_gpu=use_gpu_index
+    )
 
     # Build similarity graph
     clusterer.build_similarity_graph(
@@ -736,8 +739,11 @@ def similarity_graph(
 
     logging.info("Initializing clusterer...")
     from foldmatch.search.clustering import EmbeddingClusterer
-    clusterer = EmbeddingClusterer(db_path=str(db_dir), index_name=index_name)
-    clusterer.load_database(use_gpu=use_gpu_index)
+    clusterer = EmbeddingClusterer(
+        db_path=str(db_dir),
+        index_name=index_name,
+        use_gpu=use_gpu_index
+    )
 
     graph = clusterer.build_similarity_graph(
         threshold=threshold,

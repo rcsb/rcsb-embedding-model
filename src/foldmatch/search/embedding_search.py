@@ -73,7 +73,7 @@ class EmbeddingSearch:
                     "tmp_dir must be set on EmbeddingSearch to compute embeddings from FASTA"
                 )
             self.computer = EmbeddingComputer(
-                tmp_dir=self.tmp_dir, accelerator=self.accelerator
+                embedding_folder=self.tmp_dir, accelerator=self.accelerator
             )
         return self.computer
 

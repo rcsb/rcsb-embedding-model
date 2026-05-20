@@ -29,14 +29,14 @@ class EmbeddingComputer:
     inference and tensor loading see a single shared location.
     """
 
-    def __init__(self, tmp_dir: str, accelerator: Accelerator = 'auto'):
-        self.tmp_dir = tmp_dir
+    def __init__(self, embedding_folder: str, accelerator: Accelerator = 'auto'):
+        self.embedding_folder = embedding_folder
         self.out_name = f"emb_{_consolidate_id()}"
         self.accelerator = accelerator
 
     def compute_from_structures(
             self,
-            structure_dir: str,
+            structure_folder: str,
             structure_format: StructureFormat = StructureFormat.mmcif,
             min_res: int = 10,
             granularity: Granularity = 'chain',
@@ -52,15 +52,15 @@ class EmbeddingComputer:
         if file_extension is None:
             file_extension = '.cif' if structure_format == StructureFormat.mmcif else '.pdb'
 
-        structure_dir = Path(structure_dir)
-        if not structure_dir.exists():
-            raise ValueError(f"Structure directory does not exist: {structure_dir}")
+        structure_folder = Path(structure_folder)
+        if not structure_folder.exists():
+            raise ValueError(f"Structure directory does not exist: {structure_folder}")
 
-        logging.info(f"Listing structure files from: {structure_dir}")
-        structure_files = list(structure_dir.glob(f"*{file_extension}"))
+        logging.info(f"Listing structure files from: {structure_folder}")
+        structure_files = list(structure_folder.glob(f"*{file_extension}"))
         if not structure_files:
             raise ValueError(
-                f"No structure files found with extension {file_extension} in {structure_dir}"
+                f"No structure files found with extension {file_extension} in {structure_folder}"
             )
 
 
@@ -73,7 +73,7 @@ class EmbeddingComputer:
                 src_location=SrcLocation.stream,
                 structure_format=structure_format,
                 min_res_n=min_res,
-                out_path=self.tmp_dir,
+                out_path=self.embedding_folder,
                 out_name=self.out_name,
                 accelerator=self.accelerator,
                 batch_size=batch_size,
@@ -92,7 +92,7 @@ class EmbeddingComputer:
                 ],
                 src_location=SrcLocation.stream,
                 structure_format=structure_format,
-                out_path=self.tmp_dir,
+                out_path=self.embedding_folder,
                 out_name=self.out_name,
                 accelerator=self.accelerator,
                 num_workers=num_workers,
@@ -129,7 +129,7 @@ class EmbeddingComputer:
             accelerator=self.accelerator,
             devices=devices,
             out_format=OutFormat.parquet,
-            out_path=self.tmp_dir,
+            out_path=self.embedding_folder,
             out_name=self.out_name,
             strategy=strategy,
             return_predictions=False,
@@ -143,8 +143,8 @@ class EmbeddingComputer:
         """Stream (ids, [B, D] float32) batches from all per-rank Parquet shards. Rank-0 only."""
         if not is_rank_zero():
             return
-        parquet_files = sorted(Path(self.tmp_dir).glob(f"{self.out_name}-*.parquet"))
-        logging.info(f"Streaming embeddings from {len(parquet_files)} Parquet shard(s) in: {self.tmp_dir}")
+        parquet_files = sorted(Path(self.embedding_folder).glob(f"{self.out_name}-*.parquet"))
+        logging.info(f"Streaming embeddings from {len(parquet_files)} Parquet shard(s) in: {self.embedding_folder}")
         for parquet_file in parquet_files:
             logging.info(f"   Parquet file {parquet_file}")
             pf = pq.ParquetFile(parquet_file)

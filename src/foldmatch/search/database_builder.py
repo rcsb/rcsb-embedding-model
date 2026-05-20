@@ -47,7 +47,7 @@ class EmbeddingDatabaseBuilder:
                     "(build_from_structures, build_from_fasta)"
                 )
             self._computer = EmbeddingComputer(
-                tmp_dir=self.tmp_dir, accelerator=self.accelerator
+                embedding_folder=self.tmp_dir, accelerator=self.accelerator
             )
         return self._computer
 
@@ -72,7 +72,7 @@ class EmbeddingDatabaseBuilder:
         logging.info("Building embeddings and FAISS database from structures")
         start_time = time.time()
         batches = self.computer.compute_from_structures(
-            structure_dir=structure_dir,
+            structure_folder=structure_dir,
             structure_format=structure_format,
             min_res=min_res,
             granularity=granularity,

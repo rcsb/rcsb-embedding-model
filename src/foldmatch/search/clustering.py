@@ -7,6 +7,7 @@ from typing import Dict, List, Optional
 from pathlib import Path
 from tqdm import tqdm
 
+from foldmatch.search import FaissEmbeddingDatabase
 from foldmatch.search.embedding_search import EmbeddingSearch
 
 logger = logging.getLogger(__name__)
@@ -14,7 +15,7 @@ logger = logging.getLogger(__name__)
 class EmbeddingClusterer:
     """Cluster protein structure embeddings using Leiden algorithm on similarity graphs."""
 
-    def __init__(self, db_path: str, index_name: str = "structure_embeddings"):
+    def __init__(self, db_path: str, index_name: str = "structure_embeddings", use_gpu: bool = False):
         """
         Initialize clustering — stashes db location; actual load happens in
         :meth:`load_database`.
@@ -25,26 +26,12 @@ class EmbeddingClusterer:
         """
         self._db_path = db_path
         self._index_name = index_name
-        self.searcher: Optional[EmbeddingSearch] = None
-        self.db = None
+        self.db = FaissEmbeddingDatabase(self._db_path, self._index_name)
+        self.db.load_database(use_gpu=use_gpu)
+        self.chain_ids = self.db.chain_ids
+
         self.graph = None
         self.clusters = None
-        self.chain_ids = None
-
-    def load_database(self, use_gpu: bool = False):
-        """
-        Load the database via :class:`EmbeddingSearch`.
-
-        Args:
-            use_gpu: Whether to use GPU for FAISS operations
-        """
-        self.searcher = EmbeddingSearch(
-            db_path=self._db_path,
-            index_name=self._index_name,
-            use_gpu_for_search=use_gpu,
-        )
-        self.db = self.searcher.db
-        self.chain_ids = self.db.chain_ids
 
     def build_similarity_graph(
             self,
