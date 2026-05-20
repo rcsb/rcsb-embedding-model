@@ -1,7 +1,7 @@
 import logging
 import torch
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Iterator
+from typing import Dict, List, Optional, Tuple, Iterator, Iterable
 from tqdm import tqdm
 import numpy as np
 import pyarrow.parquet as pq
@@ -11,7 +11,6 @@ import time
 from foldmatch.foldmatch import FoldMatch
 from foldmatch.search.embedding_computer import (
     EmbeddingComputer,
-    is_rank_zero,
 )
 from foldmatch.search.faiss_database import FaissEmbeddingDatabase
 from foldmatch.types.api_types import Accelerator, Granularity, StructureFormat
@@ -91,27 +90,35 @@ class EmbeddingDatabase:
             index_type,
             index_config
     ):
-        if is_rank_zero():
-            start_time = time.time()
-            self.db.create_database(
-                embedding_batches=embedding_batches,
-                index_type=index_type,
-                index_config=index_config,
-                use_gpu=use_gpu_index,
-            )
-            database_time = time.time() - start_time
-            logging.info(f"Creating database completed in {database_time:.2f} seconds")
+        start_time = time.time()
+        self.db.create_database(
+            embedding_batches=embedding_batches,
+            index_type=index_type,
+            index_config=index_config,
+            use_gpu=use_gpu_index,
+        )
+        database_time = time.time() - start_time
+        logging.info(f"Creating database completed in {database_time:.2f} seconds")
 
-            logging.info("Database build complete!")
-            logging.info(f"Database location: {self.db_path}")
-            logging.info(f"Total embeddings: {len(self.db.chain_ids)}")
-            logging.info(f"You can now search this database using:")
-            logging.info(f"   fm-search query structure --db-path {self.db_path} --query-structure <path_to_structure>")
+        logging.info("Database build complete!")
+        logging.info(f"Database location: {self.db_path}")
+        logging.info(f"Total embeddings: {len(self.db.chain_ids)}")
+        logging.info(f"You can now search this database using:")
+        logging.info(f"   fm-search query structure --db-path {self.db_path} --query-structure <path_to_structure>")
 
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
+    def search_by_embeddings(
+            self,
+            embedding_batches: Iterable[Tuple[List[str], np.ndarray]],
+            top_k: int = 10,
+    ):
+        results: Dict[str, Tuple[List[str], List[float]]] = {}
+        for ids_batch, emb_batch in embedding_batches:
+            batch_results = self.db.search_batch(emb_batch, top_k=top_k)
+            for qid, res in zip(ids_batch, batch_results):
+                results[qid] = res
+        return results
 
-
+    #TODO this method need to be moved to EmbeddingComputer and return a batch of embeddings.
     def search_by_structure(
             self,
             query_structure: str,
@@ -213,70 +220,6 @@ class EmbeddingDatabase:
                 pbar.update(end - start)
 
         logging.info(f"Completed {len(results)} queries")
-        return results
-
-    def search_by_embeddings(
-            self,
-            path: str,
-            top_k: int = 10,
-    ) -> Dict[str, Tuple[List[str], List[float]]]:
-        """
-        Search the database using pre-computed embeddings from a file or directory.
-
-        Supports ``.pt`` / ``.csv`` (one chain per file; ID = filename stem) and
-        ``.parquet`` (many chains per file; ID from the ``id`` column). Embeddings
-        are streamed and searched in batches.
-
-        Returns:
-            Dictionary mapping query ID to ``(matching_chain_ids, similarity_scores)``.
-        """
-        results: Dict[str, Tuple[List[str], List[float]]] = {}
-        for ids_batch, emb_batch in stream_embeddings(path):
-            batch_results = self.db.search_batch(emb_batch, top_k=top_k)
-            for qid, res in zip(ids_batch, batch_results):
-                results[qid] = res
-        return results
-
-    def search_by_fasta(
-            self,
-            fasta_file: str,
-            min_res_n: int = 0,
-            top_k: int = 10,
-            batch_size: int = 1,
-            num_workers: int = 0,
-            num_nodes: int = 1,
-            devices='auto',
-            strategy='auto',
-    ) -> Dict[str, Tuple[List[str], List[float]]]:
-        """
-        Search the database using protein sequences from a FASTA file.
-
-        Each sequence becomes one query; residue + chain embeddings are computed
-        via ESM3 first, then each chain embedding is searched against the index.
-        Distributed inference uses every rank; only rank 0 returns populated
-        results (other ranks return ``{}``).
-
-        Returns:
-            Dictionary mapping FASTA sequence ID to ``(matching_chain_ids, similarity_scores)``.
-        """
-        computer = self._get_embedding_computer()
-        batches = computer.compute_from_fasta(
-            fasta_file=fasta_file,
-            min_res_n=min_res_n,
-            batch_size=batch_size,
-            num_workers=num_workers,
-            num_nodes=num_nodes,
-            devices=devices,
-            strategy=strategy,
-        )
-
-        if not is_rank_zero():
-            return {}
-        results: Dict[str, Tuple[List[str], List[float]]] = {}
-        for ids_batch, emb_batch in batches:
-            batch_results = self.db.search_batch(emb_batch, top_k=top_k)
-            for qid, res in zip(ids_batch, batch_results):
-                results[qid] = res
         return results
 
     def print_results(self, results: Dict[str, Tuple[List[str], List[float]]]):

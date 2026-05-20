@@ -273,11 +273,11 @@ class TestCliSearch(unittest.TestCase):
 
     def test_11_query_database_with_database(self):
         """Test querying one database against another."""
-        from foldmatch.cli.search import query_database_with_database
+        from foldmatch.cli.search import query_database_from_database
 
         output_csv = os.path.join(self.__temp_dir, "database_to_database_results.csv")
 
-        query_database_with_database(
+        query_database_from_database(
             query_db_path=self.__db_path,
             subject_db_path=self.__db_path,
             top_k=3,
@@ -436,12 +436,13 @@ class TestCliSearch(unittest.TestCase):
         )
 
         # Use one of the pre-computed .pt chain embedding files as the query
-        embedding_file = f"{self.__test_path}/resources/embeddings/1acb.A.pt"
+        embedding_folder = f"{self.__test_path}/resources/embeddings"
         output_csv = os.path.join(self.__temp_dir, "query_from_embedding_results.csv")
 
         query_database_from_embedding(
             db_path=subject_db,
-            embedding_file=embedding_file,
+            embedding_folder=embedding_folder,
+            file_extension=".pt",
             top_k=5,
             threshold=None,
             output_csv=output_csv,

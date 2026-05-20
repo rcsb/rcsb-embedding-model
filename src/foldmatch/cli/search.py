@@ -118,9 +118,8 @@ def build_database_from_structures(
     from foldmatch.search.embedding_computer import EmbeddingComputer
     embedding_computer = EmbeddingComputer(
         embedding_folder=tmp_embedding_folder,
-        accelerator=accelerator,
     )
-    embedding_batches = embedding_computer.compute_from_structures(
+    embedding_computer.compute_from_structures(
         structure_folder=structure_folder,
         structure_format=structure_format,
         min_res=min_res,
@@ -129,19 +128,22 @@ def build_database_from_structures(
         batch_size=batch_size,
         num_workers=num_workers,
         num_nodes=num_nodes,
+        accelerator=accelerator,
         devices=arg_devices(devices),
         strategy=strategy,
     )
-    from foldmatch.search.embedding_database import EmbeddingDatabase
-    embedding_db = EmbeddingDatabase(
-        db_path=output_db
-    )
-    embedding_db.create_db(
-        embedding_batches=embedding_batches,
-        use_gpu_index=use_gpu_index,
-        index_type=index_type,
-        index_config=IndexConfig(nlist=ivf_nlist, nprobe=ivf_nprobe)
-    )
+
+    if _is_rank_zero():
+        from foldmatch.search.embedding_database import EmbeddingDatabase
+        embedding_db = EmbeddingDatabase(
+            db_path=output_db
+        )
+        embedding_db.create_db(
+            embedding_batches=embedding_computer.get_embedding_batches(),
+            use_gpu_index=use_gpu_index,
+            index_type=index_type,
+            index_config=IndexConfig(nlist=ivf_nlist, nprobe=ivf_nprobe)
+        )
 
 
 @build_db_app.command(
@@ -178,16 +180,13 @@ def build_database_from_embeddings(
 
     set_log_level(log_level)
 
-    db_dir, index_name, output_db = _parse_output_db(output_db)
-
     from foldmatch.search.embedding_database import stream_embeddings
-    embedding_batches = stream_embeddings(embedding_folder, file_extension)
     from foldmatch.search.embedding_database import EmbeddingDatabase
     embedding_db = EmbeddingDatabase(
         db_path=output_db
     )
     embedding_db.create_db(
-        embedding_batches=embedding_batches,
+        embedding_batches=stream_embeddings(embedding_folder, file_extension),
         use_gpu_index=use_gpu_index,
         index_type=index_type,
         index_config=IndexConfig(nlist=ivf_nlist, nprobe=ivf_nprobe)
@@ -252,27 +251,29 @@ def build_database_from_fasta(
     from foldmatch.search.embedding_computer import EmbeddingComputer
     embedding_computer = EmbeddingComputer(
         embedding_folder=tmp_embedding_folder,
-        accelerator=accelerator,
     )
-    embedding_batches = embedding_computer.compute_from_fasta(
+    embedding_computer.compute_from_fasta(
         fasta_file=fasta_file,
         min_res_n=min_res_n,
         batch_size=batch_size,
         num_workers=num_workers,
         num_nodes=num_nodes,
+        accelerator=accelerator,
         devices=arg_devices(devices),
         strategy=strategy,
     )
-    from foldmatch.search.embedding_database import EmbeddingDatabase
-    embedding_db = EmbeddingDatabase(
-        db_path=output_db
-    )
-    embedding_db.create_db(
-        embedding_batches=embedding_batches,
-        use_gpu_index=use_gpu_index,
-        index_type=index_type,
-        index_config=IndexConfig(nlist=ivf_nlist, nprobe=ivf_nprobe)
-    )
+
+    if _is_rank_zero():
+        from foldmatch.search.embedding_database import EmbeddingDatabase
+        embedding_db = EmbeddingDatabase(
+            db_path=output_db
+        )
+        embedding_db.create_db(
+            embedding_batches=embedding_computer.get_embedding_batches(),
+            use_gpu_index=use_gpu_index,
+            index_type=index_type,
+            index_config=IndexConfig(nlist=ivf_nlist, nprobe=ivf_nprobe)
+        )
 
 
 @query_db_app.command(
@@ -344,7 +345,7 @@ def query_database_from_structure(
     # Initialize search
     logging.info("Loading database...")
     from foldmatch.search.embedding_database import EmbeddingDatabase
-    searcher = EmbeddingDatabase(
+    embedding_db = EmbeddingDatabase(
         db_path=db_path,
         min_res=min_res,
         max_res=max_res,
@@ -354,7 +355,7 @@ def query_database_from_structure(
 
     # Perform search
     logging.info("Performing search...")
-    results = searcher.search_by_structure(
+    results = embedding_db.search_by_structure(
         query_structure=query_structure,
         structure_format=structure_format,
         granularity=granularity,
@@ -367,11 +368,11 @@ def query_database_from_structure(
     results = _filter_results_by_threshold(results, threshold)
 
     # Display results
-    searcher.print_results(results)
+    embedding_db.print_results(results)
 
     # Export if requested
     if output_csv:
-        searcher.export_results(results, output_csv)
+        embedding_db.export_results(results, output_csv)
 
 
 @query_db_app.command(
@@ -382,9 +383,12 @@ def query_database_from_embedding(
         db_path: Annotated[str, typer.Option(
             help='Path to the FAISS database.'
         )],
-        embedding_file: Annotated[str, typer.Option(
-            help='Path to a pre-computed embedding file. For .pt and .csv the filename stem is the query ID; for .parquet each row is a separate query with its ID taken from the "id" column.'
+        embedding_folder: Annotated[str, typer.Option(
+            help='Directory containing pre-computed embedding files (.pt, .csv, or .parquet).'
         )],
+        file_extension: Annotated[Optional[str], typer.Option(
+            help='Restrict loading to a single extension (.pt, .csv, or .parquet). If unset, all three are collected.'
+        )] = None,
         top_k: Annotated[int, typer.Option(
             help='Number of top results to return.'
         )] = 100,
@@ -407,23 +411,26 @@ def query_database_from_embedding(
 
     logging.info("Loading database...")
     from foldmatch.search.embedding_database import EmbeddingDatabase
-    searcher = EmbeddingDatabase(
+    embedding_db = EmbeddingDatabase(
         db_path=db_path,
         use_gpu_for_search=use_gpu_index
     )
-
-    results = searcher.search_by_embeddings(embedding_file, top_k=top_k)
+    from foldmatch.search.embedding_database import stream_embeddings
+    results = embedding_db.search_by_embeddings(
+        embedding_batches=stream_embeddings(embedding_folder, file_extension),
+        top_k=top_k
+    )
 
     if not results:
-        raise ValueError(f"No embeddings found in {embedding_file}")
+        raise ValueError(f"No embeddings found in {embedding_folder}")
 
-    logging.info(f"Searched {len(results)} query/queries from {embedding_file}")
+    logging.info(f"Found {len(results)} results from {embedding_folder}")
     results = _filter_results_by_threshold(results, threshold)
 
-    searcher.print_results(results)
+    embedding_db.print_results(results)
 
     if output_csv:
-        searcher.export_results(results, output_csv)
+        embedding_db.export_results(results, output_csv)
 
 
 @query_db_app.command(
@@ -481,40 +488,44 @@ def query_database_from_fasta(
 
     set_log_level(log_level)
 
-    logging.info("Loading database...")
-    from foldmatch.search.embedding_database import EmbeddingDatabase
-    searcher = EmbeddingDatabase(
-        db_path=db_path,
-        use_gpu_for_search=use_gpu_index,
-        tmp_dir=tmp_embedding_folder,
-        accelerator=accelerator,
+    from foldmatch.search.embedding_computer import EmbeddingComputer
+    embedding_computer = EmbeddingComputer(
+        embedding_folder=tmp_embedding_folder,
     )
-
-    results = searcher.search_by_fasta(
+    embedding_computer.compute_from_fasta(
         fasta_file=fasta_file,
         min_res_n=min_res_n,
-        top_k=top_k,
         batch_size=batch_size,
         num_workers=num_workers,
         num_nodes=num_nodes,
+        accelerator=accelerator,
         devices=arg_devices(devices),
         strategy=strategy,
     )
 
-    from foldmatch.search.embedding_computer import is_rank_zero
-    if is_rank_zero():
+    if _is_rank_zero():
+        logging.info("Loading database...")
+        from foldmatch.search.embedding_database import EmbeddingDatabase
+        embedding_db = EmbeddingDatabase(
+            db_path=db_path,
+            use_gpu_for_search=use_gpu_index,
+        )
+        results = embedding_db.search_by_embeddings(
+            embedding_batches=embedding_computer.get_embedding_batches(),
+            top_k=top_k
+        )
         logging.info(f"Searched {len(results)} sequence(s)")
         results = _filter_results_by_threshold(results, threshold)
-        searcher.print_results(results)
+        embedding_db.print_results(results)
         if output_csv:
-            searcher.export_results(results, output_csv)
+            embedding_db.export_results(results, output_csv)
 
 
 @query_db_app.command(
     name="db",
     help="Compare entries from a query database with a subject database."
 )
-def query_database_with_database(
+def query_database_from_database(
         query_db_path: Annotated[str, typer.Option(
             help='Path to the query FAISS database.'
         )],
@@ -547,18 +558,18 @@ def query_database_with_database(
     # Load subject database
     logging.info("\nLoading subject database...")
     from foldmatch.search.embedding_database import EmbeddingDatabase
-    searcher = EmbeddingDatabase(
+    embedding_db = EmbeddingDatabase(
         db_path=subject_db_path,
         use_gpu_for_search=use_gpu_index
     )
 
     # Display database statistics
-    subject_stats = searcher.get_db_statistics()
+    subject_stats = embedding_db.get_db_statistics()
     logging.info(f"Subject database contains {subject_stats['total_embeddings']} chains")
 
     # Perform database-to-database search
     logging.info("Performing search...")
-    results = searcher.search_by_database(
+    results = embedding_db.search_by_database(
         query_db_path=query_db_path,
         top_k=top_k
     )
@@ -568,11 +579,11 @@ def query_database_with_database(
 
     # Display results only if not exporting to CSV
     if not output_csv:
-        searcher.print_results(results)
+        embedding_db.print_results(results)
 
     # Export if requested
     if output_csv:
-        searcher.export_results(results, output_csv)
+        embedding_db.export_results(results, output_csv)
 
 
 @app.command(
@@ -592,10 +603,10 @@ def show_statistics(
     set_log_level(log_level)
 
     from foldmatch.search.embedding_database import EmbeddingDatabase
-    searcher = EmbeddingDatabase(
+    embedding_db = EmbeddingDatabase(
         db_path=db_path
     )
-    stats = searcher.get_db_statistics()
+    stats = embedding_db.get_db_statistics()
 
     logging.info("DATABASE STATISTICS")
     logging.info("="*80)
@@ -753,20 +764,6 @@ def main(
 ):
     pass
 
-def _parse_output_db(output_db: str) -> tuple[Path, str, str]:
-    """Parse output_db into directory, index name, and resolved path string."""
-    output_db_path = Path(output_db)
-    db_dir = output_db_path.parent
-    index_name = output_db_path.name
-
-    if not index_name:
-        index_name = "embeddings"
-    if db_dir == Path('.'):
-        db_dir = Path.cwd()
-
-    return db_dir, index_name, str(db_dir / index_name)
-
-
 def _filter_results_by_threshold(results, threshold: float | None):
     """Filter search results by similarity threshold."""
     if threshold is None:
@@ -785,6 +782,15 @@ def _filter_results_by_threshold(results, threshold: float | None):
     total_after = sum(len(ids) for ids, _ in filtered_results.values())
     logging.debug(f"Filtered from {total_before} to {total_after} results")
     return filtered_results
+
+def _is_rank_zero():
+    """Check if the current process is running in distributed mode."""
+    import torch.distributed as dist
+    if dist.is_available() and dist.is_initialized():
+        dist.barrier()
+    if not dist.is_available() or not dist.is_initialized() or dist.get_rank() == 0:
+        return True
+    return False
 
 
 if __name__ == "__main__":

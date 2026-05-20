@@ -6,7 +6,6 @@ from typing import Iterator, Optional
 
 import numpy as np
 import pyarrow.parquet as pq
-import torch.distributed as dist
 
 from foldmatch.inference.assembly_complete_inference import predict as assembly_predict
 from foldmatch.inference.chain_complete_inference import predict as chain_predict
@@ -29,10 +28,12 @@ class EmbeddingComputer:
     inference and tensor loading see a single shared location.
     """
 
-    def __init__(self, embedding_folder: str, accelerator: Accelerator = 'auto'):
+    def __init__(
+            self,
+            embedding_folder: str,
+    ):
         self.embedding_folder = embedding_folder
         self.out_name = f"emb_{_consolidate_id()}"
-        self.accelerator = accelerator
 
     def compute_from_structures(
             self,
@@ -44,10 +45,10 @@ class EmbeddingComputer:
             batch_size: int = 1,
             num_workers: int = 0,
             num_nodes: int = 1,
+            accelerator: Accelerator = 'auto',
             devices='auto',
             strategy='auto',
-            load_batch_size: int = 4096,
-    ) -> Iterator[tuple[list[str], np.ndarray]]:
+    ):
         """Compute chain or assembly embeddings from a directory of structure files."""
         if file_extension is None:
             file_extension = '.cif' if structure_format == StructureFormat.mmcif else '.pdb'
@@ -63,7 +64,6 @@ class EmbeddingComputer:
                 f"No structure files found with extension {file_extension} in {structure_folder}"
             )
 
-
         if granularity == 'chain':
             chain_predict(
                 src_stream=[
@@ -75,7 +75,7 @@ class EmbeddingComputer:
                 min_res_n=min_res,
                 out_path=self.embedding_folder,
                 out_name=self.out_name,
-                accelerator=self.accelerator,
+                accelerator=accelerator,
                 batch_size=batch_size,
                 num_workers=num_workers,
                 num_nodes=num_nodes,
@@ -94,7 +94,7 @@ class EmbeddingComputer:
                 structure_format=structure_format,
                 out_path=self.embedding_folder,
                 out_name=self.out_name,
-                accelerator=self.accelerator,
+                accelerator=accelerator,
                 num_workers=num_workers,
                 num_nodes=num_nodes,
                 devices=devices,
@@ -102,9 +102,6 @@ class EmbeddingComputer:
                 out_format=OutFormat.parquet,
                 return_predictions=False,
             )
-        if _is_distributed():
-            dist.barrier()
-        return self._load_chain_batches(load_batch_size)
 
     def compute_from_fasta(
             self,
@@ -115,8 +112,8 @@ class EmbeddingComputer:
             num_nodes: int = 1,
             devices='auto',
             strategy='auto',
-            load_batch_size: int = 4096,
-    ) -> Iterator[tuple[list[str], np.ndarray]]:
+            accelerator: Accelerator = 'auto',
+    ):
         """Compute chain embeddings from protein sequences in a FASTA file."""
 
         chain_predict(
@@ -126,7 +123,7 @@ class EmbeddingComputer:
             batch_size=batch_size,
             num_workers=num_workers,
             num_nodes=num_nodes,
-            accelerator=self.accelerator,
+            accelerator=accelerator,
             devices=devices,
             out_format=OutFormat.parquet,
             out_path=self.embedding_folder,
@@ -135,34 +132,21 @@ class EmbeddingComputer:
             return_predictions=False,
         )
 
-        if _is_distributed():
-            dist.barrier()
-        return self._load_chain_batches(load_batch_size)
-
-    def _load_chain_batches(self, batch_size: int) -> Iterator[tuple[list[str], np.ndarray]]:
+    def get_embedding_batches(self, load_batch_size: int = 4096) -> Iterator[tuple[list[str], np.ndarray]]:
         """Stream (ids, [B, D] float32) batches from all per-rank Parquet shards. Rank-0 only."""
-        if not is_rank_zero():
-            return
+
         parquet_files = sorted(Path(self.embedding_folder).glob(f"{self.out_name}-*.parquet"))
         logging.info(f"Streaming embeddings from {len(parquet_files)} Parquet shard(s) in: {self.embedding_folder}")
         for parquet_file in parquet_files:
             logging.info(f"   Parquet file {parquet_file}")
             pf = pq.ParquetFile(parquet_file)
-            for record in pf.iter_batches(batch_size=batch_size, columns=['id', 'embedding']):
+            for record in pf.iter_batches(batch_size=load_batch_size, columns=['id', 'embedding']):
                 ids = record.column('id').to_pylist()
                 flat = record.column('embedding').values.to_numpy(zero_copy_only=False)
                 arr = np.ascontiguousarray(
                     flat.reshape(len(record), -1).astype(np.float32, copy=False)
                 )
                 yield ids, arr
-
-def _is_distributed():
-    """Check if the current process is running in distributed mode."""
-    return dist.is_available() and dist.is_initialized()
-
-def is_rank_zero():
-    """Check if the current process is rank zero in distributed training."""
-    return not _is_distributed() or dist.get_rank() == 0
 
 def _consolidate_id():
     return os.environ.get('SLURM_JOB_ID', token_hex(16))
