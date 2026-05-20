@@ -115,33 +115,33 @@ def build_database_from_structures(
     if use_gpu_index:
         logging.info("GPU acceleration for FAISS index: enabled")
 
-    from foldmatch.search.database_builder import EmbeddingDatabaseBuilder
-    builder = EmbeddingDatabaseBuilder(
-        tmp_dir=tmp_embedding_folder,
+    from foldmatch.search.embedding_computer import EmbeddingComputer
+    embedding_computer = EmbeddingComputer(
+        embedding_folder=tmp_embedding_folder,
         accelerator=accelerator,
     )
-
-    builder.build_from_structures(
-        structure_dir=structure_folder,
-        output_db=output_db,
+    embedding_batches = embedding_computer.compute_from_structures(
+        structure_folder=structure_folder,
         structure_format=structure_format,
         min_res=min_res,
         granularity=granularity,
         file_extension=file_extension,
-        use_gpu_index=use_gpu_index,
         batch_size=batch_size,
         num_workers=num_workers,
         num_nodes=num_nodes,
         devices=arg_devices(devices),
         strategy=strategy,
-        index_type=index_type,
-        index_config=IndexConfig(nlist=ivf_nlist, nprobe=ivf_nprobe),
     )
-
-    from foldmatch.search.embedding_computer import is_rank_zero
-    if is_rank_zero():
-        logging.info(f"You can now search this database using:")
-        logging.info(f"   fm-search query structure --db-path {output_db} --query-structure <path_to_structure>")
+    from foldmatch.search.embedding_database import EmbeddingDatabase
+    embedding_db = EmbeddingDatabase(
+        db_path=output_db
+    )
+    embedding_db.create_db(
+        embedding_batches=embedding_batches,
+        use_gpu_index=use_gpu_index,
+        index_type=index_type,
+        index_config=IndexConfig(nlist=ivf_nlist, nprobe=ivf_nprobe)
+    )
 
 
 @build_db_app.command(
@@ -180,15 +180,17 @@ def build_database_from_embeddings(
 
     db_dir, index_name, output_db = _parse_output_db(output_db)
 
-    from foldmatch.search.database_builder import EmbeddingDatabaseBuilder
-    builder = EmbeddingDatabaseBuilder()
-    builder.build_from_embeddings(
-        embedding_path=embedding_folder,
-        output_db=output_db,
-        file_extension=file_extension,
+    from foldmatch.search.embedding_database import stream_embeddings
+    embedding_batches = stream_embeddings(embedding_folder, file_extension)
+    from foldmatch.search.embedding_database import EmbeddingDatabase
+    embedding_db = EmbeddingDatabase(
+        db_path=output_db
+    )
+    embedding_db.create_db(
+        embedding_batches=embedding_batches,
         use_gpu_index=use_gpu_index,
         index_type=index_type,
-        index_config=IndexConfig(nlist=ivf_nlist, nprobe=ivf_nprobe),
+        index_config=IndexConfig(nlist=ivf_nlist, nprobe=ivf_nprobe)
     )
 
 
@@ -247,30 +249,30 @@ def build_database_from_fasta(
 
     set_log_level(log_level)
 
-    from foldmatch.search.database_builder import EmbeddingDatabaseBuilder
-    builder = EmbeddingDatabaseBuilder(
-        tmp_dir=tmp_embedding_folder,
+    from foldmatch.search.embedding_computer import EmbeddingComputer
+    embedding_computer = EmbeddingComputer(
+        embedding_folder=tmp_embedding_folder,
         accelerator=accelerator,
     )
-
-    builder.build_from_fasta(
+    embedding_batches = embedding_computer.compute_from_fasta(
         fasta_file=fasta_file,
-        output_db=output_db,
         min_res_n=min_res_n,
-        use_gpu_index=use_gpu_index,
         batch_size=batch_size,
         num_workers=num_workers,
         num_nodes=num_nodes,
         devices=arg_devices(devices),
         strategy=strategy,
-        index_type=index_type,
-        index_config=IndexConfig(nlist=ivf_nlist, nprobe=ivf_nprobe),
     )
-
-    from foldmatch.search.embedding_computer import is_rank_zero
-    if is_rank_zero():
-        logging.info(f"You can now search this database using:")
-        logging.info(f"   fm-search query sequences --db-path {output_db} --fasta-file <path_to_fasta_file>")
+    from foldmatch.search.embedding_database import EmbeddingDatabase
+    embedding_db = EmbeddingDatabase(
+        db_path=output_db
+    )
+    embedding_db.create_db(
+        embedding_batches=embedding_batches,
+        use_gpu_index=use_gpu_index,
+        index_type=index_type,
+        index_config=IndexConfig(nlist=ivf_nlist, nprobe=ivf_nprobe)
+    )
 
 
 @query_db_app.command(
@@ -325,8 +327,6 @@ def query_database_from_structure(
 
     set_log_level(log_level)
 
-    # Parse db_path into directory and index name
-    db_dir, index_name = _parse_database_path(db_path)
 
     import torch
     # Determine device
@@ -343,10 +343,9 @@ def query_database_from_structure(
 
     # Initialize search
     logging.info("Loading database...")
-    from foldmatch.search.embedding_search import EmbeddingSearch
-    searcher = EmbeddingSearch(
-        db_path=str(db_dir),
-        index_name=index_name,
+    from foldmatch.search.embedding_database import EmbeddingDatabase
+    searcher = EmbeddingDatabase(
+        db_path=db_path,
         min_res=min_res,
         max_res=max_res,
         device=torch_device,
@@ -406,13 +405,10 @@ def query_database_from_embedding(
 
     set_log_level(log_level)
 
-    db_dir, index_name = _parse_database_path(db_path)
-
     logging.info("Loading database...")
-    from foldmatch.search.embedding_search import EmbeddingSearch
-    searcher = EmbeddingSearch(
-        db_path=str(db_dir),
-        index_name=index_name,
+    from foldmatch.search.embedding_database import EmbeddingDatabase
+    searcher = EmbeddingDatabase(
+        db_path=db_path,
         use_gpu_for_search=use_gpu_index
     )
 
@@ -485,13 +481,10 @@ def query_database_from_fasta(
 
     set_log_level(log_level)
 
-    db_dir, index_name = _parse_database_path(db_path)
-
     logging.info("Loading database...")
-    from foldmatch.search.embedding_search import EmbeddingSearch
-    searcher = EmbeddingSearch(
-        db_path=str(db_dir),
-        index_name=index_name,
+    from foldmatch.search.embedding_database import EmbeddingDatabase
+    searcher = EmbeddingDatabase(
+        db_path=db_path,
         use_gpu_for_search=use_gpu_index,
         tmp_dir=tmp_embedding_folder,
         accelerator=accelerator,
@@ -548,19 +541,14 @@ def query_database_with_database(
 
     set_log_level(log_level)
 
-    # Parse subject_db_path
-    query_db_dir, query_index_name = _parse_database_path(query_db_path)
-    subject_db_dir, subject_index_name = _parse_database_path(subject_db_path)
-
     if use_gpu_index:
         logging.info("GPU acceleration for FAISS search: enabled")
 
     # Load subject database
     logging.info("\nLoading subject database...")
-    from foldmatch.search.embedding_search import EmbeddingSearch
-    searcher = EmbeddingSearch(
-        db_path=str(subject_db_dir),
-        index_name=subject_index_name,
+    from foldmatch.search.embedding_database import EmbeddingDatabase
+    searcher = EmbeddingDatabase(
+        db_path=subject_db_path,
         use_gpu_for_search=use_gpu_index
     )
 
@@ -571,8 +559,7 @@ def query_database_with_database(
     # Perform database-to-database search
     logging.info("Performing search...")
     results = searcher.search_by_database(
-        query_db_path=str(query_db_dir),
-        query_index_name=query_index_name,
+        query_db_path=query_db_path,
         top_k=top_k
     )
 
@@ -604,10 +591,10 @@ def show_statistics(
 
     set_log_level(log_level)
 
-    # Parse db_path into directory and index name
-    db_dir, index_name = _parse_database_path(db_path)
-    from foldmatch.search.embedding_search import EmbeddingSearch
-    searcher = EmbeddingSearch(db_path=str(db_dir), index_name=index_name)
+    from foldmatch.search.embedding_database import EmbeddingDatabase
+    searcher = EmbeddingDatabase(
+        db_path=db_path
+    )
     stats = searcher.get_db_statistics()
 
     logging.info("DATABASE STATISTICS")
@@ -659,9 +646,6 @@ def cluster_database(
 
     set_log_level(log_level)
 
-    # Parse db_path into directory and index name
-    db_dir, index_name = _parse_database_path(db_path)
-
     if use_gpu_index:
         logging.info("GPU acceleration for FAISS operations: enabled")
 
@@ -669,8 +653,7 @@ def cluster_database(
     logging.info("Initializing clusterer...")
     from foldmatch.search.clustering import EmbeddingClusterer
     clusterer = EmbeddingClusterer(
-        db_path=str(db_dir),
-        index_name=index_name,
+        db_path=db_path,
         use_gpu=use_gpu_index
     )
 
@@ -732,16 +715,13 @@ def similarity_graph(
 
     set_log_level(log_level)
 
-    db_dir, index_name = _parse_database_path(db_path)
-
     if use_gpu_index:
         logging.info("GPU acceleration for FAISS operations: enabled")
 
     logging.info("Initializing clusterer...")
     from foldmatch.search.clustering import EmbeddingClusterer
     clusterer = EmbeddingClusterer(
-        db_path=str(db_dir),
-        index_name=index_name,
+        db_path=db_path,
         use_gpu=use_gpu_index
     )
 
@@ -785,20 +765,6 @@ def _parse_output_db(output_db: str) -> tuple[Path, str, str]:
         db_dir = Path.cwd()
 
     return db_dir, index_name, str(db_dir / index_name)
-
-
-def _parse_database_path(db_path: str, default_index_name: str = "structure_embeddings") -> tuple[Path, str]:
-    """Split a database path into its directory and index name components."""
-    db_path_obj = Path(db_path)
-    db_dir = db_path_obj.parent
-    index_name = db_path_obj.name
-
-    if not index_name:
-        index_name = default_index_name
-    if db_dir == Path('.'):
-        db_dir = Path.cwd()
-
-    return db_dir, index_name
 
 
 def _filter_results_by_threshold(results, threshold: float | None):

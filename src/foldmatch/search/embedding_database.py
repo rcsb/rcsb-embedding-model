@@ -6,6 +6,7 @@ from tqdm import tqdm
 import numpy as np
 import pyarrow.parquet as pq
 import pandas as pd
+import time
 
 from foldmatch.foldmatch import FoldMatch
 from foldmatch.search.embedding_computer import (
@@ -17,13 +18,12 @@ from foldmatch.types.api_types import Accelerator, Granularity, StructureFormat
 
 logger = logging.getLogger(__name__)
 
-class EmbeddingSearch:
+class EmbeddingDatabase:
     """Search for similar protein structures using embeddings."""
 
     def __init__(
             self,
             db_path: str,
-            index_name: str = "structure_embeddings",
             min_res: int = 10,
             max_res: int = None,
             device: torch.device = None,
@@ -50,10 +50,17 @@ class EmbeddingSearch:
         self.max_res = max_res
         self.tmp_dir = tmp_dir
         self.accelerator = accelerator
-        self.db = FaissEmbeddingDatabase(db_path, index_name)
-        self.db.load_database(use_gpu=use_gpu_for_search)
+        self.db_folder, self.index_name, self.db_path = _parse_db_path(db_path)
+        self.db = FaissEmbeddingDatabase(self.db_folder, self.index_name)
+        self._load_db(use_gpu=use_gpu_for_search)
         self.embedder = None
         self.computer: Optional[EmbeddingComputer] = None
+
+    def _load_db(self, use_gpu=False):
+        index_file =  Path(f"{self.db_path}.index)")
+        metadata_file = Path(f"{self.db_path}.metadata")
+        if index_file.exists() or metadata_file.exists():
+            self.db.load_database(use_gpu=use_gpu)
 
     def _get_embedder(self) -> FoldMatch:
         """Load embedding models only when structure-based search is needed."""
@@ -76,6 +83,34 @@ class EmbeddingSearch:
                 embedding_folder=self.tmp_dir, accelerator=self.accelerator
             )
         return self.computer
+
+    def create_db(
+            self,
+            embedding_batches,
+            use_gpu_index,
+            index_type,
+            index_config
+    ):
+        if is_rank_zero():
+            start_time = time.time()
+            self.db.create_database(
+                embedding_batches=embedding_batches,
+                index_type=index_type,
+                index_config=index_config,
+                use_gpu=use_gpu_index,
+            )
+            database_time = time.time() - start_time
+            logging.info(f"Creating database completed in {database_time:.2f} seconds")
+
+            logging.info("Database build complete!")
+            logging.info(f"Database location: {self.db_path}")
+            logging.info(f"Total embeddings: {len(self.db.chain_ids)}")
+            logging.info(f"You can now search this database using:")
+            logging.info(f"   fm-search query structure --db-path {self.db_path} --query-structure <path_to_structure>")
+
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
 
     def search_by_structure(
             self,
@@ -143,7 +178,6 @@ class EmbeddingSearch:
     def search_by_database(
             self,
             query_db_path: str,
-            query_index_name: str = "structure_embeddings",
             top_k: int = 10,
             batch_size: int = 4096,
     ) -> Dict[str, Tuple[List[str], List[float]]]:
@@ -160,7 +194,8 @@ class EmbeddingSearch:
             Dictionary mapping query chain ID to (matching_chain_ids, similarity_scores)
         """
         logging.info("Loading query database...")
-        query_db = FaissEmbeddingDatabase(query_db_path, query_index_name)
+        query_db_folder, query_index_name, _ = _parse_db_path(query_db_path)
+        query_db = FaissEmbeddingDatabase(query_db_folder, query_index_name)
         query_db.load_database()
 
         n = len(query_db.chain_ids)
@@ -235,9 +270,9 @@ class EmbeddingSearch:
             strategy=strategy,
         )
 
-        results: Dict[str, Tuple[List[str], List[float]]] = {}
         if not is_rank_zero():
-            return results
+            return {}
+        results: Dict[str, Tuple[List[str], List[float]]] = {}
         for ids_batch, emb_batch in batches:
             batch_results = self.db.search_batch(emb_batch, top_k=top_k)
             for qid, res in zip(ids_batch, batch_results):
@@ -288,10 +323,20 @@ class EmbeddingSearch:
         """Get database statistics."""
         return self.db.get_statistics()
 
+
+def _parse_db_path(output_db: str) -> tuple[Path, str, str]:
+    """Split a database path into (directory, index name, resolved path)."""
+    output_db_path = Path(output_db)
+    db_dir = output_db_path.parent
+    index_name = output_db_path.name or "embeddings"
+    if db_dir == Path('.'):
+        db_dir = Path.cwd()
+    return db_dir, index_name, str(db_dir / index_name)
+
+
 _POINT_EXTS = ('.pt', '.csv')
 _BATCH_EXTS = ('.parquet',)
 _SUPPORTED_EXTS = _POINT_EXTS + _BATCH_EXTS
-
 
 def stream_embeddings(
         path: str,

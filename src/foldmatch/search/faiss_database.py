@@ -39,15 +39,15 @@ class FaissEmbeddingDatabase:
 
     N_EMBEDDINGS_DB_THR = 10000
 
-    def __init__(self, db_path: str, index_name: str = "structure_embeddings"):
+    def __init__(self, db_folder: Path, index_name: str = "structure_embeddings"):
         """
         Initialize FAISS database.
 
         Args:
-            db_path: Path to store the FAISS database
+            db_folder: Path to store the FAISS database
             index_name: Name of the index (used for file naming)
         """
-        self.db_path = Path(db_path)
+        self.db_folder = db_folder
         self.index_name = index_name
         self.index = None
         self.chain_ids = None
@@ -59,7 +59,7 @@ class FaissEmbeddingDatabase:
 
     def create_database(
             self,
-            batches: Iterable[Tuple[List[str], np.ndarray]],
+            embedding_batches: Iterable[Tuple[List[str], np.ndarray]],
             index_type: IndexType = IndexType.auto,
             index_config: Optional[IndexConfig] = None,
             use_gpu: bool = False,
@@ -68,7 +68,7 @@ class FaissEmbeddingDatabase:
         Create a new FAISS database from a stream of embedding batches.
 
         Args:
-            batches: Iterable yielding ``(ids, [B, D] float32 ndarray)`` tuples.
+            embedding_batches: Iterable yielding ``(ids, [B, D] float32 ndarray)`` tuples.
             index_type: FAISS index variant. See :class:`IndexType`.
             index_config: Tuning knobs (see :class:`IndexConfig`). Defaults if None.
             use_gpu: Move the in-memory index to GPU after build (ignored for ivf_pq).
@@ -79,9 +79,9 @@ class FaissEmbeddingDatabase:
         if index_type == IndexType.ivf_pq:
             if use_gpu:
                 logger.warning("use_gpu is not supported for ivf_pq builds; running on CPU.")
-            self._create_ivf_pq_ondisk(batches, config)
+            self._create_ivf_pq_ondisk(embedding_batches, config)
         else:
-            self._create_in_memory(batches, index_type, config, use_gpu)
+            self._create_in_memory(embedding_batches, index_type, config, use_gpu)
         self._save()
 
     def _create_in_memory(
@@ -139,8 +139,8 @@ class FaissEmbeddingDatabase:
         """Build OPQ + IVF-PQ with OnDiskInvertedLists. Bounded RAM ≈ training sample size."""
 
         logger.info(f"Building {IndexType.ivf_pq.name} index")
-        self.db_path.mkdir(parents=True, exist_ok=True)
-        invlists_path = str(self.db_path / f"{self.index_name}.invlists")
+        self.db_folder.mkdir(parents=True, exist_ok=True)
+        invlists_path = str(self.db_folder / f"{self.index_name}.invlists")
 
         # Phase A: accumulate the training sample. Keep raw (un-normalized) batches so
         # we can add them to the index after training without double-normalization.
@@ -215,11 +215,11 @@ class FaissEmbeddingDatabase:
         Args:
             use_gpu: Whether to load the index to GPU (if available)
         """
-        index_file = self.db_path / f"{self.index_name}.index"
-        metadata_file = self.db_path / f"{self.index_name}.metadata"
+        index_file = self.db_folder / f"{self.index_name}.index"
+        metadata_file = self.db_folder / f"{self.index_name}.metadata"
 
         if not index_file.exists() or not metadata_file.exists():
-            raise ValueError(f"Database files not found in: {self.db_path}")
+            raise ValueError(f"Database files not found in: {self.db_folder}")
 
         with open(metadata_file, 'rb') as f:
             metadata = pickle.load(f)
@@ -232,7 +232,7 @@ class FaissEmbeddingDatabase:
             # OnDiskInvertedLists has the absolute path baked in at write time; skip
             # loading them and re-point at the local file so the DB stays portable.
             self.index = faiss.read_index(str(index_file), faiss.IO_FLAG_SKIP_IVF_DATA)
-            invlists_path = str(self.db_path / f"{self.index_name}.invlists")
+            invlists_path = str(self.db_folder / f"{self.index_name}.invlists")
             ivf_index = faiss.extract_index_ivf(self.index)
             new_invlists = faiss.OnDiskInvertedLists(
                 ivf_index.nlist, ivf_index.code_size, invlists_path
@@ -389,7 +389,7 @@ class FaissEmbeddingDatabase:
             "total_embeddings": len(self.chain_ids),
             "dimension": self.dimension,
             "index_name": self.index_name,
-            "db_path": str(self.db_path),
+            "db_path": str(self.db_folder),
             "index_type": type(self.index).__name__,
             "on_gpu": self.is_gpu_index,
             "gpu_available": _has_gpu_support()
@@ -397,10 +397,10 @@ class FaissEmbeddingDatabase:
 
     def _save(self):
         """Save FAISS index and metadata to disk."""
-        self.db_path.mkdir(parents=True, exist_ok=True)
+        self.db_folder.mkdir(parents=True, exist_ok=True)
 
-        index_file = self.db_path / f"{self.index_name}.index"
-        metadata_file = self.db_path / f"{self.index_name}.metadata"
+        index_file = self.db_folder / f"{self.index_name}.index"
+        metadata_file = self.db_folder / f"{self.index_name}.metadata"
 
         if self.is_gpu_index:
             cpu_index = faiss.index_gpu_to_cpu(self.index)

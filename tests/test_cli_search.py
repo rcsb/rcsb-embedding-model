@@ -2,6 +2,7 @@ import os
 import shutil
 import unittest
 import tempfile
+from pathlib import Path
 
 from foldmatch.types.api_types import StructureFormat
 
@@ -138,52 +139,14 @@ class TestCliSearch(unittest.TestCase):
             db_path=self.__db_path
         )
 
-    def test_06_database_builder_class(self):
-        """Test EmbeddingDatabaseBuilder class directly."""
-        from foldmatch.search.database_builder import EmbeddingDatabaseBuilder
-        from foldmatch.search.faiss_database import FaissEmbeddingDatabase
-
-        structure_dir = f"{self.__test_path}/resources/pdb"
-
-        # Test new FAISS database building method
-        output_db = os.path.join(self.__temp_dir, "test_builder_faiss")
-
-        builder = EmbeddingDatabaseBuilder(
-            tmp_dir=self.__temp_dir,
-            accelerator="cpu",
-        )
-
-        builder.build_from_structures(
-            structure_dir=structure_dir,
-            output_db=output_db,
-            structure_format=StructureFormat.mmcif,
-            min_res=10,
-            file_extension=".cif",
-            use_gpu_index=False,
-            devices='auto',
-        )
-
-        # Verify FAISS database files exist
-        from pathlib import Path
-        db_path = Path(output_db).parent
-        index_name = Path(output_db).name
-        self.assertTrue((db_path / f"{index_name}.index").exists())
-        self.assertTrue((db_path / f"{index_name}.metadata").exists())
-
-        # Test loading the FAISS database
-        db = FaissEmbeddingDatabase(db_path=str(db_path), index_name=index_name)
-        db.load_database()
-        stats = db.get_statistics()
-        self.assertGreater(stats['total_embeddings'], 0)
-
     def test_07_faiss_database_class(self):
         """Test FaissEmbeddingDatabase class directly."""
         from foldmatch.search.faiss_database import FaissEmbeddingDatabase
         import numpy as np
         import torch
 
-        db_path = os.path.join(self.__temp_dir, "test_chroma_direct")
-        db = FaissEmbeddingDatabase(db_path=db_path, index_name="test_direct")
+        db_path = Path(os.path.join(self.__temp_dir, "test_chroma_direct"))
+        db = FaissEmbeddingDatabase(db_folder=db_path, index_name="test_direct")
 
         # Create some dummy embeddings
         chain_ids = ["test1:A", "test2:A", "test3:B"]
@@ -192,10 +155,10 @@ class TestCliSearch(unittest.TestCase):
         ).astype(np.float32)
 
         # Create database (new batch-iterator API)
-        db.create_database(batches=[(chain_ids, embeddings_arr)])
+        db.create_database(embedding_batches=[(chain_ids, embeddings_arr)])
 
         # Load database
-        db2 = FaissEmbeddingDatabase(db_path=db_path, index_name="test_direct")
+        db2 = FaissEmbeddingDatabase(db_folder=db_path, index_name="test_direct")
         db2.load_database()
 
         # Get stats
@@ -210,19 +173,13 @@ class TestCliSearch(unittest.TestCase):
 
     def test_08_embedding_search_class(self):
         """Test EmbeddingSearch class directly."""
-        from foldmatch.search.embedding_search import EmbeddingSearch
+        from foldmatch.search.embedding_database import EmbeddingDatabase
         from pathlib import Path
 
         query_structure = f"{self.__test_path}/resources/pdb/2uzi.cif"
 
-        # Parse db_path into directory and index name
-        db_path_obj = Path(self.__db_path)
-        db_dir = db_path_obj.parent
-        index_name = db_path_obj.name
-
-        searcher = EmbeddingSearch(
-            db_path=str(db_dir),
-            index_name=index_name,
+        searcher = EmbeddingDatabase(
+            db_path=self.__db_path,
             min_res=10,
             max_res=None,
             device="cpu"
@@ -338,20 +295,14 @@ class TestCliSearch(unittest.TestCase):
     def test_12_embedding_search_search_by_database(self):
         """Test EmbeddingSearch database-to-database search API."""
         from pathlib import Path
-        from foldmatch.search.embedding_search import EmbeddingSearch
+        from foldmatch.search.embedding_database import EmbeddingDatabase
 
-        db_path_obj = Path(self.__db_path)
-        db_dir = db_path_obj.parent
-        index_name = db_path_obj.name
-
-        searcher = EmbeddingSearch(
-            db_path=str(db_dir),
-            index_name=index_name
+        searcher = EmbeddingDatabase(
+            db_path=self.__db_path
         )
 
         results = searcher.search_by_database(
-            query_db_path=str(db_dir),
-            query_index_name=index_name,
+            query_db_path=self.__db_path,
             top_k=2
         )
 
@@ -441,7 +392,7 @@ class TestCliSearch(unittest.TestCase):
         self.assertTrue((db_path.parent / f"{db_path.name}.index").exists())
         self.assertTrue((db_path.parent / f"{db_path.name}.metadata").exists())
 
-        db = FaissEmbeddingDatabase(db_path=str(db_path.parent), index_name=db_path.name)
+        db = FaissEmbeddingDatabase(db_folder=db_path.parent, index_name=db_path.name)
         db.load_database()
         self.assertEqual(len(db.chain_ids), 5)
 
@@ -467,7 +418,7 @@ class TestCliSearch(unittest.TestCase):
         self.assertTrue((db_path.parent / f"{db_path.name}.index").exists())
         self.assertTrue((db_path.parent / f"{db_path.name}.metadata").exists())
 
-        db = FaissEmbeddingDatabase(db_path=str(db_path.parent), index_name=db_path.name)
+        db = FaissEmbeddingDatabase(db_folder=db_path.parent, index_name=db_path.name)
         db.load_database()
         self.assertEqual(len(db.chain_ids), 2)
 

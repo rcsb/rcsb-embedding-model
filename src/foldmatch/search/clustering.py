@@ -8,14 +8,14 @@ from pathlib import Path
 from tqdm import tqdm
 
 from foldmatch.search import FaissEmbeddingDatabase
-from foldmatch.search.embedding_search import EmbeddingSearch
+from foldmatch.search.embedding_database import _parse_db_path
 
 logger = logging.getLogger(__name__)
 
 class EmbeddingClusterer:
     """Cluster protein structure embeddings using Leiden algorithm on similarity graphs."""
 
-    def __init__(self, db_path: str, index_name: str = "structure_embeddings", use_gpu: bool = False):
+    def __init__(self, db_path: str, use_gpu: bool = False):
         """
         Initialize clustering — stashes db location; actual load happens in
         :meth:`load_database`.
@@ -24,9 +24,8 @@ class EmbeddingClusterer:
             db_path: Path to FAISS database directory
             index_name: Name of the FAISS index
         """
-        self._db_path = db_path
-        self._index_name = index_name
-        self.db = FaissEmbeddingDatabase(self._db_path, self._index_name)
+        db_folder, index_name, db_path = _parse_db_path(db_path)
+        self.db = FaissEmbeddingDatabase(db_folder, index_name)
         self.db.load_database(use_gpu=use_gpu)
         self.chain_ids = self.db.chain_ids
 
