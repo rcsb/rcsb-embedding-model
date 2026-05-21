@@ -328,39 +328,26 @@ def query_database_from_structure(
 
     set_log_level(log_level)
 
-
-    import torch
-    # Determine device
-    if accelerator == "auto":
-        torch_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    elif accelerator == "cpu":
-        torch_device = torch.device("cpu")
-    else:
-        torch_device = torch.device("cuda")
-
-    logging.info(f"Using device for embeddings DB: {str(torch_device)}")
-    if use_gpu_index:
-        logging.info("GPU acceleration for FAISS search: enabled")
-
-    # Initialize search
-    logging.info("Loading database...")
-    from foldmatch.search.embedding_database import EmbeddingDatabase
-    embedding_db = EmbeddingDatabase(
-        db_path=db_path,
-        min_res=min_res,
-        max_res=max_res,
-        device=torch_device,
-        use_gpu_for_search=use_gpu_index
-    )
-
-    # Perform search
-    logging.info("Performing search...")
-    results = embedding_db.search_by_structure(
+    from foldmatch.search.embedding_computer import compute_from_structure_file
+    embedding_batches = compute_from_structure_file(
         query_structure=query_structure,
         structure_format=structure_format,
         granularity=granularity,
         chain_id=chain_id,
         assembly_id=assembly_id,
+        min_res=min_res,
+        max_res=max_res,
+        accelerator=accelerator
+    )
+
+    logging.info("Loading database...")
+    from foldmatch.search.embedding_database import EmbeddingDatabase
+    embedding_db = EmbeddingDatabase(
+        db_path=db_path,
+        use_gpu_for_search=use_gpu_index
+    )
+    results = embedding_db.search_by_embeddings(
+        embedding_batches=embedding_batches,
         top_k=top_k
     )
 

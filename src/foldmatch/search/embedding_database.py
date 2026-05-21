@@ -8,9 +8,7 @@ import pyarrow.parquet as pq
 import pandas as pd
 import time
 
-from foldmatch.foldmatch import FoldMatch
 from foldmatch.search.faiss_database import FaissEmbeddingDatabase
-from foldmatch.types.api_types import Accelerator, Granularity, StructureFormat
 
 logger = logging.getLogger(__name__)
 
@@ -20,52 +18,23 @@ class EmbeddingDatabase:
     def __init__(
             self,
             db_path: str,
-            min_res: int = 10,
-            max_res: int = None,
-            device: torch.device = None,
-            use_gpu_for_search: bool = False,
-            tmp_dir: Optional[str] = None,
-            accelerator: Accelerator = 'auto',
+            use_gpu_for_search: bool = False
     ):
         """
         Initialize structure search.
-
         Args:
             db_path: Path to FAISS database
-            index_name: Name of the FAISS index
-            min_res: Minimum residue length for chains
-            max_res: Maximum residue length for structures
-            device: Device to use for embedding computation
             use_gpu_for_search: Whether to use GPU for FAISS search operations
-            tmp_dir: Scratch directory for FASTA-based search (required by
-                :meth:`search_by_fasta`; optional otherwise).
-            accelerator: Lightning accelerator for FASTA-based search inference.
         """
-        self.device = device
-        self.min_res = min_res
-        self.max_res = max_res
-        self.tmp_dir = tmp_dir
-        self.accelerator = accelerator
         self.db_folder, self.index_name, self.db_path = _parse_db_path(db_path)
         self.db = FaissEmbeddingDatabase(self.db_folder, self.index_name)
         self._load_db(use_gpu=use_gpu_for_search)
-        self.embedder = None
 
     def _load_db(self, use_gpu=False):
         index_file =  Path(f"{self.db_path}.index)")
         metadata_file = Path(f"{self.db_path}.metadata")
         if index_file.exists() or metadata_file.exists():
             self.db.load_database(use_gpu=use_gpu)
-
-    def _get_embedder(self) -> FoldMatch:
-        """Load embedding models only when structure-based search is needed."""
-        if self.embedder is None:
-            self.embedder = FoldMatch(
-                min_res=self.min_res,
-                max_res=self.max_res
-            )
-            self.embedder.load_models(device=self.device)
-        return self.embedder
 
     def create_db(
             self,
@@ -100,70 +69,6 @@ class EmbeddingDatabase:
             batch_results = self.db.search_batch(emb_batch, top_k=top_k)
             for qid, res in zip(ids_batch, batch_results):
                 results[qid] = res
-        return results
-
-    #TODO this method need to be moved to EmbeddingComputer and return a batch of embeddings.
-    def search_by_structure(
-            self,
-            query_structure: str,
-            structure_format: StructureFormat = StructureFormat.mmcif,
-            granularity: Granularity = 'chain',
-            chain_id: str = None,
-            assembly_id: str = None,
-            top_k: int = 10
-    ) -> Dict[str, Tuple[List[str], List[float]]]:
-        """
-        Search database using a structure file.
-
-        Args:
-            query_structure: Path to query structure file
-            structure_format: Format of structure file
-            granularity: Level of granularity for search ('chain' or 'assembly')
-            chain_id: Specific chain to search (if None, searches all chains)
-            assembly_id: Specific assembly to search (if None, searches by asymmetric unit)
-            top_k: Number of top results per chain
-
-        Returns:
-            Dictionary mapping query chain ID to (matching_chain_ids, similarity_scores)
-        """
-        query_path = Path(query_structure)
-        if not query_path.exists():
-            raise ValueError(f"Query structure file does not exist: {query_structure}")
-
-        if granularity != 'chain' and granularity != 'assembly':
-            raise ValueError(f"Unknown granularity value {granularity}")
-
-        structure_name = query_path.stem
-        logging.info(f"Processing residue embeddings: {structure_name}")
-        embedder = self._get_embedder()
-
-        residue_embeddings = embedder.residue_embedding_by_chain(
-            src_structure=query_structure,
-            structure_format=structure_format,
-            chain_id=chain_id
-        ) if granularity == 'chain' else embedder.residue_embedding_by_assembly(
-            src_structure=query_structure,
-            structure_format=structure_format,
-            assembly_id=assembly_id
-        )
-
-        if not residue_embeddings:
-            if chain_id:
-                raise ValueError(f"Chain {chain_id} not found or does not meet minimum residue requirements")
-            elif assembly_id:
-                raise ValueError(f"Assembly {assembly_id} not found or does not meet minimum residue requirements")
-            else:
-                raise ValueError("No valid chains found in query structure")
-
-        results = {}
-        for key, residue_embedding in residue_embeddings.items():
-            logging.info(f"Searching {structure_name} {granularity.value if hasattr(granularity, 'value') else granularity} {key} ({residue_embedding.shape[0]} residues)...")
-            # Apply aggregator to get protein-level embedding
-            protein_embedding = embedder.aggregator_embedding(residue_embedding)
-            matching_ids, scores = self.db.search(protein_embedding, top_k=top_k)
-            query_embedding_id = f"{structure_name}{"." if granularity == 'chain' else "-"}{key}"
-            results[query_embedding_id] = (matching_ids, scores)
-
         return results
 
     def search_by_database(

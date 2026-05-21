@@ -171,43 +171,6 @@ class TestCliSearch(unittest.TestCase):
         self.assertEqual(len(results_ids), 2)
         self.assertEqual(len(results_distances), 2)
 
-    def test_08_embedding_search_class(self):
-        """Test EmbeddingSearch class directly."""
-        from foldmatch.search.embedding_database import EmbeddingDatabase
-        from pathlib import Path
-
-        query_structure = f"{self.__test_path}/resources/pdb/2uzi.cif"
-
-        searcher = EmbeddingDatabase(
-            db_path=self.__db_path,
-            min_res=10,
-            max_res=None,
-            device="cpu"
-        )
-
-        # Get statistics
-        stats = searcher.get_db_statistics()
-        self.assertGreater(stats['total_embeddings'], 0)
-
-        # Search by structure
-        results = searcher.search_by_structure(
-            query_structure=query_structure,
-            structure_format=StructureFormat.mmcif,
-            chain_id=None,
-            top_k=3
-        )
-
-        # Verify we got results
-        self.assertGreater(len(results), 0)
-        for query_chain, (matching_ids, distances) in results.items():
-            self.assertGreater(len(matching_ids), 0)
-            self.assertEqual(len(matching_ids), len(distances))
-
-        # Test export
-        output_csv = os.path.join(self.__temp_dir, "embedding_search_export.csv")
-        searcher.export_results(results, output_csv)
-        self.assertTrue(os.path.exists(output_csv))
-
     def test_09_residue_embedding_by_chain_filter(self):
         """Test residue_embedding_by_chain with chain_id parameter."""
         from foldmatch.foldmatch import FoldMatch

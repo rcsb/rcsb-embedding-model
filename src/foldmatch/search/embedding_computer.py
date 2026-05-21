@@ -148,5 +148,85 @@ class EmbeddingComputer:
                 )
                 yield ids, arr
 
+def compute_from_structure_file(
+        query_structure: str,
+        structure_format: StructureFormat = StructureFormat.mmcif,
+        granularity: Granularity = 'chain',
+        chain_id: str = None,
+        assembly_id: str = None,
+        min_res: int = 10,
+        max_res: int = None,
+        accelerator: Accelerator = "auto"
+) -> Iterator[tuple[list[str], np.ndarray]]:
+    """Compute per-chain (or per-assembly) embeddings for a single structure
+    file and yield them in the same ``(ids, [B, D] float32)`` batch shape as
+    :meth:`get_embedding_batches`. A single structure produces one batch
+    containing all of its chains (or assemblies).
+    """
+    query_path = Path(query_structure)
+    if not query_path.exists():
+        raise ValueError(f"Query structure file does not exist: {query_structure}")
+
+    if granularity != 'chain' and granularity != 'assembly':
+        raise ValueError(f"Unknown granularity value {granularity}")
+
+    structure_name = query_path.stem
+    logging.info(f"Processing residue embeddings: {structure_name}")
+
+    from foldmatch.foldmatch import FoldMatch
+    foldmatch = FoldMatch(
+        min_res=min_res,
+        max_res=max_res
+    )
+    import torch
+    if accelerator == "auto":
+        torch_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    elif accelerator == "cpu":
+        torch_device = torch.device("cpu")
+    else:
+        torch_device = torch.device("cuda")
+    foldmatch.load_models(device=torch_device)
+
+    residue_embeddings = foldmatch.residue_embedding_by_chain(
+        src_structure=query_structure,
+        structure_format=structure_format,
+        chain_id=chain_id
+    ) if granularity == 'chain' else foldmatch.residue_embedding_by_assembly(
+        src_structure=query_structure,
+        structure_format=structure_format,
+        assembly_id=assembly_id
+    )
+
+    if not residue_embeddings:
+        if chain_id:
+            raise ValueError(f"Chain {chain_id} not found or does not meet minimum residue requirements")
+        elif assembly_id:
+            raise ValueError(f"Assembly {assembly_id} not found or does not meet minimum residue requirements")
+        else:
+            raise ValueError("No valid chains found in query structure")
+
+    granularity_str = granularity.value if hasattr(granularity, 'value') else granularity
+    separator = '.' if granularity_str == 'chain' else '-'
+
+    ids: list[str] = []
+    embeddings: list[np.ndarray] = []
+    for embedding_id, residue_embedding in residue_embeddings.items():
+        logging.info(
+            f"Aggregating {structure_name} {granularity_str} {embedding_id} "
+            f"({residue_embedding.shape[0]} residues)..."
+        )
+        full_embedding = foldmatch.aggregator_embedding(residue_embedding)
+        # aggregator returns a torch.Tensor; coerce to a 1-D float32 numpy vector
+        if hasattr(full_embedding, 'detach'):
+            full_embedding = full_embedding.detach().cpu().numpy()
+        full_embedding = np.asarray(full_embedding, dtype=np.float32).reshape(-1)
+        ids.append(f"{structure_name}{separator}{embedding_id}")
+        embeddings.append(full_embedding)
+
+    if not ids:
+        return
+    arr = np.ascontiguousarray(np.stack(embeddings).astype(np.float32, copy=False))
+    yield ids, arr
+
 def _consolidate_id():
     return os.environ.get('SLURM_JOB_ID', token_hex(16))
