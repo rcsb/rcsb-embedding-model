@@ -178,6 +178,15 @@ class FaissEmbeddingDatabase:
         self.index.train(train_arr)
         del train_arr
 
+        # Save the trained header NOW, while the index still has its default
+        # in-memory inverted lists. Calling faiss.write_index later — after the
+        # OnDiskInvertedLists swap below — segfaults in faiss-cpu 1.13.2 for
+        # non-trivial corpora. The header contains only the trained state
+        # (centroids + PQ codebook + OPQ rotation), which is invariant under
+        # add(); ntotal is reconstructed from the chain-ids count at load.
+        header_path = self.db_folder / f"{self.index_name}.index"
+        faiss.write_index(self.index, str(header_path))
+
         # Phase C: swap inverted lists onto disk so subsequent add() writes go to mmap.
         ivf_index = faiss.extract_index_ivf(self.index)
         invlists = faiss.OnDiskInvertedLists(
@@ -229,15 +238,22 @@ class FaissEmbeddingDatabase:
         self.index_config = metadata.get('index_config')
 
         if self.index_type == IndexType.ivf_pq:
-            # OnDiskInvertedLists has the absolute path baked in at write time; skip
-            # loading them and re-point at the local file so the DB stays portable.
-            self.index = faiss.read_index(str(index_file), faiss.IO_FLAG_SKIP_IVF_DATA)
+            # The header was written at training time with its default empty
+            # ArrayInvertedLists (ntotal=0) and the OnDisk invlists file holds
+            # the per-cell data separately. Read the header normally (no
+            # IO_FLAG_SKIP_IVF_DATA — that flag is only for files where the
+            # invlists were already serialized as OnDiskInvertedLists), then
+            # replace the empty invlists with the on-disk file and restore ntotal.
+            self.index = faiss.read_index(str(index_file))
             invlists_path = str(self.db_folder / f"{self.index_name}.invlists")
             ivf_index = faiss.extract_index_ivf(self.index)
             new_invlists = faiss.OnDiskInvertedLists(
                 ivf_index.nlist, ivf_index.code_size, invlists_path
             )
             ivf_index.replace_invlists(new_invlists, True)
+            n_total = len(self.chain_ids)
+            ivf_index.ntotal = n_total
+            self.index.ntotal = n_total
             if self.index_config is not None and self.index_config.nprobe is not None:
                 ivf_index.nprobe = self.index_config.nprobe
         else:
@@ -402,7 +418,12 @@ class FaissEmbeddingDatabase:
         index_file = self.db_folder / f"{self.index_name}.index"
         metadata_file = self.db_folder / f"{self.index_name}.metadata"
 
-        if self.is_gpu_index:
+        if self.index_type == IndexType.ivf_pq:
+            # Header was already persisted by _create_ivf_pq_ondisk before the
+            # OnDiskInvertedLists swap; calling faiss.write_index on a swapped
+            # index segfaults at scale. Only the metadata pickle remains here.
+            pass
+        elif self.is_gpu_index:
             cpu_index = faiss.index_gpu_to_cpu(self.index)
             faiss.write_index(cpu_index, str(index_file))
         else:
