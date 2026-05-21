@@ -9,9 +9,6 @@ import pandas as pd
 import time
 
 from foldmatch.foldmatch import FoldMatch
-from foldmatch.search.embedding_computer import (
-    EmbeddingComputer,
-)
 from foldmatch.search.faiss_database import FaissEmbeddingDatabase
 from foldmatch.types.api_types import Accelerator, Granularity, StructureFormat
 
@@ -53,7 +50,6 @@ class EmbeddingDatabase:
         self.db = FaissEmbeddingDatabase(self.db_folder, self.index_name)
         self._load_db(use_gpu=use_gpu_for_search)
         self.embedder = None
-        self.computer: Optional[EmbeddingComputer] = None
 
     def _load_db(self, use_gpu=False):
         index_file =  Path(f"{self.db_path}.index)")
@@ -70,18 +66,6 @@ class EmbeddingDatabase:
             )
             self.embedder.load_models(device=self.device)
         return self.embedder
-
-    def _get_embedding_computer(self) -> EmbeddingComputer:
-        """Create the FASTA embedding computer lazily; requires ``tmp_dir``."""
-        if self.computer is None:
-            if self.tmp_dir is None:
-                raise ValueError(
-                    "tmp_dir must be set on EmbeddingSearch to compute embeddings from FASTA"
-                )
-            self.computer = EmbeddingComputer(
-                embedding_folder=self.tmp_dir, accelerator=self.accelerator
-            )
-        return self.computer
 
     def create_db(
             self,
