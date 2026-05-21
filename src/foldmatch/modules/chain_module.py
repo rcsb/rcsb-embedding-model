@@ -14,7 +14,7 @@ class ChainModule(LightningModule):
         self.aggregator = model
 
     def on_train_start(self):
-        logger.info(f"Aggregator device: {self.device} {self.trainer.global_rank + 1}/{self.trainer.world_size}")
+        logger.info(f"Aggregator device: {self.device} | {self.trainer.global_rank + 1}/{self.trainer.world_size}")
 
     def predict_step(self, batch, batch_idx):
         (x, x_mask), dom_id = batch

@@ -136,7 +136,7 @@ class EmbeddingComputer:
         """Stream (ids, [B, D] float32) batches from all per-rank Parquet shards. Rank-0 only."""
 
         parquet_files = sorted(Path(self.embedding_folder).glob(f"{self.out_name}-*.parquet"))
-        logging.info(f"Streaming embeddings from {len(parquet_files)} Parquet shard(s) in: {self.embedding_folder}")
+        logging.info(f"Streaming embeddings from {len(parquet_files)} Parquet shard(s) in {self.embedding_folder}")
         for parquet_file in parquet_files:
             logging.info(f"   Parquet file {parquet_file}")
             pf = pq.ParquetFile(parquet_file)

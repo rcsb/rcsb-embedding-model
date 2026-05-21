@@ -22,7 +22,7 @@ class AssemblyCompleteModule(LightningModule):
         self.max_res_n = max_res_n
 
     def on_predict_start(self):
-        logger.info(f"ESM + Aggregator device: {self.device} {self.trainer.global_rank + 1}/{self.trainer.world_size}")
+        logger.info(f"ESM + Aggregator device: {self.device} | {self.trainer.global_rank + 1}/{self.trainer.world_size}")
 
     def predict_step(self, prot_batch, batch_idx):
         assembly_embeddings = []

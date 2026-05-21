@@ -15,7 +15,7 @@ class EsmModule(LightningModule):
         self.esm3 = model
 
     def on_predict_start(self):
-        logger.info(f"ESM device: {self.device} {self.trainer.global_rank + 1}/{self.trainer.world_size}")
+        logger.info(f"ESM device: {self.device} | {self.trainer.global_rank + 1}/{self.trainer.world_size}")
 
     def predict_step(self, prot_batch, batch_idx):
         return tuple([self.__compute_embeddings(esm_prot) for esm_prot, name in prot_batch]), tuple([name for esm_prot, name in prot_batch])
