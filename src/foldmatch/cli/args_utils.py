@@ -38,8 +38,11 @@ def set_log_level(level: LogLevel):
     if level == 'info':
         warnings.filterwarnings("ignore")
         logging.getLogger("lightning.pytorch").setLevel(logging.ERROR)
+        logging.getLogger("lightning.fabric.utilities.distributed").setLevel(logging.ERROR)
         handler.setFormatter(logging.Formatter('[proc-%(rank)s] %(message)s'))
         logging.basicConfig(level=logging.INFO, handlers=[handler], force=True)
+        from huggingface_hub.utils import disable_progress_bars
+        disable_progress_bars()
     elif level == 'warning':
         handler.setFormatter(logging.Formatter(
             '> %(asctime)s - [proc-%(rank)s] - %(levelname)s - %(filename)s:%(lineno)d - %(message)s'

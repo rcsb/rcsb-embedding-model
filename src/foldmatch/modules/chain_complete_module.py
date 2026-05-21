@@ -19,7 +19,7 @@ class ChainCompleteModule(LightningModule):
         self.aggregator =  aggregator_model
 
     def on_predict_start(self):
-        logger.info(f"ESM + Aggregator device: {self.device}")
+        logger.info(f"ESM + Aggregator device: {self.device} {self.trainer.global_rank + 1}/{self.trainer.world_size}")
 
     def predict_step(self, prot_batch, batch_idx):
         prot_embeddings = []
