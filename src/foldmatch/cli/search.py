@@ -91,6 +91,11 @@ def build_database_from_structures(
         ivf_nprobe: Annotated[Optional[int], typer.Option(
             help='Cells probed per query for ivf_pq (defaults to nlist // 64).'
         )] = None,
+        load_batch_size: Annotated[int, typer.Option(
+            help='Number of vectors per batch streamed into the FAISS index. Larger '
+                 'batches (e.g. 65536+) better saturate many-core nodes during '
+                 'IVF-PQ build; smaller batches use less memory.'
+        )] = 32768,
         log_level: Annotated[LogLevel, typer.Option(
             help='Number of nodes to use for inference of embeddings.'
         )] = 'info'
@@ -139,7 +144,7 @@ def build_database_from_structures(
             db_path=output_db
         )
         embedding_db.create_db(
-            embedding_batches=embedding_computer.get_embedding_batches(),
+            embedding_batches=embedding_computer.get_embedding_batches(load_batch_size=load_batch_size),
             use_gpu_index=use_gpu_index,
             index_type=index_type,
             index_config=IndexConfig(nlist=ivf_nlist, nprobe=ivf_nprobe)
@@ -172,6 +177,11 @@ def build_database_from_embeddings(
         ivf_nprobe: Annotated[Optional[int], typer.Option(
             help='Cells probed per query for ivf_pq (defaults to nlist // 64).'
         )] = None,
+        load_batch_size: Annotated[int, typer.Option(
+            help='Number of vectors per batch streamed into the FAISS index. Larger '
+                 'batches (e.g. 65536+) better saturate many-core nodes during '
+                 'IVF-PQ build; smaller batches use less memory.'
+        )] = 32768,
         log_level: Annotated[LogLevel, typer.Option(
             help='Logging level.'
         )] = 'info'
@@ -180,13 +190,17 @@ def build_database_from_embeddings(
 
     set_log_level(log_level)
 
-    from foldmatch.search.embedding_database import stream_embeddings
     from foldmatch.search.embedding_database import EmbeddingDatabase
     embedding_db = EmbeddingDatabase(
         db_path=output_db
     )
+    from foldmatch.utils.data import stream_embeddings
     embedding_db.create_db(
-        embedding_batches=stream_embeddings(embedding_folder, file_extension),
+        embedding_batches=stream_embeddings(
+            path=embedding_folder,
+            file_extension=file_extension,
+            batch_size=load_batch_size
+        ),
         use_gpu_index=use_gpu_index,
         index_type=index_type,
         index_config=IndexConfig(nlist=ivf_nlist, nprobe=ivf_nprobe)
@@ -240,6 +254,11 @@ def build_database_from_fasta(
         ivf_nprobe: Annotated[Optional[int], typer.Option(
             help='Cells probed per query for ivf_pq (defaults to nlist // 64).'
         )] = None,
+        load_batch_size: Annotated[int, typer.Option(
+            help='Number of vectors per batch streamed into the FAISS index. Larger '
+                 'batches (e.g. 65536+) better saturate many-core nodes during '
+                 'IVF-PQ build; smaller batches use less memory.'
+        )] = 32768,
         log_level: Annotated[LogLevel, typer.Option(
             help='Logging level.'
         )] = 'info'
@@ -269,7 +288,7 @@ def build_database_from_fasta(
             db_path=output_db
         )
         embedding_db.create_db(
-            embedding_batches=embedding_computer.get_embedding_batches(),
+            embedding_batches=embedding_computer.get_embedding_batches(load_batch_size=load_batch_size),
             use_gpu_index=use_gpu_index,
             index_type=index_type,
             index_config=IndexConfig(nlist=ivf_nlist, nprobe=ivf_nprobe)
@@ -402,9 +421,12 @@ def query_database_from_embedding(
         db_path=db_path,
         use_gpu_for_search=use_gpu_index
     )
-    from foldmatch.search.embedding_database import stream_embeddings
+    from foldmatch.utils.data import stream_embeddings
     results = embedding_db.search_by_embeddings(
-        embedding_batches=stream_embeddings(embedding_folder, file_extension),
+        embedding_batches=stream_embeddings(
+            path=embedding_folder,
+            file_extension=file_extension
+        ),
         top_k=top_k
     )
 

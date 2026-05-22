@@ -132,7 +132,7 @@ class EmbeddingComputer:
             return_predictions=False,
         )
 
-    def get_embedding_batches(self, load_batch_size: int = 4096) -> Iterator[tuple[list[str], np.ndarray]]:
+    def get_embedding_batches(self, load_batch_size: int = 32768) -> Iterator[tuple[list[str], np.ndarray]]:
         """Stream (ids, [B, D] float32) batches from all per-rank Parquet shards. Rank-0 only."""
 
         parquet_files = sorted(Path(self.embedding_folder).glob(f"{self.out_name}-*.parquet"))
