@@ -2,8 +2,9 @@
 import os
 import shutil
 import unittest
+from pathlib import Path
 
-from foldmatch.cli.embedding import scan_structure_folder
+from foldmatch.utils.data import scan_structure_folder
 from foldmatch.types.api_types import OutFormat, StructureFormat, Accelerator
 
 
@@ -12,7 +13,7 @@ class TestScanStructureFolder(unittest.TestCase):
 
     def test_scan_mmcif_folder(self):
         entries = scan_structure_folder(
-            f"{self.__test_path}/resources/pdb",
+            Path(f"{self.__test_path}/resources/pdb"),
             StructureFormat.mmcif
         )
         self.assertEqual(len(entries), 2)
@@ -28,7 +29,7 @@ class TestScanStructureFolder(unittest.TestCase):
         import tempfile
         with tempfile.TemporaryDirectory() as tmpdir:
             with self.assertRaises(Exception):
-                scan_structure_folder(tmpdir, StructureFormat.mmcif)
+                scan_structure_folder(Path(tmpdir), StructureFormat.mmcif)
 
 
 class TestCliEmbedding(unittest.TestCase):
@@ -38,8 +39,8 @@ class TestCliEmbedding(unittest.TestCase):
         _remove_files_in_directory(f"{self.__test_path}/resources/tmp")
         from foldmatch.cli.embedding import from_structures_residue
         from_structures_residue(
-            src_folder=f"{self.__test_path}/resources/pdb",
-            output_path=f"{self.__test_path}/resources/tmp",
+            src_folder=Path(f"{self.__test_path}/resources/pdb"),
+            output_folder=Path(f"{self.__test_path}/resources/tmp"),
             output_format=OutFormat.csv,
             structure_format=StructureFormat.mmcif,
             min_res_n=0,
@@ -60,8 +61,8 @@ class TestCliEmbedding(unittest.TestCase):
         _remove_files_in_directory(f"{self.__test_path}/resources/tmp")
         from foldmatch.cli.embedding import from_structures_chain
         from_structures_chain(
-            src_folder=f"{self.__test_path}/resources/pdb",
-            output_path=f"{self.__test_path}/resources/tmp",
+            src_folder=Path(f"{self.__test_path}/resources/pdb"),
+            output_folder=Path(f"{self.__test_path}/resources/tmp"),
             output_format=OutFormat.parquet,
             output_name="chain-inference",
             structure_format=StructureFormat.mmcif,
@@ -78,8 +79,8 @@ class TestCliEmbedding(unittest.TestCase):
         _remove_files_in_directory(f"{self.__test_path}/resources/tmp")
         from foldmatch.cli.embedding import from_sequences_chain
         from_sequences_chain(
-            fasta_file=f"{self.__test_path}/resources/fasta/test_sequences.fasta",
-            output_path=f"{self.__test_path}/resources/tmp",
+            fasta_file=Path(f"{self.__test_path}/resources/fasta/test_sequences.fasta"),
+            output_folder=Path(f"{self.__test_path}/resources/tmp"),
             output_format=OutFormat.parquet,
             output_name="fasta-inference",
             batch_size=1,
@@ -95,8 +96,8 @@ class TestCliEmbedding(unittest.TestCase):
         _remove_files_in_directory(f"{self.__test_path}/resources/tmp")
         from foldmatch.cli.embedding import from_structures_assembly
         from_structures_assembly(
-            src_folder=f"{self.__test_path}/resources/pdb",
-            output_path=f"{self.__test_path}/resources/tmp",
+            src_folder=Path(f"{self.__test_path}/resources/pdb"),
+            output_folder=Path(f"{self.__test_path}/resources/tmp"),
             output_format=OutFormat.parquet,
             output_name="assembly-inference",
             structure_format=StructureFormat.mmcif,

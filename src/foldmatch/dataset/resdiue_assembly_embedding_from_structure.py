@@ -1,11 +1,13 @@
 import sys
+from pathlib import Path
 
 import pandas as pd
 from tqdm import tqdm
 
 from foldmatch.dataset.residue_assembly_embedding_from_tensor_file import ResidueAssemblyEmbeddingFromTensorFile
 from foldmatch.dataset.utils import get_structure_location
-from foldmatch.types.api_types import SrcLocation, StructureLocation, StructureFormat, ResEmbeddingFormat
+from foldmatch.types.api_types import SrcLocation, StructureLocation, StructureFormat, ResEmbeddingFormat, \
+    FileOrStreamTuple
 from foldmatch.utils.data import stringio_from_url
 from foldmatch.utils.structure_parser import get_assemblies
 from foldmatch.utils.structure_provider import StructureProvider
@@ -21,14 +23,14 @@ class ResidueAssemblyDatasetFromStructure(ResidueAssemblyEmbeddingFromTensorFile
 
     def __init__(
             self,
-            src_stream,
-            res_embedding_location,
-            src_location=SrcLocation.file,
-            structure_format=StructureFormat.mmcif,
-            min_res_n=0,
-            max_res_n=sys.maxsize,
-            res_embedding_format=ResEmbeddingFormat.pt,
-            structure_provider=StructureProvider()
+            src_stream: FileOrStreamTuple,
+            res_embedding_location: Path,
+            src_location: SrcLocation = SrcLocation.file,
+            structure_format: StructureFormat = StructureFormat.mmcif,
+            min_res_n: int = 0,
+            max_res_n: int = sys.maxsize,
+            res_embedding_format: ResEmbeddingFormat = ResEmbeddingFormat.pt,
+            structure_provider: StructureProvider = StructureProvider()
     ):
         self.src_location = src_location
         self.structure_format = structure_format

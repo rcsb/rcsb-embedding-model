@@ -1,16 +1,17 @@
 import logging
 import sys
+from pathlib import Path
 
 from foldmatch.dataset.resdiue_assembly_embedding_from_structure import ResidueAssemblyDatasetFromStructure
 from foldmatch.dataset.residue_assembly_embedding_from_tensor_file import ResidueAssemblyEmbeddingFromTensorFile
-from foldmatch.types.api_types import FileOrStreamTuple, SrcLocation, Accelerator, Devices, Strategy, OptionalPath, \
-    EmbeddingPath, StructureFormat, SrcAssemblyFrom, OutFormat, ResEmbeddingFormat
+from foldmatch.types.api_types import FileOrStreamTuple, SrcLocation, Accelerator, Devices, Strategy, \
+    StructureFormat, SrcAssemblyFrom, OutFormat, ResEmbeddingFormat
 from foldmatch.inference.chain_inference import predict as chain_predict
 
 
 def predict(
         src_stream: FileOrStreamTuple,
-        res_embedding_location: EmbeddingPath,
+        res_embedding_location: Path,
         src_location: SrcLocation = SrcLocation.file,
         src_from: SrcAssemblyFrom = SrcAssemblyFrom.assembly,
         structure_format: StructureFormat = StructureFormat.mmcif,
@@ -19,12 +20,12 @@ def predict(
         batch_size: int = 1,
         num_workers: int = 0,
         num_nodes: int = 1,
-        accelerator: Accelerator = 'auto',
+        accelerator: Accelerator = Accelerator.auto,
         devices: Devices = 'auto',
-        strategy: Strategy = 'auto',
+        strategy: Strategy = Strategy.auto,
         out_format: OutFormat = OutFormat.csv,
         out_name: str = 'inference',
-        out_path: OptionalPath = None,
+        out_folder: Path = None,
         res_embedding_format: ResEmbeddingFormat = ResEmbeddingFormat.pt,
         return_predictions: bool = True,
 ):
@@ -61,7 +62,7 @@ def predict(
         strategy=strategy,
         out_format=out_format,
         out_name=out_name,
-        out_path=out_path,
+        out_folder=out_folder,
         inference_set=inference_set,
         res_embedding_format=res_embedding_format,
         return_predictions=return_predictions,

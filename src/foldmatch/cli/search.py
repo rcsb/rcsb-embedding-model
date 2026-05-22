@@ -2,7 +2,7 @@ import os
 import logging
 import typer
 from pathlib import Path
-from typing import Annotated, Optional, List
+from typing import Annotated, Optional, Tuple
 
 from foldmatch import __version__
 from foldmatch.cli.args_utils import arg_devices, set_log_level
@@ -40,21 +40,29 @@ app.add_typer(query_db_app, name="query")
     help="Build an embedding database from a directory of structure files."
 )
 def build_database_from_structures(
-        structure_folder: Annotated[str, typer.Option(
-            help='Directory containing structure files.'
+        structure_folder: Annotated[Path, typer.Option(
+            exists=True,
+            file_okay=False,
+            dir_okay=True,
+            resolve_path=True,
+            help='Folder containing structure files.'
         )],
         output_db: Annotated[str, typer.Option(
             help='Path to save the FAISS database.'
         )],
-        tmp_embedding_folder: Annotated[str, typer.Option(
-            help='Directory for intermediate embeddings.'
+        tmp_embedding_folder: Annotated[Path, typer.Option(
+            exists=True,
+            file_okay=False,
+            dir_okay=True,
+            resolve_path=True,
+            help='Folder for intermediate embeddings.'
         )],
         structure_format: Annotated[StructureFormat, typer.Option(
             help='Structure file format (mmcif, binarycif, or pdb).'
         )] = StructureFormat.mmcif,
         granularity: Annotated[Granularity, typer.Option(
             help='Calculate embeddings for "chain" or "assembly" level.'
-        )] = 'chain',
+        )] = Granularity.chain,
         file_extension: Annotated[Optional[str], typer.Option(
             help='File extension to filter (e.g., .cif, .bcif, or .pdb). If not specified, uses default for format.'
         )] = None,
@@ -66,16 +74,16 @@ def build_database_from_structures(
         )] = False,
         accelerator: Annotated[Accelerator, typer.Option(
             help='Device used for inference.'
-        )] = "auto",
-        devices: Annotated[List[str], typer.Option(
+        )] = Accelerator.auto,
+        devices: Annotated[Tuple[str], typer.Option(
             help='The devices to use. Can be set to a positive number or "auto". Repeat this argument to indicate multiple indices of devices. "auto" for automatic selection based on the chosen accelerator.'
-        )] = tuple(['auto']),
+        )] = ('auto',),
         num_nodes: Annotated[int, typer.Option(
             help='Number of nodes to use for inference.'
         )] = 1,
         strategy: Annotated[Strategy, typer.Option(
             help='Lightning strategy to control distribution of inference.'
-        )] = 'auto',
+        )] = Strategy.auto,
         batch_size: Annotated[int, typer.Option(
             help='Number of samples processed together in one iteration.'
         )] = 1,
@@ -98,7 +106,7 @@ def build_database_from_structures(
         )] = 32768,
         log_level: Annotated[LogLevel, typer.Option(
             help='Number of nodes to use for inference of embeddings.'
-        )] = 'info'
+        )] = LogLevel.info
 ):
     """Build an embedding database from structure files."""
 
@@ -156,8 +164,12 @@ def build_database_from_structures(
     help="Build an embedding database from a directory of pre-computed embedding files (.pt, .csv, or .parquet)."
 )
 def build_database_from_embeddings(
-        embedding_folder: Annotated[str, typer.Option(
-            help='Directory containing pre-computed embedding files (.pt, .csv, or .parquet).'
+        embedding_folder: Annotated[Path, typer.Option(
+            exists=True,
+            file_okay=False,
+            dir_okay=True,
+            resolve_path=True,
+            help='Folder containing pre-computed embedding files (.pt, .csv, or .parquet).'
         )],
         output_db: Annotated[str, typer.Option(
             help='Path to save the FAISS database.'
@@ -184,7 +196,7 @@ def build_database_from_embeddings(
         )] = 32768,
         log_level: Annotated[LogLevel, typer.Option(
             help='Logging level.'
-        )] = 'info'
+        )] = LogLevel.info
 ):
     """Build an embedding database from pre-computed embedding files."""
 
@@ -212,13 +224,21 @@ def build_database_from_embeddings(
     help="Build an embedding database from protein sequences in a FASTA file."
 )
 def build_database_from_fasta(
-        fasta_file: Annotated[str, typer.Option(
+        fasta_file: Annotated[Path, typer.Option(
+            exists=True,
+            file_okay=True,
+            dir_okay=False,
+            resolve_path=True,
             help='FASTA file containing protein sequences.'
         )],
         output_db: Annotated[str, typer.Option(
             help='Path to save the FAISS database.'
         )],
-        tmp_embedding_folder: Annotated[str, typer.Option(
+        tmp_embedding_folder: Annotated[Path, typer.Option(
+            exists=True,
+            file_okay=False,
+            dir_okay=True,
+            resolve_path=True,
             help='Directory for intermediate embeddings.'
         )],
         min_res_n: Annotated[int, typer.Option(
@@ -229,16 +249,16 @@ def build_database_from_fasta(
         )] = False,
         accelerator: Annotated[Accelerator, typer.Option(
             help='Device used for inference.'
-        )] = "auto",
+        )] = Accelerator.auto,
         num_nodes: Annotated[int, typer.Option(
             help='Number of nodes to use for inference.'
         )] = 1,
-        devices: Annotated[List[str], typer.Option(
+        devices: Annotated[Tuple[str], typer.Option(
             help='The devices to use. Can be set to a positive number or "auto".'
-        )] = tuple(['auto']),
+        )] = ('auto',),
         strategy: Annotated[Strategy, typer.Option(
             help='Lightning strategy to control distribution of inference.'
-        )] = 'auto',
+        )] = Strategy.auto,
         batch_size: Annotated[int, typer.Option(
             help='Number of samples processed together for residue embedding inference.'
         )] = 1,
@@ -261,7 +281,7 @@ def build_database_from_fasta(
         )] = 32768,
         log_level: Annotated[LogLevel, typer.Option(
             help='Logging level.'
-        )] = 'info'
+        )] = LogLevel.info
 ):
     """Build an embedding database from protein sequences in a FASTA file."""
 
@@ -303,7 +323,11 @@ def query_database_from_structure(
         db_path: Annotated[str, typer.Option(
             help='Path to the FAISS database.'
         )],
-        query_structure: Annotated[str, typer.Option(
+        query_structure: Annotated[Path, typer.Option(
+            exists=True,
+            file_okay=True,
+            dir_okay=False,
+            resolve_path=True,
             help='Path to query structure file.'
         )],
         structure_format: Annotated[StructureFormat, typer.Option(
@@ -311,7 +335,7 @@ def query_database_from_structure(
         )] = StructureFormat.mmcif,
         granularity: Annotated[Granularity, typer.Option(
             help='Query database for "chain" or "assembly" embeddings.'
-        )] = 'chain',
+        )] = Granularity.chain,
         chain_id: Annotated[Optional[str], typer.Option(
             help='When "granularity=chain", specific chain to search (if not specified, searches all chains).'
         )] = None,
@@ -335,13 +359,13 @@ def query_database_from_structure(
         )] = None,
         accelerator: Annotated[Accelerator, typer.Option(
             help='Device used for inference.'
-        )] = 'auto',
+        )] = Accelerator.auto,
         use_gpu_index: Annotated[bool, typer.Option(
             help='Use GPU for FAISS search (requires faiss-gpu).'
         )] = False,
         log_level: Annotated[LogLevel, typer.Option(
             help='Number of nodes to use for inference of embeddings.'
-        )] = 'info'
+        )] = LogLevel.info
 ):
     """Search database for similar structures."""
 
@@ -389,7 +413,11 @@ def query_database_from_embedding(
         db_path: Annotated[str, typer.Option(
             help='Path to the FAISS database.'
         )],
-        embedding_folder: Annotated[str, typer.Option(
+        embedding_folder: Annotated[Path, typer.Option(
+            exists=True,
+            file_okay=False,
+            dir_okay=True,
+            resolve_path=True,
             help='Directory containing pre-computed embedding files (.pt, .csv, or .parquet).'
         )],
         file_extension: Annotated[Optional[str], typer.Option(
@@ -409,7 +437,7 @@ def query_database_from_embedding(
         )] = False,
         log_level: Annotated[LogLevel, typer.Option(
             help='Logging level.'
-        )] = 'info'
+        )] = LogLevel.info
 ):
     """Search database using a pre-computed embedding file."""
 
@@ -450,10 +478,18 @@ def query_database_from_fasta(
         db_path: Annotated[str, typer.Option(
             help='Path to the FAISS database.'
         )],
-        fasta_file: Annotated[str, typer.Option(
+        fasta_file: Annotated[Path, typer.Option(
+            exists=True,
+            file_okay=True,
+            dir_okay=False,
+            resolve_path=True,
             help='FASTA file containing protein sequences. Each sequence is used as a separate query.'
         )],
-        tmp_embedding_folder: Annotated[str, typer.Option(
+        tmp_embedding_folder: Annotated[Path, typer.Option(
+            exists=True,
+            file_okay=False,
+            dir_okay=True,
+            resolve_path=True,
             help='Directory for intermediate embeddings.'
         )],
         min_res_n: Annotated[int, typer.Option(
@@ -473,16 +509,16 @@ def query_database_from_fasta(
         )] = False,
         accelerator: Annotated[Accelerator, typer.Option(
             help='Device used for inference.'
-        )] = "auto",
+        )] = Accelerator.auto,
         num_nodes: Annotated[int, typer.Option(
             help='Number of nodes to use for inference.'
         )] = 1,
-        devices: Annotated[List[str], typer.Option(
+        devices: Annotated[Tuple[str], typer.Option(
             help='The devices to use. Can be set to a positive number or "auto".'
-        )] = tuple(['auto']),
+        )] = ('auto',),
         strategy: Annotated[Strategy, typer.Option(
             help='Lightning strategy to control distribution of inference.'
-        )] = 'auto',
+        )] = Strategy.auto,
         batch_size: Annotated[int, typer.Option(
             help='Number of samples processed together for residue embedding inference.'
         )] = 1,
@@ -491,7 +527,7 @@ def query_database_from_fasta(
         )] = 0,
         log_level: Annotated[LogLevel, typer.Option(
             help='Logging level.'
-        )] = 'info'
+        )] = LogLevel.info
 ):
     """Search database using protein sequences from a FASTA file."""
 
@@ -555,7 +591,7 @@ def query_database_from_database(
         )] = False,
         log_level: Annotated[LogLevel, typer.Option(
             help='Number of nodes to use for inference of embeddings.'
-        )] = 'info'
+        )] = LogLevel.info
 ):
     """Search subject database using all entries from query database."""
 
@@ -605,7 +641,7 @@ def show_statistics(
         )],
         log_level: Annotated[LogLevel, typer.Option(
             help='Number of nodes to use for inference of embeddings.'
-        )] = 'info'
+        )] = LogLevel.info
 ):
     """Display database statistics."""
 
@@ -660,7 +696,7 @@ def cluster_database(
         )] = None,
         log_level: Annotated[LogLevel, typer.Option(
             help='Number of nodes to use for inference of embeddings.'
-        )] = 'info'
+        )] = LogLevel.info
 ):
     """Cluster database embeddings using Leiden algorithm."""
 
@@ -729,7 +765,7 @@ def similarity_graph(
         )] = False,
         log_level: Annotated[LogLevel, typer.Option(
             help='Logging verbosity level.'
-        )] = 'info'
+        )] = LogLevel.info
 ):
     """Build and export a similarity graph from database embeddings."""
 

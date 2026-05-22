@@ -1,6 +1,6 @@
 import os
-import shutil
 import unittest
+from pathlib import Path
 
 import torch
 import pyarrow as pa
@@ -14,8 +14,8 @@ from foldmatch.types.api_types import SrcLocation, StructureFormat
 class TestResidueAssemblyEmbeddingFromParquet(unittest.TestCase):
 
     __test_path = os.path.dirname(__file__)
-    __tmp_path = os.path.join(os.path.dirname(__file__), "resources", "tmp")
-    __embeddings_path = os.path.join(os.path.dirname(__file__), "resources", "embeddings")
+    __tmp_path = os.path.join(Path(os.path.dirname(__file__)), Path("resources"), Path("tmp"))
+    __embeddings_path = os.path.join(Path(os.path.dirname(__file__)), Path("resources"), Path("embeddings"))
 
     def setUp(self):
         os.makedirs(self.__tmp_path, exist_ok=True)

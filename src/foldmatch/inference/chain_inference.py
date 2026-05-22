@@ -1,4 +1,6 @@
 import logging
+from pathlib import Path
+
 import torch
 from torch.utils.data import DataLoader
 from lightning import Trainer
@@ -7,16 +9,16 @@ from foldmatch.dataset.residue_embedding_from_parquet import ResidueEmbeddingFro
 from foldmatch.dataset.residue_embedding_from_structure import ResidueEmbeddingFromStructure
 from foldmatch.dataset.residue_embedding_from_tensor_file import ResidueEmbeddingFromTensorFile
 from foldmatch.modules.chain_module import ChainModule
-from foldmatch.types.api_types import Accelerator, Devices, Strategy, OptionalPath, FileOrStreamTuple, SrcLocation, \
+from foldmatch.types.api_types import Accelerator, Devices, Strategy, FileOrStreamTuple, SrcLocation, \
     SrcTensorFrom, StructureFormat, OutFormat, ResEmbeddingFormat
-from foldmatch.utils.data import collate_seq_embeddings, collate_embeddings
+from foldmatch.utils.data import collate_embeddings
 from foldmatch.utils.model import get_aggregator_model
 from foldmatch.writer.batch_writer import CsvBatchWriter, TensorBatchWriter, ParquetBatchWriter, JsonStorage
 
 
 def predict(
         src_stream: FileOrStreamTuple,
-        res_embedding_location: OptionalPath = None,
+        res_embedding_location: Path = None,
         src_location: SrcLocation = SrcLocation.file,
         src_from: SrcTensorFrom = SrcTensorFrom.file,
         structure_format: StructureFormat = StructureFormat.mmcif,
@@ -24,12 +26,12 @@ def predict(
         batch_size: int = 1,
         num_workers: int = 0,
         num_nodes: int = 1,
-        accelerator: Accelerator = 'auto',
+        accelerator: Accelerator = Accelerator.auto,
         devices: Devices = 'auto',
-        strategy: Strategy = 'auto',
+        strategy: Strategy = Strategy.auto,
         out_format: OutFormat = OutFormat.csv,
         out_name: str = 'inference',
-        out_path: OptionalPath = None,
+        out_folder: Path = None,
         inference_set=None,
         res_embedding_format: ResEmbeddingFormat = ResEmbeddingFormat.pt,
         embedding_dim: int = 1536,
@@ -76,15 +78,15 @@ def predict(
     )
     logger.info(f"rcsb-aggregator module ready")
 
-    if out_path is not None:
+    if out_folder is not None:
         if out_format == OutFormat.parquet:
-            inference_writer = ParquetBatchWriter(out_path, out_name)
+            inference_writer = ParquetBatchWriter(out_folder, out_name)
         elif out_format == OutFormat.json:
-            inference_writer = JsonStorage(out_path, out_name)
+            inference_writer = JsonStorage(out_folder, out_name)
         elif out_format == OutFormat.pt:
-            inference_writer = TensorBatchWriter(out_path)
+            inference_writer = TensorBatchWriter(out_folder)
         else:
-            inference_writer = CsvBatchWriter(out_path)
+            inference_writer = CsvBatchWriter(out_folder)
     else:
         inference_writer = None
     trainer = Trainer(

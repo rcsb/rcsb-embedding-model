@@ -5,25 +5,31 @@ import pandas as pd
 import torch
 import logging
 
+import typer
 from requests import RequestException, ConnectTimeout
 from io import StringIO, BytesIO
 
 import numpy as np
 import pyarrow.parquet as pq
 
-from foldmatch.types.api_types import ResEmbeddingFormat
-from typing import Optional, Iterator
+from foldmatch.types.api_types import ResEmbeddingFormat, StructureFormat
+from typing import Optional, Iterator, List, Tuple
 from pathlib import Path
 
 
-def load_residue_embedding(file_path, res_embedding_format=ResEmbeddingFormat.pt):
+def load_residue_embedding(
+        file_path: Path,
+        res_embedding_format: ResEmbeddingFormat = ResEmbeddingFormat.pt
+):
     """Load a residue-level embedding tensor from a .pt or .csv file."""
     if res_embedding_format == ResEmbeddingFormat.csv:
         values = pd.read_csv(file_path, header=None, index_col=None).values
         return torch.from_numpy(values).float()
     return torch.load(file_path, map_location=torch.device('cpu'))
 
-def collate_seq_embeddings(batch_list):
+def collate_seq_embeddings(
+        batch_list: List[torch.Tensor]
+) -> Tuple[torch.Tensor, torch.Tensor]:
     """
     Pads the tensors in a batch to the same size.
 
@@ -198,7 +204,7 @@ _BATCH_EXTS = ('.parquet',)
 _SUPPORTED_EXTS = _POINT_EXTS + _BATCH_EXTS
 
 def stream_embeddings(
-        path: str,
+        path: Path,
         file_extension: Optional[str] = None,
         batch_size: int = 32768,
 ) -> Iterator[tuple[list[str], np.ndarray]]:
@@ -268,3 +274,37 @@ def stream_embeddings(
             ids_buf, emb_buf = [], []
     if ids_buf:
         yield ids_buf, np.ascontiguousarray(np.stack(emb_buf))
+
+STRUCTURE_FORMAT_EXTENSIONS = {
+    StructureFormat.pdb: ('.pdb', '.pdb.gz'),
+    StructureFormat.mmcif: ('.cif', '.cif.gz'),
+    StructureFormat.bciff: ('.bcif', '.bcif.gz'),
+}
+
+
+def scan_structure_folder(folder_path: Path, structure_format: StructureFormat, file_extension: str=None):
+    """Scan a folder for structure files and return stream tuples (name, path, name)."""
+    if file_extension is not None:
+        extensions = (file_extension,)
+    else:
+        extensions = STRUCTURE_FORMAT_EXTENSIONS.get(structure_format)
+        if extensions is None:
+            raise typer.BadParameter(f"Unknown structure format: {structure_format}")
+
+    entries = []
+    for filename in sorted(os.listdir(folder_path)):
+        if any(filename.endswith(ext) for ext in extensions):
+            file_path = os.path.join(folder_path, filename)
+            name = filename
+            for ext in extensions:
+                if ext and name.endswith(ext):
+                    name = name[:-len(ext)]
+                    break
+            entries.append((name, file_path, name))
+
+    if not entries:
+        raise typer.BadParameter(
+            f"No structure files with extensions {extensions} found in {folder_path}"
+        )
+
+    return tuple(entries)

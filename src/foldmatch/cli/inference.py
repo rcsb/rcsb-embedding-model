@@ -1,9 +1,10 @@
 import os
 import sys
-import logging
+from pathlib import Path
+
 import typer
 
-from typing import Annotated, List
+from typing import Annotated, Tuple
 
 from foldmatch import __version__
 from foldmatch.cli.args_utils import arg_devices, set_log_level
@@ -22,14 +23,14 @@ app = typer.Typer(
     help="Calculate residue level embeddings of protein structures using ESM3. Predictions are stored as torch tensor files."
 )
 def residue_embedding(
-        src_file: Annotated[typer.FileText, typer.Option(
+        src_file: Annotated[Path, typer.Option(
             exists=True,
             file_okay=True,
             dir_okay=False,
             resolve_path=True,
             help='CSV file 4 columns: Structure Name | Structure File Path or URL (switch structure-location) | Chain Id (asym_i for cif files) | Output Embedding Name.'
         )],
-        output_path: Annotated[typer.FileText, typer.Option(
+        output_folder: Annotated[Path, typer.Option(
             exists=True,
             file_okay=False,
             dir_okay=True,
@@ -59,16 +60,16 @@ def residue_embedding(
         )] = 1,
         accelerator: Annotated[Accelerator, typer.Option(
             help='Device used for inference.'
-        )] = 'auto',
-        devices: Annotated[List[str], typer.Option(
+        )] = Accelerator.auto,
+        devices: Annotated[Tuple[str], typer.Option(
             help='The devices to use. Can be set to a positive number or "auto". Repeat this argument to indicate multiple indices of devices. "auto" for automatic selection based on the chosen accelerator.'
-        )] = tuple(['auto']),
+        )] = ('auto',),
         strategy: Annotated[Strategy, typer.Option(
             help='Lightning strategy to control distribution of inference.'
-        )] = 'auto',
+        )] = Strategy.auto,
         log_level: Annotated[LogLevel, typer.Option(
             help='Number of nodes to use for inference of embeddings.'
-        )] = 'info'
+        )] = LogLevel.info
 ):
     from foldmatch.inference.esm_inference import predict
     set_log_level(log_level)
@@ -86,7 +87,7 @@ def residue_embedding(
         devices=arg_devices(devices),
         out_format=output_format,
         out_name=output_name,
-        out_path=output_path,
+        out_folder=output_folder,
         strategy=strategy,
         return_predictions=False,
     )
@@ -97,14 +98,14 @@ def residue_embedding(
     help="Calculate single-chain protein embeddings from structural files. Predictions are stored in a single pandas DataFrame file."
 )
 def structure_embedding(
-        src_file: Annotated[typer.FileText, typer.Option(
+        src_file: Annotated[Path, typer.Option(
             exists=True,
             file_okay=True,
             dir_okay=False,
             resolve_path=True,
             help='CSV file 4 columns: Structure Name | Structure File Path or URL (switch structure-location) | Chain Id (asym_i for cif files) | Output Embedding Name.'
         )],
-        output_path: Annotated[typer.FileText, typer.Option(
+        output_folder: Annotated[Path, typer.Option(
             exists=True,
             file_okay=False,
             dir_okay=True,
@@ -131,16 +132,16 @@ def structure_embedding(
         )] = 1,
         accelerator: Annotated[Accelerator, typer.Option(
             help='Device used for inference.'
-        )] = 'auto',
-        devices: Annotated[List[str], typer.Option(
+        )] = Accelerator.auto,
+        devices: Annotated[Tuple[str], typer.Option(
             help='The devices to use. Can be set to a positive number or "auto". Repeat this argument to indicate multiple indices of devices. "auto" for automatic selection based on the chosen accelerator.'
-        )] = tuple(['auto']),
+        )] = ('auto',),
         strategy: Annotated[Strategy, typer.Option(
             help='Lightning strategy to control distribution of inference.'
-        )] = 'auto',
+        )] = Strategy.auto,
         log_level: Annotated[LogLevel, typer.Option(
             help='Number of nodes to use for inference of embeddings.'
-        )] = 'info'
+        )] = LogLevel.info
 ):
     from foldmatch.inference.structure_inference import predict
     set_log_level(log_level)
@@ -156,7 +157,7 @@ def structure_embedding(
         num_nodes=num_nodes,
         accelerator=accelerator,
         devices=arg_devices(devices),
-        out_path=output_path,
+        out_folder=output_folder,
         out_name=output_name,
         strategy=strategy,
         return_predictions=False,
@@ -168,21 +169,21 @@ def structure_embedding(
     help="Calculate single-chain protein embeddings from residue level embeddings stored as torch tensor files. Predictions are stored as csv files."
 )
 def chain_embedding(
-        src_file: Annotated[typer.FileText, typer.Option(
+        src_file: Annotated[Path, typer.Option(
             exists=True,
             file_okay=True,
             dir_okay=False,
             resolve_path=True,
             help='CSV file 4 columns: Structure Name | Structure File Path or URL (switch structure-location) | Chain Id (asym_i for cif files) | Output Embedding Name.'
         )],
-        output_path: Annotated[typer.FileText, typer.Option(
+        output_folder: Annotated[Path, typer.Option(
             exists=True,
             file_okay=False,
             dir_okay=True,
             resolve_path=True,
             help='Output path to store predictions. Embeddings are stored as csv files.'
         )],
-        res_embedding_location: Annotated[typer.FileText, typer.Option(
+        res_embedding_location: Annotated[Path, typer.Option(
             exists=True,
             file_okay=False,
             dir_okay=True,
@@ -215,16 +216,16 @@ def chain_embedding(
         )] = 1,
         accelerator: Annotated[Accelerator, typer.Option(
             help='Device used for inference.'
-        )] = 'auto',
-        devices: Annotated[List[str], typer.Option(
+        )] = Accelerator.auto,
+        devices: Annotated[Tuple[str], typer.Option(
             help='The devices to use. Can be set to a positive number or "auto". Repeat this argument to indicate multiple indices of devices. "auto" for automatic selection based on the chosen accelerator.'
-        )] = tuple(['auto']),
+        )] = ('auto',),
         strategy: Annotated[Strategy, typer.Option(
             help='Lightning strategy to control distribution of inference.'
-        )] = 'auto',
+        )] = Strategy.auto,
         log_level: Annotated[LogLevel, typer.Option(
             help='Number of nodes to use for inference of embeddings.'
-        )] = 'info'
+        )] = LogLevel.info
 ):
     from foldmatch.inference.chain_inference import predict
     from foldmatch.utils.data import adapt_csv_to_embedding_chain_stream
@@ -242,7 +243,7 @@ def chain_embedding(
         num_nodes=num_nodes,
         accelerator=accelerator,
         devices=arg_devices(devices),
-        out_path=output_path,
+        out_folder=output_folder,
         out_format=output_format,
         out_name=output_name,
         strategy=strategy,
@@ -255,21 +256,21 @@ def chain_embedding(
     help="Calculate assembly embeddings from residue level embeddings stored as torch tensor files. Predictions are stored as csv files."
 )
 def assembly_embedding(
-        src_file: Annotated[typer.FileText, typer.Option(
+        src_file: Annotated[Path, typer.Option(
             exists=True,
             file_okay=True,
             dir_okay=False,
             resolve_path=True,
             help='CSV file 4 columns: Structure Name | Structure File Path or URL (switch structure-location) | Assembly Id | Output embedding name.'
         )],
-        res_embedding_location: Annotated[typer.FileText, typer.Option(
+        res_embedding_location: Annotated[Path, typer.Option(
             exists=True,
             file_okay=False,
             dir_okay=True,
             resolve_path=True,
             help='Path where residue level embeddings for single chains are located.'
         )],
-        output_path: Annotated[typer.FileText, typer.Option(
+        output_folder: Annotated[Path, typer.Option(
             exists=True,
             file_okay=False,
             dir_okay=True,
@@ -305,16 +306,16 @@ def assembly_embedding(
         )] = 1,
         accelerator: Annotated[Accelerator, typer.Option(
             help='Device used for inference.'
-        )] = 'auto',
-        devices: Annotated[List[str], typer.Option(
+        )] = Accelerator.auto,
+        devices: Annotated[Tuple[str], typer.Option(
             help='The devices to use. Can be set to a positive number or "auto". Repeat this argument to indicate multiple indices of devices. "auto" for automatic selection based on the chosen accelerator.'
-        )] = tuple(['auto']),
+        )] = ('auto',),
         strategy: Annotated[Strategy, typer.Option(
             help='Lightning strategy to control distribution of inference.'
-        )] = 'auto',
+        )] = Strategy.auto,
         log_level: Annotated[LogLevel, typer.Option(
             help='Number of nodes to use for inference of embeddings.'
-        )] = 'info'
+        )] = LogLevel.info
 ):
     from foldmatch.inference.assembly_inferece import predict
     set_log_level(log_level)
@@ -332,7 +333,7 @@ def assembly_embedding(
         num_nodes=num_nodes,
         accelerator=accelerator,
         devices=arg_devices(devices),
-        out_path=output_path,
+        out_folder=output_folder,
         out_format=output_format,
         out_name=output_name,
         strategy=strategy,
@@ -345,35 +346,35 @@ def assembly_embedding(
     help="Calculate chain and assembly embeddings from structural files. Predictions are stored as csv files."
 )
 def complete_embedding(
-        src_chain_file: Annotated[typer.FileText, typer.Option(
+        src_chain_file: Annotated[Path, typer.Option(
             exists=True,
             file_okay=True,
             dir_okay=False,
             resolve_path=True,
             help='CSV file 4 columns: Structure Name | Structure File Path or URL (switch structure-location) | Chain Id (asym_i for cif files) | Output Embedding Name.'
         )],
-        src_assembly_file: Annotated[typer.FileText, typer.Option(
+        src_assembly_file: Annotated[Path, typer.Option(
             exists=True,
             file_okay=True,
             dir_okay=False,
             resolve_path=True,
             help='CSV file 4 columns: Structure Name | Structure File Path or URL (switch structure-location) | Assembly Id | Output embedding name.'
         )],
-        output_res_path: Annotated[typer.FileText, typer.Option(
+        output_res_path: Annotated[Path, typer.Option(
             exists=True,
             file_okay=False,
             dir_okay=True,
             resolve_path=True,
             help='Output path to store residue embeddings. Residue embeddings are stored in separated files.'
         )],
-        output_chain_path: Annotated[typer.FileText, typer.Option(
+        output_chain_path: Annotated[Path, typer.Option(
             exists=True,
             file_okay=False,
             dir_okay=True,
             resolve_path=True,
             help='Output path to store chain embeddings. Embeddings are stored as a single JSON file (see output_chain_name).'
         )],
-        output_assembly_path: Annotated[typer.FileText, typer.Option(
+        output_assembly_path: Annotated[Path, typer.Option(
             exists=True,
             file_okay=False,
             dir_okay=True,
@@ -421,21 +422,21 @@ def complete_embedding(
         )] = 1,
         accelerator: Annotated[Accelerator, typer.Option(
             help='Device used for inference.'
-        )] = 'auto',
-        devices: Annotated[List[str], typer.Option(
+        )] = Accelerator.auto,
+        devices: Annotated[Tuple[str], typer.Option(
             help='The devices to use. Can be set to a positive number or "auto". Repeat this argument to indicate multiple indices of devices. "auto" for automatic selection based on the chosen accelerator.'
-        )] = tuple(['auto']),
+        )] = ('auto',),
         strategy: Annotated[Strategy, typer.Option(
             help='Lightning strategy to control distribution of inference.'
-        )] = 'auto',
+        )] = Strategy.auto,
         log_level: Annotated[LogLevel, typer.Option(
             help='Number of nodes to use for inference of embeddings.'
-        )] = 'info'
+        )] = LogLevel.info
 ):
 
     residue_embedding(
         src_file=src_chain_file,
-        output_path=output_res_path,
+        output_folder=output_res_path,
         output_format=OutFormat.pt,
         structure_format=structure_format,
         min_res_n=min_res_n,
@@ -449,7 +450,7 @@ def complete_embedding(
     )
     chain_embedding(
         src_file=src_chain_file,
-        output_path=output_chain_path,
+        output_folder=output_chain_path,
         output_format=output_format,
         output_name=output_chain_name,
         res_embedding_location=output_res_path,
@@ -465,7 +466,7 @@ def complete_embedding(
     )
     assembly_embedding(
         src_file=src_assembly_file,
-        output_path=output_assembly_path,
+        output_folder=output_assembly_path,
         output_format=output_format,
         output_name=output_assembly_name,
         res_embedding_location=output_res_path,

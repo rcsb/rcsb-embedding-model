@@ -2,6 +2,7 @@
 import os
 import shutil
 import unittest
+from pathlib import Path
 
 from foldmatch.types.api_types import OutFormat, StructureFormat, Accelerator
 
@@ -12,11 +13,11 @@ class TestCliInference(unittest.TestCase):
         _remove_files_in_directory(f"{self.__test_path}/resources/tmp")
         from foldmatch.cli.inference import complete_embedding
         complete_embedding(
-            src_chain_file=f"{self.__test_path}/resources/src_stream/instance-complete-test.csv",
-            src_assembly_file=f"{self.__test_path}/resources/src_stream/assembly-complete-test.csv",
-            output_res_path=f"{self.__test_path}/resources/tmp",
-            output_chain_path=f"{self.__test_path}/resources/tmp",
-            output_assembly_path=f"{self.__test_path}/resources/tmp",
+            src_chain_file=Path(f"{self.__test_path}/resources/src_stream/instance-complete-test.csv"),
+            src_assembly_file=Path(f"{self.__test_path}/resources/src_stream/assembly-complete-test.csv"),
+            output_res_path=Path(f"{self.__test_path}/resources/tmp"),
+            output_chain_path=Path(f"{self.__test_path}/resources/tmp"),
+            output_assembly_path=Path(f"{self.__test_path}/resources/tmp"),
             output_format=OutFormat.parquet,
             output_chain_name="instance-inference",
             output_assembly_name="assembly-inference",

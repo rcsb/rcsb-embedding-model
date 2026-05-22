@@ -73,7 +73,7 @@ class TestSequenceInference(unittest.TestCase):
         predict(
             fasta_file=f"{self.__test_path}/resources/fasta/test_sequences.fasta",
             accelerator=Accelerator.cpu,
-            out_path=self.__tmp_path,
+            out_folder=self.__tmp_path,
             out_format=OutFormat.pt
         )
         self.assertTrue(os.path.exists(f"{self.__tmp_path}/1acb_E.pt"))
@@ -89,7 +89,7 @@ class TestSequenceInference(unittest.TestCase):
         sequence_predict(
             fasta_file=fasta_file,
             accelerator=Accelerator.cpu,
-            out_path=self.__tmp_path,
+            out_folder=self.__tmp_path,
             out_format=OutFormat.pt
         )
 
@@ -122,7 +122,7 @@ class TestSequenceInference(unittest.TestCase):
         sequence_predict(
             fasta_file=fasta_file,
             accelerator=Accelerator.cpu,
-            out_path=self.__tmp_path,
+            out_folder=self.__tmp_path,
             out_format=OutFormat.parquet,
             out_name="residue-embeddings"
         )

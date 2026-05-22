@@ -1,5 +1,6 @@
 import logging
 import sys
+from pathlib import Path
 
 import torch
 import pandas as pd
@@ -8,7 +9,7 @@ import pyarrow.parquet as pq
 from torch.utils.data import Dataset
 
 from foldmatch.dataset.utils import get_structure_location
-from foldmatch.types.api_types import StructureLocation, StructureFormat, SrcLocation
+from foldmatch.types.api_types import StructureLocation, StructureFormat, SrcLocation, FileOrStreamTuple
 from foldmatch.utils.data import stringio_from_url
 from foldmatch.utils.structure_parser import get_protein_chains
 from foldmatch.utils.structure_provider import StructureProvider
@@ -25,14 +26,14 @@ class ResidueAssemblyEmbeddingFromParquet(Dataset):
 
     def __init__(
             self,
-            src_stream,
-            parquet_path,
-            embedding_dim,
-            src_location=SrcLocation.file,
-            structure_format=StructureFormat.mmcif,
-            min_res_n=0,
-            max_res_n=sys.maxsize,
-            structure_provider=StructureProvider()
+            src_stream: FileOrStreamTuple,
+            parquet_path: Path,
+            embedding_dim: int,
+            src_location: SrcLocation = SrcLocation.file,
+            structure_format: StructureFormat = StructureFormat.mmcif,
+            min_res_n: int = 0,
+            max_res_n: int = sys.maxsize,
+            structure_provider: StructureProvider = StructureProvider()
     ):
         super().__init__()
         self.src_location = src_location

@@ -13,10 +13,11 @@ the notion of an assembly is intrinsic to 3D structures.
 """
 import os
 import sys
+from pathlib import Path
 
 import typer
 
-from typing import Annotated, List, Optional
+from typing import Annotated, Optional, Tuple
 
 from foldmatch import __version__
 from foldmatch.cli.args_utils import arg_devices, set_log_level
@@ -32,41 +33,6 @@ from foldmatch.types.api_types import (
 )
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
-
-STRUCTURE_FORMAT_EXTENSIONS = {
-    StructureFormat.pdb: ('.pdb', '.pdb.gz'),
-    StructureFormat.mmcif: ('.cif', '.cif.gz'),
-    StructureFormat.bciff: ('.bcif', '.bcif.gz'),
-}
-
-
-def scan_structure_folder(folder_path, structure_format, file_extension=None):
-    """Scan a folder for structure files and return stream tuples (name, path, name)."""
-    if file_extension is not None:
-        extensions = (file_extension,)
-    else:
-        extensions = STRUCTURE_FORMAT_EXTENSIONS.get(structure_format)
-        if extensions is None:
-            raise typer.BadParameter(f"Unknown structure format: {structure_format}")
-
-    entries = []
-    for filename in sorted(os.listdir(folder_path)):
-        if any(filename.endswith(ext) for ext in extensions):
-            file_path = os.path.join(folder_path, filename)
-            name = filename
-            for ext in extensions:
-                if ext and name.endswith(ext):
-                    name = name[:-len(ext)]
-                    break
-            entries.append((name, file_path, name))
-
-    if not entries:
-        raise typer.BadParameter(
-            f"No structure files with extensions {extensions} found in {folder_path}"
-        )
-
-    return tuple(entries)
-
 
 app = typer.Typer(
     add_completion=False,
@@ -95,19 +61,19 @@ app.add_typer(from_sequences_app, name="from-sequences")
     help="Calculate residue-level embeddings from a folder of structure files using ESM3."
 )
 def from_structures_residue(
-        src_folder: Annotated[str, typer.Option(
+        src_folder: Annotated[Path, typer.Option(
             exists=True,
             file_okay=False,
             dir_okay=True,
             resolve_path=True,
             help='Folder containing structure files. All chains in each structure will be processed.'
         )],
-        output_path: Annotated[str, typer.Option(
+        output_folder: Annotated[Path, typer.Option(
             exists=True,
             file_okay=False,
             dir_okay=True,
             resolve_path=True,
-            help='Output path to store predictions.'
+            help='Output folder to store predictions.'
         )],
         output_format: Annotated[OutFormat, typer.Option(
             help='Format of the output. Options: csv, pt, parquet, json.'
@@ -135,20 +101,21 @@ def from_structures_residue(
         )] = 1,
         accelerator: Annotated[Accelerator, typer.Option(
             help='Device used for inference.'
-        )] = 'auto',
-        devices: Annotated[List[str], typer.Option(
+        )] = Accelerator.auto,
+        devices: Annotated[Tuple[str], typer.Option(
             help='The devices to use. Can be set to a positive number or "auto". Repeat this argument to indicate multiple indices of devices.'
-        )] = tuple(['auto']),
+        )] = ('auto',),
         strategy: Annotated[Strategy, typer.Option(
             help='Lightning strategy to control distribution of inference.'
-        )] = 'auto',
+        )] = Strategy.auto,
         log_level: Annotated[LogLevel, typer.Option(
             help='Logging level.'
-        )] = 'info'
+        )] = LogLevel.info
 ):
     from foldmatch.inference.esm_inference import predict
     set_log_level(log_level)
 
+    from foldmatch.utils.data import scan_structure_folder
     src_stream = scan_structure_folder(src_folder, structure_format, structure_file_extension)
     predict(
         src_stream=src_stream,
@@ -163,7 +130,7 @@ def from_structures_residue(
         devices=arg_devices(devices),
         out_format=output_format,
         out_name=output_name,
-        out_path=output_path,
+        out_folder=output_folder,
         strategy=strategy,
         return_predictions=False,
     )
@@ -174,19 +141,19 @@ def from_structures_residue(
     help="Calculate chain-level embeddings from a folder of structure files."
 )
 def from_structures_chain(
-        src_folder: Annotated[str, typer.Option(
+        src_folder: Annotated[Path, typer.Option(
             exists=True,
             file_okay=False,
             dir_okay=True,
             resolve_path=True,
             help='Folder containing structure files. All chains in each structure will be processed.'
         )],
-        output_path: Annotated[str, typer.Option(
+        output_folder: Annotated[Path, typer.Option(
             exists=True,
             file_okay=False,
             dir_okay=True,
             resolve_path=True,
-            help='Output path to store predictions.'
+            help='Output folder to store predictions.'
         )],
         output_format: Annotated[OutFormat, typer.Option(
             help='Format of the output. Options: csv, pt, parquet, json.'
@@ -211,22 +178,23 @@ def from_structures_chain(
         )] = 0,
         accelerator: Annotated[Accelerator, typer.Option(
             help='Device used for inference.'
-        )] = 'auto',
+        )] = Accelerator.auto,
         num_nodes: Annotated[int, typer.Option(
             help='Number of nodes to use for inference.'
         )] = 1,
-        devices: Annotated[List[str], typer.Option(
+        devices: Annotated[Tuple[str], typer.Option(
             help='The devices to use. Can be set to a positive number or "auto".'
-        )] = tuple(['auto']),
+        )] = ('auto',),
         strategy: Annotated[Strategy, typer.Option(
             help='Lightning strategy to control distribution of inference.'
-        )] = 'auto',
+        )] = Strategy.auto,
         log_level: Annotated[LogLevel, typer.Option(
             help='Logging level.'
-        )] = 'info'
+        )] = LogLevel.info
 ):
     set_log_level(log_level)
 
+    from foldmatch.utils.data import scan_structure_folder
     src_stream = scan_structure_folder(src_folder, structure_format, structure_file_extension)
     from foldmatch.inference.chain_complete_inference import predict
     predict(
@@ -241,7 +209,7 @@ def from_structures_chain(
         accelerator=accelerator,
         devices=arg_devices(devices),
         out_format=output_format,
-        out_path=output_path,
+        out_folder=output_folder,
         out_name=output_name,
         strategy=strategy,
         return_predictions=False,
@@ -253,19 +221,19 @@ def from_structures_chain(
     help="Calculate assembly-level embeddings from a folder of structure files."
 )
 def from_structures_assembly(
-        src_folder: Annotated[str, typer.Option(
+        src_folder: Annotated[Path, typer.Option(
             exists=True,
             file_okay=False,
             dir_okay=True,
             resolve_path=True,
             help='Folder containing structure files. All assemblies in each structure will be processed.'
         )],
-        output_path: Annotated[str, typer.Option(
+        output_folder: Annotated[Path, typer.Option(
             exists=True,
             file_okay=False,
             dir_okay=True,
             resolve_path=True,
-            help='Output path to store predictions.'
+            help='Output folder to store predictions.'
         )],
         output_format: Annotated[OutFormat, typer.Option(
             help='Format of the output. Options: csv, pt, parquet, json.'
@@ -293,23 +261,24 @@ def from_structures_assembly(
         )] = 0,
         accelerator: Annotated[Accelerator, typer.Option(
             help='Device used for inference.'
-        )] = 'auto',
+        )] = Accelerator.auto,
         num_nodes: Annotated[int, typer.Option(
             help='Number of nodes to use for inference.'
         )] = 1,
-        devices: Annotated[List[str], typer.Option(
+        devices: Annotated[Tuple[str], typer.Option(
             help='The devices to use. Can be set to a positive number or "auto".'
-        )] = tuple(['auto']),
+        )] = ('auto',),
         strategy: Annotated[Strategy, typer.Option(
             help='Lightning strategy to control distribution of inference.'
-        )] = 'auto',
+        )] = Strategy.auto,
         log_level: Annotated[LogLevel, typer.Option(
             help='Logging level.'
-        )] = 'info'
+        )] = LogLevel.info
 ):
     from foldmatch.inference.assembly_complete_inference import predict
     set_log_level(log_level)
 
+    from foldmatch.utils.data import scan_structure_folder
     src_stream = scan_structure_folder(src_folder, structure_format, structure_file_extension)
     predict(
         src_stream=src_stream,
@@ -322,7 +291,7 @@ def from_structures_assembly(
         num_nodes=num_nodes,
         accelerator=accelerator,
         devices=arg_devices(devices),
-        out_path=output_path,
+        out_folder=output_folder,
         out_format=output_format,
         out_name=output_name,
         strategy=strategy,
@@ -339,19 +308,19 @@ def from_structures_assembly(
     help="Calculate residue-level embeddings from protein sequences in a FASTA file using ESM3."
 )
 def from_sequences_residue(
-        fasta_file: Annotated[str, typer.Option(
+        fasta_file: Annotated[Path, typer.Option(
             exists=True,
             file_okay=True,
             dir_okay=False,
             resolve_path=True,
             help='FASTA file containing protein sequences.'
         )],
-        output_path: Annotated[str, typer.Option(
+        output_folder: Annotated[Path, typer.Option(
             exists=True,
             file_okay=False,
             dir_okay=True,
             resolve_path=True,
-            help='Output path to store predictions.'
+            help='Output folder to store predictions.'
         )],
         output_format: Annotated[OutFormat, typer.Option(
             help='Format of the output. Options: csv, pt, parquet, json.'
@@ -373,16 +342,16 @@ def from_sequences_residue(
         )] = 1,
         accelerator: Annotated[Accelerator, typer.Option(
             help='Device used for inference.'
-        )] = 'auto',
-        devices: Annotated[List[str], typer.Option(
+        )] = Accelerator.auto,
+        devices: Annotated[Tuple[str], typer.Option(
             help='The devices to use. Can be set to a positive number or "auto".'
-        )] = tuple(['auto']),
+        )] = ('auto',),
         strategy: Annotated[Strategy, typer.Option(
             help='Lightning strategy to control distribution of inference.'
-        )] = 'auto',
+        )] = Strategy.auto,
         log_level: Annotated[LogLevel, typer.Option(
             help='Logging level.'
-        )] = 'info'
+        )] = LogLevel.info
 ):
     from foldmatch.inference.sequence_inference import predict
     set_log_level(log_level)
@@ -397,7 +366,7 @@ def from_sequences_residue(
         devices=arg_devices(devices),
         out_format=output_format,
         out_name=output_name,
-        out_path=output_path,
+        out_folder=output_folder,
         strategy=strategy,
         return_predictions=False,
     )
@@ -408,19 +377,19 @@ def from_sequences_residue(
     help="Calculate chain-level embeddings from protein sequences in a FASTA file."
 )
 def from_sequences_chain(
-        fasta_file: Annotated[str, typer.Option(
+        fasta_file: Annotated[Path, typer.Option(
             exists=True,
             file_okay=True,
             dir_okay=False,
             resolve_path=True,
             help='FASTA file containing protein sequences.'
         )],
-        output_path: Annotated[str, typer.Option(
+        output_folder: Annotated[Path, typer.Option(
             exists=True,
             file_okay=False,
             dir_okay=True,
             resolve_path=True,
-            help='Output path to store predictions.'
+            help='Output folder to store predictions.'
         )],
         output_format: Annotated[OutFormat, typer.Option(
             help='Format of the output. Options: csv, pt, parquet, json.'
@@ -439,19 +408,19 @@ def from_sequences_chain(
         )] = 0,
         accelerator: Annotated[Accelerator, typer.Option(
             help='Device used for inference.'
-        )] = 'auto',
+        )] = Accelerator.auto,
         num_nodes: Annotated[int, typer.Option(
             help='Number of nodes to use for inference.'
         )] = 1,
-        devices: Annotated[List[str], typer.Option(
+        devices: Annotated[Tuple[str], typer.Option(
             help='The devices to use. Can be set to a positive number or "auto".'
-        )] = tuple(['auto']),
+        )] = ('auto',),
         strategy: Annotated[Strategy, typer.Option(
             help='Lightning strategy to control distribution of inference.'
-        )] = 'auto',
+        )] = Strategy.auto,
         log_level: Annotated[LogLevel, typer.Option(
             help='Logging level.'
-        )] = 'info'
+        )] = LogLevel.info
 ):
     set_log_level(log_level)
 
@@ -467,7 +436,7 @@ def from_sequences_chain(
         accelerator=accelerator,
         devices=arg_devices(devices),
         out_format=output_format,
-        out_path=output_path,
+        out_folder=output_folder,
         out_name=output_name,
         strategy=strategy,
         return_predictions=False,

@@ -1,28 +1,30 @@
 import logging
+from pathlib import Path
+
 import torch
 from torch.utils.data import DataLoader
 from lightning import Trainer
 
 from foldmatch.dataset.esm_prot_from_fasta import EsmProtFromFasta
 from foldmatch.modules.esm_module import EsmModule
-from foldmatch.types.api_types import Accelerator, Devices, Strategy, OptionalPath, OutFormat
+from foldmatch.types.api_types import Accelerator, Devices, Strategy, OutFormat
 from foldmatch.utils.data import identity_collate
 from foldmatch.utils.model import get_residue_model
 from foldmatch.writer.batch_writer import TensorBatchWriter, CsvBatchWriter, ParquetBatchWriter, JsonStorage
 
 
 def predict(
-        fasta_file: str,
+        fasta_file: Path,
         min_res_n: int = 0,
         batch_size: int = 1,
         num_workers: int = 0,
         num_nodes: int = 1,
-        accelerator: Accelerator = 'auto',
+        accelerator: Accelerator = Accelerator.auto,
         devices: Devices = 'auto',
-        strategy: Strategy = 'auto',
+        strategy: Strategy = Strategy.auto,
         out_format: OutFormat = OutFormat.csv,
         out_name: str = 'inference',
-        out_path: OptionalPath = None,
+        out_folder: Path = None,
         return_predictions: bool = True,
 ):
     logger = logging.getLogger(__name__)
@@ -49,15 +51,15 @@ def predict(
     )
     logger.info(f"rcsb-esm module ready")
 
-    if out_path is not None:
+    if out_folder is not None:
         if out_format == OutFormat.parquet:
-            inference_writer = ParquetBatchWriter(out_path, out_name)
+            inference_writer = ParquetBatchWriter(out_folder, out_name)
         elif out_format == OutFormat.json:
-            inference_writer = JsonStorage(out_path, out_name)
+            inference_writer = JsonStorage(out_folder, out_name)
         elif out_format == OutFormat.pt:
-            inference_writer = TensorBatchWriter(out_path)
+            inference_writer = TensorBatchWriter(out_folder)
         else:
-            inference_writer = CsvBatchWriter(out_path)
+            inference_writer = CsvBatchWriter(out_folder)
     else:
         inference_writer = None
     trainer = Trainer(

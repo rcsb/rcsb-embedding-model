@@ -8,7 +8,7 @@ from esm.utils.structure.protein_chain import ProteinChain
 from torch.utils.data import IterableDataset, get_worker_info
 
 from foldmatch.dataset.utils import get_structure_location
-from foldmatch.types.api_types import StructureLocation, StructureFormat, SrcLocation
+from foldmatch.types.api_types import StructureLocation, StructureFormat, SrcLocation, FileOrStreamTuple
 from foldmatch.utils.data import stringio_from_url
 from foldmatch.utils.structure_parser import get_protein_chains, rename_atom_attr, filter_residues, get_assemblies
 from foldmatch.utils.structure_provider import StructureProvider
@@ -25,11 +25,11 @@ class EsmAssemblyFromStructure(IterableDataset):
 
     def __init__(
             self,
-            src_stream,
-            src_location=SrcLocation.file,
-            structure_format=StructureFormat.mmcif,
-            min_res_n=0,
-            structure_provider=StructureProvider()
+            src_stream: FileOrStreamTuple,
+            src_location: SrcLocation = SrcLocation.file,
+            structure_format: StructureFormat = StructureFormat.mmcif,
+            min_res_n: int = 0,
+            structure_provider: StructureProvider = StructureProvider()
     ):
         super().__init__()
         self.min_res_n = min_res_n
@@ -50,7 +50,7 @@ class EsmAssemblyFromStructure(IterableDataset):
             index_col=None,
             keep_default_na=False,
             dtype=str,
-            names=EsmProtFromStructure.COLUMNS
+            names=EsmAssemblyFromStructure.COLUMNS
         )
 
     def __iter__(self):

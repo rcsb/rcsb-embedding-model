@@ -10,7 +10,7 @@ from torch.utils.data import Dataset, DataLoader
 import pandas as pd
 
 from foldmatch.dataset.utils import get_structure_location
-from foldmatch.types.api_types import StructureFormat, StructureLocation, SrcLocation
+from foldmatch.types.api_types import StructureFormat, StructureLocation, SrcLocation, FileOrStreamTuple
 from foldmatch.utils.data import stringio_from_url
 from foldmatch.utils.structure_parser import rename_atom_attr,filter_residues
 from foldmatch.utils.structure_provider import StructureProvider
@@ -27,10 +27,10 @@ class EsmProtFromChain(Dataset):
 
     def __init__(
         self,
-        src_stream,
-        src_location=SrcLocation.file,
-        structure_format=StructureFormat.mmcif,
-        structure_provider=StructureProvider()
+        src_stream: FileOrStreamTuple,
+        src_location:SrcLocation = SrcLocation.file,
+        structure_format: StructureFormat = StructureFormat.mmcif,
+        structure_provider: StructureProvider = StructureProvider()
     ):
         super().__init__()
         self.__structure_provider = structure_provider

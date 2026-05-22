@@ -1,5 +1,6 @@
 import logging
 from pathlib import Path
+from typing import List
 
 import torch
 import pyarrow as pa
@@ -11,13 +12,17 @@ logger = logging.getLogger(__name__)
 
 class ResidueEmbeddingFromParquet(Dataset):
 
-    def __init__(self, parquet_path, embedding_dim):
+    def __init__(
+            self,
+            parquet_path: Path | List[Path],
+            embedding_dim: int
+    ):
         super().__init__()
         self.embedding_dim = embedding_dim
         if isinstance(parquet_path, (str, Path)):
             paths = [parquet_path]
         else:
-            paths = list(parquet_path)
+            paths = parquet_path
         logger.info(f"Loading {len(paths)} parquet file(s): {[str(p) for p in paths]}")
         self.table = pa.concat_tables([pq.read_table(p) for p in paths])
 

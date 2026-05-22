@@ -14,7 +14,7 @@ from foldmatch.types.api_types import (
     SrcLocation,
     OutFormat,
     Accelerator,
-    Granularity, SrcEsmFrom,
+    Granularity, SrcEsmFrom, Devices, Strategy,
 )
 
 logger = logging.getLogger(__name__)
@@ -30,24 +30,24 @@ class EmbeddingComputer:
 
     def __init__(
             self,
-            embedding_folder: str,
+            embedding_folder: Path,
     ):
         self.embedding_folder = embedding_folder
         self.out_name = f"emb_{_consolidate_id()}"
 
     def compute_from_structures(
             self,
-            structure_folder: str,
+            structure_folder: Path,
             structure_format: StructureFormat = StructureFormat.mmcif,
             min_res: int = 10,
-            granularity: Granularity = 'chain',
+            granularity: Granularity = Granularity.chain,
             file_extension: Optional[str] = None,
             batch_size: int = 1,
             num_workers: int = 0,
             num_nodes: int = 1,
-            accelerator: Accelerator = 'auto',
-            devices='auto',
-            strategy='auto',
+            accelerator: Accelerator = Accelerator.auto,
+            devices: Devices = 'auto',
+            strategy: Strategy = Strategy.auto,
     ):
         """Compute chain or assembly embeddings from a directory of structure files."""
         if file_extension is None:
@@ -58,7 +58,7 @@ class EmbeddingComputer:
             raise ValueError(f"Structure directory does not exist: {structure_folder}")
 
         logging.info(f"Listing structure files from: {structure_folder}")
-        structure_files = list(structure_folder.glob(f"*{file_extension}"))
+        structure_files = tuple(structure_folder.glob(f"*{file_extension}"))
         if not structure_files:
             raise ValueError(
                 f"No structure files found with extension {file_extension} in {structure_folder}"
@@ -73,7 +73,7 @@ class EmbeddingComputer:
                 src_location=SrcLocation.stream,
                 structure_format=structure_format,
                 min_res_n=min_res,
-                out_path=self.embedding_folder,
+                out_folder=self.embedding_folder,
                 out_name=self.out_name,
                 accelerator=accelerator,
                 batch_size=batch_size,
@@ -92,7 +92,7 @@ class EmbeddingComputer:
                 ],
                 src_location=SrcLocation.stream,
                 structure_format=structure_format,
-                out_path=self.embedding_folder,
+                out_folder=self.embedding_folder,
                 out_name=self.out_name,
                 accelerator=accelerator,
                 num_workers=num_workers,
@@ -105,14 +105,14 @@ class EmbeddingComputer:
 
     def compute_from_fasta(
             self,
-            fasta_file: str,
+            fasta_file: Path,
             min_res_n: int = 0,
             batch_size: int = 1,
             num_workers: int = 0,
             num_nodes: int = 1,
-            devices='auto',
-            strategy='auto',
-            accelerator: Accelerator = 'auto',
+            devices: Devices = 'auto',
+            strategy: Strategy = Strategy.auto,
+            accelerator: Accelerator = Accelerator.auto,
     ):
         """Compute chain embeddings from protein sequences in a FASTA file."""
 
@@ -126,7 +126,7 @@ class EmbeddingComputer:
             accelerator=accelerator,
             devices=devices,
             out_format=OutFormat.parquet,
-            out_path=self.embedding_folder,
+            out_folder=self.embedding_folder,
             out_name=self.out_name,
             strategy=strategy,
             return_predictions=False,
@@ -149,14 +149,14 @@ class EmbeddingComputer:
                 yield ids, arr
 
 def compute_from_structure_file(
-        query_structure: str,
+        query_structure: Path,
         structure_format: StructureFormat = StructureFormat.mmcif,
-        granularity: Granularity = 'chain',
+        granularity: Granularity = Granularity.chain,
         chain_id: str = None,
         assembly_id: str = None,
         min_res: int = 10,
         max_res: int = None,
-        accelerator: Accelerator = "auto"
+        accelerator: Accelerator = Accelerator.auto,
 ) -> Iterator[tuple[list[str], np.ndarray]]:
     """Compute per-chain (or per-assembly) embeddings for a single structure
     file and yield them in the same ``(ids, [B, D] float32)`` batch shape as

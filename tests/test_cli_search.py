@@ -4,7 +4,7 @@ import unittest
 import tempfile
 from pathlib import Path
 
-from foldmatch.types.api_types import StructureFormat
+from foldmatch.types.api_types import StructureFormat, Accelerator, Granularity
 
 
 class TestCliSearch(unittest.TestCase):
@@ -17,7 +17,7 @@ class TestCliSearch(unittest.TestCase):
     def setUpClass(cls):
         """Set up test fixtures that are used by all tests."""
         # Create temporary directory for test outputs
-        cls.__temp_dir = tempfile.mkdtemp()
+        cls.__temp_dir = Path(tempfile.mkdtemp())
         cls.__db_path = os.path.join(cls.__temp_dir, "test_faiss")
         cls.__temp_file = os.path.join(cls.__temp_dir, "temp_embeddings.pt")
 
@@ -32,7 +32,7 @@ class TestCliSearch(unittest.TestCase):
         from foldmatch.cli.search import build_database_from_structures
 
         # Use the test PDB files
-        structure_dir = f"{self.__test_path}/resources/pdb"
+        structure_dir = Path(f"{self.__test_path}/resources/pdb")
 
         build_database_from_structures(
             structure_folder=structure_dir,
@@ -41,12 +41,11 @@ class TestCliSearch(unittest.TestCase):
             structure_format=StructureFormat.mmcif,
             file_extension=".cif",
             min_res=10,
-            accelerator='cpu',
+            accelerator=Accelerator.cpu,
             use_gpu_index=False
         )
 
         # Verify database files were created
-        from pathlib import Path
         db_path = Path(self.__db_path)
         self.assertTrue((db_path.parent / f"{db_path.name}.index").exists())
         self.assertTrue((db_path.parent / f"{db_path.name}.metadata").exists())
@@ -56,7 +55,7 @@ class TestCliSearch(unittest.TestCase):
         from foldmatch.cli.search import query_database_from_structure
 
         # Use one of the test structures as the query
-        query_structure = f"{self.__test_path}/resources/pdb/1acb.cif"
+        query_structure = Path(f"{self.__test_path}/resources/pdb/1acb.cif")
         output_csv = os.path.join(self.__temp_dir, "search_results.csv")
 
         query_database_from_structure(
@@ -69,7 +68,7 @@ class TestCliSearch(unittest.TestCase):
             output_csv=output_csv,
             min_res=10,
             max_res=None,
-            accelerator="cpu",
+            accelerator=Accelerator.cpu,
             use_gpu_index=False
         )
 
@@ -86,7 +85,7 @@ class TestCliSearch(unittest.TestCase):
         """Test querying with a similarity score threshold."""
         from foldmatch.cli.search import query_database_from_structure
 
-        query_structure = f"{self.__test_path}/resources/pdb/1acb.cif"
+        query_structure = Path(f"{self.__test_path}/resources/pdb/1acb.cif")
         output_csv = os.path.join(self.__temp_dir, "search_results_threshold.csv")
 
         query_database_from_structure(
@@ -99,7 +98,7 @@ class TestCliSearch(unittest.TestCase):
             output_csv=output_csv,
             min_res=10,
             max_res=None,
-            accelerator="cpu",
+            accelerator=Accelerator.cpu,
             use_gpu_index=False
         )
 
@@ -110,7 +109,7 @@ class TestCliSearch(unittest.TestCase):
         """Test querying with a specific chain ID."""
         from foldmatch.cli.search import query_database_from_structure
 
-        query_structure = f"{self.__test_path}/resources/pdb/1acb.cif"
+        query_structure = Path(f"{self.__test_path}/resources/pdb/1acb.cif")
         output_csv = os.path.join(self.__temp_dir, "search_results_chain.csv")
 
         query_database_from_structure(
@@ -123,7 +122,7 @@ class TestCliSearch(unittest.TestCase):
             output_csv=output_csv,
             min_res=10,
             max_res=None,
-            accelerator="cpu",
+            accelerator=Accelerator.cpu,
             use_gpu_index=False
         )
 
@@ -175,10 +174,11 @@ class TestCliSearch(unittest.TestCase):
         """Test residue_embedding_by_chain with chain_id parameter."""
         from foldmatch.foldmatch import FoldMatch
 
-        query_structure = f"{self.__test_path}/resources/pdb/1acb.cif"
+        query_structure = Path(f"{self.__test_path}/resources/pdb/1acb.cif")
 
         embedder = FoldMatch(min_res=10)
-        embedder.load_models(device="cpu")
+        import torch
+        embedder.load_models(device=torch.device("cpu"))
 
         # Test getting all chains
         all_chains = embedder.residue_embedding_by_chain(
@@ -206,10 +206,11 @@ class TestCliSearch(unittest.TestCase):
         """Test residue_embedding_by_assembly with assembly_id parameter."""
         from foldmatch.foldmatch import FoldMatch
 
-        query_structure = f"{self.__test_path}/resources/pdb/1acb.cif"
+        query_structure = Path(f"{self.__test_path}/resources/pdb/1acb.cif")
 
         embedder = FoldMatch(min_res=10)
-        embedder.load_models(device="cpu")
+        import torch
+        embedder.load_models(device=torch.device("cpu"))
 
         # Test getting asymmetric unit (no assembly_id provided)
         asymmetric_unit = embedder.residue_embedding_by_assembly(
@@ -257,7 +258,6 @@ class TestCliSearch(unittest.TestCase):
 
     def test_12_embedding_search_search_by_database(self):
         """Test EmbeddingSearch database-to-database search API."""
-        from pathlib import Path
         from foldmatch.search.embedding_database import EmbeddingDatabase
 
         searcher = EmbeddingDatabase(
@@ -279,7 +279,7 @@ class TestCliSearch(unittest.TestCase):
         from foldmatch.cli.search import build_database_from_structures
 
         # Use the test PDB files
-        structure_dir = f"{self.__test_path}/resources/pdb"
+        structure_dir = Path(f"{self.__test_path}/resources/pdb")
         assembly_db_path = os.path.join(self.__temp_dir, "test_faiss_assembly")
 
         build_database_from_structures(
@@ -289,13 +289,12 @@ class TestCliSearch(unittest.TestCase):
             structure_format=StructureFormat.mmcif,
             file_extension=".cif",
             min_res=10,
-            accelerator='cpu',
+            accelerator=Accelerator.cpu,
             use_gpu_index=False,
-            granularity='assembly'
+            granularity=Granularity.assembly
         )
 
         # Verify database files were created
-        from pathlib import Path
         db_path = Path(assembly_db_path)
         self.assertTrue((db_path.parent / f"{db_path.name}.index").exists())
         self.assertTrue((db_path.parent / f"{db_path.name}.metadata").exists())
@@ -306,7 +305,7 @@ class TestCliSearch(unittest.TestCase):
 
         # Use the assembly database built in test_13
         assembly_db_path = os.path.join(self.__temp_dir, "test_faiss_assembly")
-        query_structure = f"{self.__test_path}/resources/pdb/1acb.cif"
+        query_structure = Path(f"{self.__test_path}/resources/pdb/1acb.cif")
         output_csv = os.path.join(self.__temp_dir, "search_results_assembly.csv")
 
         query_database_from_structure(
@@ -318,9 +317,9 @@ class TestCliSearch(unittest.TestCase):
             output_csv=output_csv,
             min_res=10,
             max_res=None,
-            accelerator="cpu",
+            accelerator=Accelerator.cpu,
             use_gpu_index=False,
-            granularity='assembly',
+            granularity=Granularity.assembly,
             assembly_id='1'
         )
 
@@ -338,7 +337,7 @@ class TestCliSearch(unittest.TestCase):
         """Test building a database from pre-computed embedding .pt files."""
         from foldmatch.cli.search import build_database_from_embeddings
 
-        embedding_dir = f"{self.__test_path}/resources/embeddings"
+        embedding_dir = Path(f"{self.__test_path}/resources/embeddings")
         output_db = os.path.join(self.__temp_dir, "test_from_embeddings")
 
         build_database_from_embeddings(
@@ -348,7 +347,6 @@ class TestCliSearch(unittest.TestCase):
             use_gpu_index=False
         )
 
-        from pathlib import Path
         from foldmatch.search.faiss_database import FaissEmbeddingDatabase
 
         db_path = Path(output_db)
@@ -363,18 +361,17 @@ class TestCliSearch(unittest.TestCase):
         """Test building a database from a FASTA file."""
         from foldmatch.cli.search import build_database_from_fasta
 
-        fasta_file = f"{self.__test_path}/resources/fasta/test_sequences.fasta"
+        fasta_file = Path(f"{self.__test_path}/resources/fasta/test_sequences.fasta")
         output_db = os.path.join(self.__temp_dir, "test_from_fasta")
 
         build_database_from_fasta(
             fasta_file=fasta_file,
             output_db=output_db,
             tmp_embedding_folder=self.__temp_dir,
-            accelerator='cpu',
+            accelerator=Accelerator.cpu,
             use_gpu_index=False
         )
 
-        from pathlib import Path
         from foldmatch.search.faiss_database import FaissEmbeddingDatabase
 
         db_path = Path(output_db)
@@ -389,7 +386,7 @@ class TestCliSearch(unittest.TestCase):
         """Test querying the database with a pre-computed embedding file."""
         from foldmatch.cli.search import build_database_from_embeddings, query_database_from_embedding
 
-        embedding_dir = f"{self.__test_path}/resources/embeddings"
+        embedding_dir = Path(f"{self.__test_path}/resources/embeddings")
         subject_db = os.path.join(self.__temp_dir, "test_query_from_emb_db")
         build_database_from_embeddings(
             embedding_folder=embedding_dir,
@@ -399,7 +396,7 @@ class TestCliSearch(unittest.TestCase):
         )
 
         # Use one of the pre-computed .pt chain embedding files as the query
-        embedding_folder = f"{self.__test_path}/resources/embeddings"
+        embedding_folder = Path(f"{self.__test_path}/resources/embeddings")
         output_csv = os.path.join(self.__temp_dir, "query_from_embedding_results.csv")
 
         query_database_from_embedding(
@@ -424,7 +421,7 @@ class TestCliSearch(unittest.TestCase):
         """Test querying the database with sequences from a FASTA file."""
         from foldmatch.cli.search import build_database_from_embeddings, query_database_from_fasta
 
-        embedding_dir = f"{self.__test_path}/resources/embeddings"
+        embedding_dir = Path(f"{self.__test_path}/resources/embeddings")
         subject_db = os.path.join(self.__temp_dir, "test_query_from_fasta_db")
         build_database_from_embeddings(
             embedding_folder=embedding_dir,
@@ -433,7 +430,7 @@ class TestCliSearch(unittest.TestCase):
             use_gpu_index=False
         )
 
-        fasta_file = f"{self.__test_path}/resources/fasta/test_sequences.fasta"
+        fasta_file = Path(f"{self.__test_path}/resources/fasta/test_sequences.fasta")
         output_csv = os.path.join(self.__temp_dir, "query_from_fasta_results.csv")
 
         query_database_from_fasta(
@@ -443,7 +440,7 @@ class TestCliSearch(unittest.TestCase):
             top_k=5,
             threshold=None,
             output_csv=output_csv,
-            accelerator='cpu',
+            accelerator=Accelerator.cpu,
             use_gpu_index=False
         )
 

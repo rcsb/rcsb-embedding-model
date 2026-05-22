@@ -1,6 +1,6 @@
 import os
-import shutil
 import unittest
+from pathlib import Path
 
 import torch
 import pyarrow as pa
@@ -11,7 +11,7 @@ from foldmatch.dataset.residue_embedding_from_parquet import ResidueEmbeddingFro
 
 class TestResidueEmbeddingFromParquet(unittest.TestCase):
 
-    __tmp_path = os.path.join(os.path.dirname(__file__), "resources", "tmp")
+    __tmp_path = os.path.join(Path(os.path.dirname(__file__)), Path("resources"), Path("tmp"))
 
     def setUp(self):
         os.makedirs(self.__tmp_path, exist_ok=True)
@@ -43,10 +43,13 @@ class TestResidueEmbeddingFromParquet(unittest.TestCase):
         ]
         ids = ["chain_A", "chain_B", "chain_C"]
 
-        parquet_path = os.path.join(self.__tmp_path, "embeddings.parquet")
+        parquet_path = Path(os.path.join(self.__tmp_path, "embeddings.parquet"))
         self._write_parquet(originals, ids, parquet_path)
 
-        dataset = ResidueEmbeddingFromParquet(parquet_path, embedding_dim)
+        dataset = ResidueEmbeddingFromParquet(
+            parquet_path=parquet_path,
+            embedding_dim=embedding_dim
+        )
 
         self.assertEqual(len(dataset), 3)
         for i in range(len(dataset)):

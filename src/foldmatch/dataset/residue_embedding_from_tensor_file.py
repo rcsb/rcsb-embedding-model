@@ -1,7 +1,7 @@
 import pandas as pd
 from torch.utils.data import Dataset
 
-from foldmatch.types.api_types import SrcLocation, ResEmbeddingFormat
+from foldmatch.types.api_types import SrcLocation, ResEmbeddingFormat, FileOrStreamTuple
 from foldmatch.utils.data import load_residue_embedding
 
 
@@ -14,9 +14,9 @@ class ResidueEmbeddingFromTensorFile(Dataset):
 
     def __init__(
             self,
-            src_stream,
-            src_location=SrcLocation.file,
-            res_embedding_format=ResEmbeddingFormat.pt
+            src_stream: FileOrStreamTuple,
+            src_location: SrcLocation = SrcLocation.file,
+            res_embedding_format: ResEmbeddingFormat = ResEmbeddingFormat.pt
     ):
         super().__init__()
         self.src_location = src_location

@@ -1,4 +1,5 @@
 import logging
+from pathlib import Path
 
 import pandas as pd
 from esm.sdk.api import ESMProtein
@@ -7,7 +8,7 @@ from torch.utils.data import Dataset
 logger = logging.getLogger(__name__)
 
 
-def parse_fasta(fasta_file):
+def parse_fasta(fasta_file: Path):
     sequences = []
     current_name = None
     current_seq_lines = []

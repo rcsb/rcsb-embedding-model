@@ -1,18 +1,12 @@
 from dataclasses import dataclass
 from enum import Enum
+from pathlib import Path
 from typing import IO, Tuple, List, Optional, Literal
 
-from typer import FileText
-
-StreamSrc = FileText | IO
-StreamTuple = Tuple[str, StreamSrc, str, str] | Tuple[str, StreamSrc, str] | Tuple[str, str]
-FileOrStreamTuple = FileText | StreamTuple
-
+StreamSrc = Path | IO
+StreamTuple = Tuple[str, StreamSrc, str, str] | Tuple[str, StreamSrc, str] | Tuple[str, str] | Tuple[str, str, str] | Tuple[str, str, str, str]
+FileOrStreamTuple = Path | List[StreamTuple]
 Devices = int | List[int] | Literal["auto"]
-
-EmbeddingPath = str | FileText
-OptionalPath = Optional[FileText]
-
 
 class StructureFormat(str, Enum):
     pdb = "pdb"

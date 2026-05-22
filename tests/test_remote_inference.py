@@ -1,5 +1,6 @@
 import os.path
 import unittest
+from pathlib import Path
 
 from foldmatch.types.api_types import SrcLocation, SrcProteinFrom, StructureFormat, \
     Accelerator, SrcAssemblyFrom
@@ -52,7 +53,7 @@ class TestRemoteInference(unittest.TestCase):
         from foldmatch.inference.esm_inference import predict
 
         esm_embeddings = predict(
-            src_stream=f"{self.__test_path}/resources/src_stream/instance.csv",
+            src_stream=Path(f"{self.__test_path}/resources/src_stream/instance.csv"),
             src_location=SrcLocation.file,
             src_from=SrcProteinFrom.chain,
             structure_format=StructureFormat.bciff,
@@ -93,7 +94,7 @@ class TestRemoteInference(unittest.TestCase):
                 ("1acb", "https://files.rcsb.org/download/1acb.cif", "1acb"),
                 ("2uzi", "https://files.rcsb.org/download/2uzi.cif", "2uzi")
             ],
-            res_embedding_location=f"{self.__test_path}/resources/embeddings",
+            res_embedding_location=Path(f"{self.__test_path}/resources/embeddings"),
             src_location=SrcLocation.stream,
             src_from=SrcAssemblyFrom.structure,
             structure_format=StructureFormat.mmcif,

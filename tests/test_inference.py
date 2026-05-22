@@ -1,5 +1,6 @@
 import os
 import unittest
+from pathlib import Path
 
 from foldmatch.types.api_types import Accelerator, SrcProteinFrom, SrcLocation, \
     StructureFormat, SrcAssemblyFrom, SrcTensorFrom
@@ -77,7 +78,7 @@ class TestInference(unittest.TestCase):
                 ("1acb", f"{self.__test_path}/resources/pdb/1acb.cif", "1acb"),
                 ("2uzi", f"{self.__test_path}/resources/pdb/2uzi.cif", "2uzi"),
             ],
-            res_embedding_location=f"{self.__test_path}/resources/embeddings",
+            res_embedding_location=Path(f"{self.__test_path}/resources/embeddings"),
             src_location=SrcLocation.stream,
             src_from=SrcTensorFrom.structure,
             structure_format=StructureFormat.mmcif,
@@ -141,7 +142,7 @@ class TestInference(unittest.TestCase):
                 ("1acb", f"{self.__test_path}/resources/pdb/1acb.cif", "1", "1acb.1"),
                 ("2uzi", f"{self.__test_path}/resources/pdb/2uzi.cif", "1", "2uzi.1")
             ],
-            res_embedding_location=f"{self.__test_path}/resources/embeddings",
+            res_embedding_location=Path(f"{self.__test_path}/resources/embeddings"),
             src_location=SrcLocation.stream,
             src_from=SrcAssemblyFrom.assembly,
             accelerator=Accelerator.cpu
@@ -160,7 +161,7 @@ class TestInference(unittest.TestCase):
                 ("1acb", f"{self.__test_path}/resources/pdb/1acb.cif", "1acb"),
                 ("2uzi", f"{self.__test_path}/resources/pdb/2uzi.cif", "2uzi")
             ],
-            res_embedding_location=f"{self.__test_path}/resources/embeddings",
+            res_embedding_location=Path(f"{self.__test_path}/resources/embeddings"),
             src_location=SrcLocation.stream,
             src_from=SrcAssemblyFrom.structure,
             accelerator=Accelerator.cpu
