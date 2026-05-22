@@ -139,12 +139,16 @@ class ParquetBatchWriter(BasePredictionWriter):
             self,
             output_path,
             df_id,
-            write_interval="batch"
+            write_interval="batch",
+            buffer_size=16384,
     ):
         super().__init__(write_interval)
         self.out_path = output_path
         self.df_id = df_id
+        self.buffer_size = buffer_size
         self._writer = None
+        self._id_buffer = []
+        self._emb_buffer = []
         self._schema = pa.schema([
             ('id', pa.string()),
             ('embedding', pa.list_(pa.float32()))
@@ -169,14 +173,34 @@ class ParquetBatchWriter(BasePredictionWriter):
         if prediction is None:
             return
         embeddings, dom_ids = prediction
-        ids = list(dom_ids)
-        emb_arrays = [emb.to('cpu').numpy().flatten().tolist() for emb in embeddings]
-        table = pa.table(
-            {'id': ids, 'embedding': emb_arrays},
-            schema=self._schema
+        self._id_buffer.extend(dom_ids)
+        # Keep flattened float32 arrays (not Python lists) in the buffer — far
+        # cheaper in memory until we flush. .flatten() copies, so the buffer
+        # never aliases tensors that Lightning may reuse on the next batch.
+        self._emb_buffer.extend(
+            emb.detach().to('cpu', torch.float32).numpy().flatten()
+            for emb in embeddings
         )
-        self._get_writer(trainer.global_rank).write_table(table)
+        if len(self._id_buffer) >= self.buffer_size:
+            self._flush(trainer.global_rank)
+
+    def _flush(self, rank):
+        """Write the buffered rows as a single Parquet row group."""
+        if not self._id_buffer:
+            return
+        table = pa.table(
+            {
+                'id': self._id_buffer,
+                'embedding': pa.array(self._emb_buffer, type=pa.list_(pa.float32())),
+            },
+            schema=self._schema,
+        )
+        self._get_writer(rank).write_table(table)
+        self._id_buffer.clear()
+        self._emb_buffer.clear()
 
     def on_predict_end(self, trainer, pl_module):
+        # Flush whatever didn't reach a full buffer before closing.
+        self._flush(trainer.global_rank)
         if self._writer is not None:
             self._writer.close()
