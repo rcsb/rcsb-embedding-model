@@ -36,6 +36,7 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 app = typer.Typer(
     add_completion=False,
+    pretty_exceptions_enable=False,
     help=f"FoldMatch embedding inference. Version: {__version__}.",
 )
 
@@ -464,7 +465,7 @@ def version_callback(value: bool):
 
 
 @app.callback()
-def main(
+def _app_callback(
         version: bool = typer.Option(
             None,
             "--version",
@@ -476,5 +477,14 @@ def main(
     pass
 
 
+def main():
+    """Entry point that renders expected errors as clean messages (no traceback)."""
+    try:
+        app()
+    except (ValueError, FileNotFoundError) as exc:
+        typer.secho(f"Error: {exc}", fg=typer.colors.RED, err=True)
+        raise SystemExit(1)
+
+
 if __name__ == "__main__":
-    app()
+    main()
