@@ -481,7 +481,7 @@ def main():
     """Entry point that renders expected errors as clean messages (no traceback)."""
     try:
         app()
-    except (ValueError, FileNotFoundError) as exc:
+    except (ValueError, FileNotFoundError, FileExistsError) as exc:
         typer.secho(f"Error: {exc}", fg=typer.colors.RED, err=True)
         raise SystemExit(1)
 

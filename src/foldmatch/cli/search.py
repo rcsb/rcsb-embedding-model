@@ -156,7 +156,7 @@ def build_database_from_structures(
             embedding_batches=embedding_computer.get_embedding_batches(load_batch_size=load_batch_size),
             use_gpu_index=use_gpu_index,
             index_type=index_type,
-            index_config=IndexConfig(nlist=ivf_nlist, nprobe=ivf_nprobe)
+            index_config=IndexConfig(nlist=ivf_nlist, nprobe=ivf_nprobe),
         )
 
 
@@ -216,7 +216,7 @@ def build_database_from_embeddings(
         ),
         use_gpu_index=use_gpu_index,
         index_type=index_type,
-        index_config=IndexConfig(nlist=ivf_nlist, nprobe=ivf_nprobe)
+        index_config=IndexConfig(nlist=ivf_nlist, nprobe=ivf_nprobe),
     )
 
 
@@ -312,7 +312,7 @@ def build_database_from_fasta(
             embedding_batches=embedding_computer.get_embedding_batches(load_batch_size=load_batch_size),
             use_gpu_index=use_gpu_index,
             index_type=index_type,
-            index_config=IndexConfig(nlist=ivf_nlist, nprobe=ivf_nprobe)
+            index_config=IndexConfig(nlist=ivf_nlist, nprobe=ivf_nprobe),
         )
 
 
@@ -390,6 +390,7 @@ def query_database_from_structure(
         db_path=db_path,
         use_gpu_for_search=use_gpu_index
     )
+    embedding_db.load()
     results = embedding_db.search_by_embeddings(
         embedding_batches=embedding_batches,
         top_k=top_k
@@ -450,6 +451,7 @@ def query_database_from_embedding(
         db_path=db_path,
         use_gpu_for_search=use_gpu_index
     )
+    embedding_db.load()
     from foldmatch.utils.data import stream_embeddings
     results = embedding_db.search_by_embeddings(
         embedding_batches=stream_embeddings(
@@ -556,6 +558,7 @@ def query_database_from_fasta(
             db_path=db_path,
             use_gpu_for_search=use_gpu_index,
         )
+        embedding_db.load()
         results = embedding_db.search_by_embeddings(
             embedding_batches=embedding_computer.get_embedding_batches(),
             top_k=top_k
@@ -608,6 +611,7 @@ def query_database_from_database(
         db_path=subject_db_path,
         use_gpu_for_search=use_gpu_index
     )
+    embedding_db.load()
 
     # Display database statistics
     subject_stats = embedding_db.get_db_statistics()
@@ -652,6 +656,7 @@ def show_statistics(
     embedding_db = EmbeddingDatabase(
         db_path=db_path
     )
+    embedding_db.load()
     stats = embedding_db.get_db_statistics()
 
     logging.info("DATABASE STATISTICS")
@@ -843,7 +848,7 @@ def main():
     """Entry point that renders expected errors as clean messages (no traceback)."""
     try:
         app()
-    except (ValueError, FileNotFoundError) as exc:
+    except (ValueError, FileNotFoundError, FileExistsError) as exc:
         typer.secho(f"Error: {exc}", fg=typer.colors.RED, err=True)
         raise SystemExit(1)
 

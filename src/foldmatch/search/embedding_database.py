@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path
-from typing import Dict, List, Tuple, Iterable
+from typing import Dict, List, Optional, Tuple, Iterable
 from tqdm import tqdm
 import numpy as np
 import time
@@ -18,28 +18,68 @@ class EmbeddingDatabase:
             use_gpu_for_search: bool = False
     ):
         """
-        Initialize structure search.
+        Initialize the embedding database wrapper.
+
+        This does NOT load any existing files on disk — call :meth:`load`
+        explicitly when you need to read. Build paths (``create_db``) never
+        load, so they can construct freely against a path that may or may not
+        already hold a database.
+
         Args:
-            db_path: Path to FAISS database
-            use_gpu_for_search: Whether to use GPU for FAISS search operations
+            db_path: Path to FAISS database (will be parsed into folder + name).
+            use_gpu_for_search: Default GPU preference used when ``load`` is
+                invoked without an explicit ``use_gpu`` argument.
         """
         self.db_folder, self.index_name, self.db_path = _parse_db_path(db_path)
         self.db = FaissEmbeddingDatabase(self.db_folder, self.index_name)
-        self._load_db(use_gpu=use_gpu_for_search)
+        self._use_gpu_for_search = use_gpu_for_search
 
-    def _load_db(self, use_gpu=False):
-        index_file =  Path(f"{self.db_path}.index)")
-        metadata_file = Path(f"{self.db_path}.metadata")
-        if index_file.exists() or metadata_file.exists():
-            self.db.load_database(use_gpu=use_gpu)
+    def load(self, use_gpu: Optional[bool] = None):
+        """Load the on-disk FAISS index and metadata into memory.
+
+        Read-side callers (search, stats, export) must call this before using
+        any read method. Raises if the database files don't exist.
+
+        Args:
+            use_gpu: Override the constructor-time GPU preference for this load.
+        """
+        if use_gpu is None:
+            use_gpu = self._use_gpu_for_search
+        self.db.load_database(use_gpu=use_gpu)
 
     def create_db(
             self,
             embedding_batches,
             use_gpu_index,
             index_type,
-            index_config
+            index_config,
+            force: bool = False,
     ):
+        """Build a fresh FAISS database from the given batches.
+
+        Raises ``FileExistsError`` if any database file already exists at the
+        target path, unless ``force=True`` is given — in which case the stale
+        files are deleted first.
+        """
+        # Safety guard against accidental overwrites (and against the mmap /
+        # write conflict that occurs when a previous index is still on disk).
+        candidates = [
+            Path(f"{self.db_path}.index"),
+            Path(f"{self.db_path}.metadata"),
+            Path(f"{self.db_path}.invlists"),
+        ]
+        existing = [p for p in candidates if p.exists()]
+        if existing:
+            if not force:
+                paths = ", ".join(str(p) for p in existing)
+                raise FileExistsError(
+                    f"Database already exists at {self.db_path} "
+                    f"(found: {paths}). "
+                    f"Choose a different --output-db, or delete the existing files first."
+                )
+            for p in existing:
+                p.unlink()
+
         start_time = time.time()
         self.db.create_database(
             embedding_batches=embedding_batches,
