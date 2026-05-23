@@ -263,7 +263,9 @@ class TestCliSearch(unittest.TestCase):
         searcher = EmbeddingDatabase(
             db_path=self.__db_path
         )
-
+        searcher.load(
+            use_gpu=False
+        )
         results = searcher.search_by_database(
             query_db_path=self.__db_path,
             top_k=2
