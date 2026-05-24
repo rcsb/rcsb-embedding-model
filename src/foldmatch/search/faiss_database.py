@@ -203,15 +203,6 @@ class FaissEmbeddingDatabase:
         self.index.train(train_arr)
         del train_arr
 
-        # Save the trained header NOW, while the index still has its default
-        # in-memory inverted lists. Calling faiss.write_index later — after the
-        # OnDiskInvertedLists swap below — segfaults in faiss-cpu 1.13.2 for
-        # non-trivial corpora. The header contains only the trained state
-        # (centroids + PQ codebook + OPQ rotation), which is invariant under
-        # add(); ntotal is reconstructed from the chain-ids count at load.
-        header_path = self.db_folder / f"{self.index_name}.index"
-        faiss.write_index(self.index, str(header_path))
-
         # Phase C: swap inverted lists onto disk so subsequent add() writes go to mmap.
         ivf_index = faiss.extract_index_ivf(self.index)
         invlists = faiss.OnDiskInvertedLists(
@@ -236,6 +227,17 @@ class FaissEmbeddingDatabase:
         if config.nprobe is None:
             config.nprobe = max(1, config.nlist // 64)
         ivf_index.nprobe = config.nprobe
+
+        # Phase E: persist the populated index. This is the canonical FAISS
+        # save order — write_index serializes both the trained header AND the
+        # OnDisk invlists metadata (per-cell offsets + sizes). Without this,
+        # a subsequent load would create a fresh empty OnDiskInvertedLists
+        # (constructor doesn't scan the file for existing metadata), and
+        # every query would find an empty cell. The earlier disown() makes
+        # this safe — without it, write_index can segfault from a SWIG
+        # double-free of the invlists object.
+        header_path = self.db_folder / f"{self.index_name}.index"
+        faiss.write_index(self.index, str(header_path))
 
         logger.info(f"IVF-PQ build complete: {total_added} vectors, nprobe={config.nprobe}")
 
@@ -268,26 +270,16 @@ class FaissEmbeddingDatabase:
         self.index_config = metadata.get('index_config')
 
         if self.index_type == IndexType.ivf_pq:
-            # The header was written at training time with its default empty
-            # ArrayInvertedLists (ntotal=0) and the OnDisk invlists file holds
-            # the per-cell data separately. Read the header normally (no
-            # IO_FLAG_SKIP_IVF_DATA — that flag is only for files where the
-            # invlists were already serialized as OnDiskInvertedLists), then
-            # replace the empty invlists with the on-disk file and restore ntotal.
-            self.index = faiss.read_index(str(index_file))
-            invlists_path = str(self.db_folder / f"{self.index_name}.invlists")
-            ivf_index = faiss.extract_index_ivf(self.index)
-            new_invlists = faiss.OnDiskInvertedLists(
-                ivf_index.nlist, ivf_index.code_size, invlists_path
+            # The populated index was saved by _create_ivf_pq_ondisk after the
+            # OnDisk swap, so the header includes both the trained state AND the
+            # per-cell invlists metadata (offsets + sizes). IO_FLAG_ONDISK_SAME_DIR
+            # tells FAISS to look for the .invlists file in the same directory as
+            # the .index file — gives portability if the DB folder is moved.
+            self.index = faiss.read_index(
+                str(index_file), faiss.IO_FLAG_ONDISK_SAME_DIR
             )
-            ivf_index.replace_invlists(new_invlists, True)
-            # See _create_ivf_pq_ondisk for the rationale — prevent SWIG
-            # double-free of the OnDiskInvertedLists at interpreter shutdown.
-            new_invlists.this.disown()
-            n_total = len(self.chain_ids)
-            ivf_index.ntotal = n_total
-            self.index.ntotal = n_total
             if self.index_config is not None and self.index_config.nprobe is not None:
+                ivf_index = faiss.extract_index_ivf(self.index)
                 ivf_index.nprobe = self.index_config.nprobe
         else:
             self.index = faiss.read_index(str(index_file))
