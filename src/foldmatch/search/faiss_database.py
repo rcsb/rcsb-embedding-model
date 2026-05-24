@@ -18,6 +18,12 @@ def _has_gpu_support():
         return False
 
 
+# FAISS's documented minimum: k-means training degenerates below this
+# many points per centroid, producing an index whose search can segfault.
+# See https://github.com/facebookresearch/faiss/wiki/Guidelines-to-choose-an-index
+_MIN_TRAINING_POINTS_PER_CELL = 39
+
+
 def _normalize_L2_batched(embedding_array: np.ndarray, batch_size: int = 1000):
     """Normalize embeddings in-place by batches to avoid segfaults on very large arrays."""
     n = embedding_array.shape[0]
@@ -159,6 +165,25 @@ class FaissEmbeddingDatabase:
         if self.dimension % config.m != 0:
             raise ValueError(
                 f"PQ subquantizer count m={config.m} must divide embedding dim D={self.dimension}"
+            )
+
+        # Guard against degenerate IVF k-means: too few training points per
+        # centroid produces an index whose search path can segfault inside
+        # FAISS's C++. FAISS's documented minimum is 39 points per cell; below
+        # this, k-means cannot converge to meaningful centroids.
+        training_size = min(n_buffered, config.opq_train_size)
+        points_per_cell = training_size / config.nlist
+        if points_per_cell < _MIN_TRAINING_POINTS_PER_CELL:
+            max_nlist = max(1, training_size // _MIN_TRAINING_POINTS_PER_CELL)
+            # Round down to nearest power of two for FAISS-conventional nlist values.
+            recommended_nlist = 1 << (max_nlist.bit_length() - 1)
+            raise ValueError(
+                f"IVF training would be degenerate: nlist={config.nlist} with "
+                f"{training_size} training points yields {points_per_cell:.1f} points/cell "
+                f"(FAISS minimum is {_MIN_TRAINING_POINTS_PER_CELL}; below this k-means "
+                f"produces centroids that can cause segfaults during search). "
+                f"Pass --ivf-nlist {recommended_nlist} (or smaller) for this corpus, "
+                f"or use --index-type flat for small datasets."
             )
 
         # Phase B: build the empty index, train on a normalized copy of the sample.
