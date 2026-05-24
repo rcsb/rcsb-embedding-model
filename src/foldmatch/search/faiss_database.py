@@ -193,6 +193,11 @@ class FaissEmbeddingDatabase:
             ivf_index.nlist, ivf_index.code_size, invlists_path
         )
         ivf_index.replace_invlists(invlists, True)
+        # SWIG ownership transfer: the IVF index now owns the C++ invlists
+        # object and will free it on destruction. Without disown(), Python's
+        # wrapper would *also* try to free it at interpreter shutdown — a
+        # double-free that manifests as a segfault during process teardown.
+        invlists.this.disown()
 
         # Phase D: add the training-sample batches, then the rest of the stream.
         self.chain_ids = []
@@ -251,6 +256,9 @@ class FaissEmbeddingDatabase:
                 ivf_index.nlist, ivf_index.code_size, invlists_path
             )
             ivf_index.replace_invlists(new_invlists, True)
+            # See _create_ivf_pq_ondisk for the rationale — prevent SWIG
+            # double-free of the OnDiskInvertedLists at interpreter shutdown.
+            new_invlists.this.disown()
             n_total = len(self.chain_ids)
             ivf_index.ntotal = n_total
             self.index.ntotal = n_total
