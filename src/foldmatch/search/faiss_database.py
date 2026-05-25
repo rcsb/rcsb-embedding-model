@@ -291,6 +291,24 @@ class FaissEmbeddingDatabase:
         if use_gpu:
             self.move_to_gpu()
 
+    def set_nprobe(self, nprobe: int) -> None:
+        """Override the search-time ``nprobe`` for IVF-family indexes.
+
+        ``nprobe`` controls how many IVF cells are scanned per query. Higher
+        values improve recall at the cost of search latency. Calling this on a
+        non-IVF index (``flat`` / ``hnsw``) is a silent no-op so callers can be
+        index-type-agnostic.
+        """
+        if self.index is None:
+            raise ValueError("Database not loaded. Call load_database() first.")
+        if self.index_type != IndexType.ivf_pq:
+            return
+        if nprobe < 1:
+            raise ValueError(f"nprobe must be >= 1, got {nprobe}")
+        ivf_index = faiss.extract_index_ivf(self.index)
+        ivf_index.nprobe = nprobe
+        logger.info(f"Set search-time nprobe = {nprobe}")
+
     def move_to_gpu(self, gpu_id: int = 0):
         """
         Move the index to GPU.

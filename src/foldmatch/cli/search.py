@@ -364,6 +364,12 @@ def query_database_from_structure(
         use_gpu_index: Annotated[bool, typer.Option(
             help='Use GPU for FAISS search (requires faiss-gpu).'
         )] = False,
+        nprobe: Annotated[Optional[int], typer.Option(
+            help='Override the search-time nprobe (cells probed per query) for '
+                 'ivf_pq indexes. Higher = better recall, slower search. '
+                 'Defaults to the value baked in at build time. '
+                 'Ignored for flat/hnsw indexes.'
+        )] = None,
         log_level: Annotated[LogLevel, typer.Option(
             help='Number of nodes to use for inference of embeddings.'
         )] = LogLevel.info
@@ -390,7 +396,7 @@ def query_database_from_structure(
         db_path=db_path,
         use_gpu_for_search=use_gpu_index
     )
-    embedding_db.load()
+    embedding_db.load(nprobe=nprobe)
     results = embedding_db.search_by_embeddings(
         embedding_batches=embedding_batches,
         top_k=top_k
@@ -437,6 +443,12 @@ def query_database_from_embedding(
         use_gpu_index: Annotated[bool, typer.Option(
             help='Use GPU for FAISS search (requires faiss-gpu).'
         )] = False,
+        nprobe: Annotated[Optional[int], typer.Option(
+            help='Override the search-time nprobe (cells probed per query) for '
+                 'ivf_pq indexes. Higher = better recall, slower search. '
+                 'Defaults to the value baked in at build time. '
+                 'Ignored for flat/hnsw indexes.'
+        )] = None,
         log_level: Annotated[LogLevel, typer.Option(
             help='Logging level.'
         )] = LogLevel.info
@@ -451,7 +463,7 @@ def query_database_from_embedding(
         db_path=db_path,
         use_gpu_for_search=use_gpu_index
     )
-    embedding_db.load()
+    embedding_db.load(nprobe=nprobe)
     from foldmatch.utils.data import stream_embeddings
     results = embedding_db.search_by_embeddings(
         embedding_batches=stream_embeddings(
@@ -528,6 +540,12 @@ def query_database_from_fasta(
         num_workers: Annotated[int, typer.Option(
             help='Number of subprocesses to use for data loading.'
         )] = 0,
+        nprobe: Annotated[Optional[int], typer.Option(
+            help='Override the search-time nprobe (cells probed per query) for '
+                 'ivf_pq indexes. Higher = better recall, slower search. '
+                 'Defaults to the value baked in at build time. '
+                 'Ignored for flat/hnsw indexes.'
+        )] = None,
         log_level: Annotated[LogLevel, typer.Option(
             help='Logging level.'
         )] = LogLevel.info
@@ -558,7 +576,7 @@ def query_database_from_fasta(
             db_path=db_path,
             use_gpu_for_search=use_gpu_index,
         )
-        embedding_db.load()
+        embedding_db.load(nprobe=nprobe)
         results = embedding_db.search_by_embeddings(
             embedding_batches=embedding_computer.get_embedding_batches(),
             top_k=top_k
@@ -593,6 +611,12 @@ def query_database_from_database(
         use_gpu_index: Annotated[bool, typer.Option(
             help='Use GPU for FAISS search (requires faiss-gpu).'
         )] = False,
+        nprobe: Annotated[Optional[int], typer.Option(
+            help='Override the search-time nprobe (cells probed per query) for '
+                 'ivf_pq indexes. Higher = better recall, slower search. '
+                 'Defaults to the value baked in at build time. '
+                 'Ignored for flat/hnsw indexes.'
+        )] = None,
         log_level: Annotated[LogLevel, typer.Option(
             help='Number of nodes to use for inference of embeddings.'
         )] = LogLevel.info
@@ -611,7 +635,7 @@ def query_database_from_database(
         db_path=subject_db_path,
         use_gpu_for_search=use_gpu_index
     )
-    embedding_db.load()
+    embedding_db.load(nprobe=nprobe)
 
     # Display database statistics
     subject_stats = embedding_db.get_db_statistics()

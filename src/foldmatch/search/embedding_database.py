@@ -34,7 +34,7 @@ class EmbeddingDatabase:
         self.db = FaissEmbeddingDatabase(self.db_folder, self.index_name)
         self._use_gpu_for_search = use_gpu_for_search
 
-    def load(self, use_gpu: Optional[bool] = None):
+    def load(self, use_gpu: Optional[bool] = None, nprobe: Optional[int] = None):
         """Load the on-disk FAISS index and metadata into memory.
 
         Read-side callers (search, stats, export) must call this before using
@@ -42,10 +42,23 @@ class EmbeddingDatabase:
 
         Args:
             use_gpu: Override the constructor-time GPU preference for this load.
+            nprobe: Optional override of the search-time IVF nprobe. When set,
+                supersedes the value baked into the index at build time. No-op
+                for non-IVF indexes (flat / hnsw).
         """
         if use_gpu is None:
             use_gpu = self._use_gpu_for_search
         self.db.load_database(use_gpu=use_gpu)
+        if nprobe is not None:
+            self.db.set_nprobe(nprobe)
+
+    def set_nprobe(self, nprobe: int) -> None:
+        """Override the search-time ``nprobe`` for IVF-family indexes.
+
+        No-op for non-IVF indexes. Must be called after :meth:`load`. Most
+        callers can pass ``nprobe`` directly to :meth:`load` instead.
+        """
+        self.db.set_nprobe(nprobe)
 
     def create_db(
             self,
