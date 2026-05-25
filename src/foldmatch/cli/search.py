@@ -405,12 +405,13 @@ def query_database_from_structure(
     # Filter by threshold if specified
     results = _filter_results_by_threshold(results, threshold)
 
-    # Display results
-    embedding_db.print_results(results)
-
-    # Export if requested
+    # Either print to stdout OR export to CSV — never both. Printing thousands
+    # of result rows to stdout can swamp SLURM's I/O pipeline (Abandoning IO
+    # warnings) and is redundant when the CSV is the real artifact.
     if output_csv:
         embedding_db.export_results(results, output_csv)
+    else:
+        embedding_db.print_results(results)
 
 
 @query_db_app.command(
@@ -479,10 +480,11 @@ def query_database_from_embedding(
     logging.info(f"Found {len(results)} results from {embedding_folder}")
     results = _filter_results_by_threshold(results, threshold)
 
-    embedding_db.print_results(results)
-
+    # See query_database_from_structure for the rationale: print xor CSV.
     if output_csv:
         embedding_db.export_results(results, output_csv)
+    else:
+        embedding_db.print_results(results)
 
 
 @query_db_app.command(
@@ -583,9 +585,11 @@ def query_database_from_fasta(
         )
         logging.info(f"Searched {len(results)} sequence(s)")
         results = _filter_results_by_threshold(results, threshold)
-        embedding_db.print_results(results)
+        # See query_database_from_structure for the rationale: print xor CSV.
         if output_csv:
             embedding_db.export_results(results, output_csv)
+        else:
+            embedding_db.print_results(results)
 
 
 @query_db_app.command(
@@ -651,13 +655,11 @@ def query_database_from_database(
     # Filter by threshold if specified
     results = _filter_results_by_threshold(results, threshold)
 
-    # Display results only if not exporting to CSV
-    if not output_csv:
-        embedding_db.print_results(results)
-
-    # Export if requested
+    # See query_database_from_structure for the rationale: print xor CSV.
     if output_csv:
         embedding_db.export_results(results, output_csv)
+    else:
+        embedding_db.print_results(results)
 
 
 @app.command(
