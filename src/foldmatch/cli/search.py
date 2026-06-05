@@ -315,6 +315,16 @@ def build_database_from_fasta(
             index_config=IndexConfig(nlist=ivf_nlist, nprobe=ivf_nprobe),
         )
 
+        # Persist a sidecar id->sequence store so this database can be the
+        # subject (or query) of a Stage-2 pairwise-alignment search. Built
+        # directly from the FASTA — the DB ids ARE the FASTA headers — using the
+        # same min_res_n filter so store and index stay in lock-step.
+        from foldmatch.search.sequence_store import SequenceStore
+        SequenceStore(embedding_db.db_folder, embedding_db.index_name).create(
+            fasta_file=fasta_file,
+            min_res_n=min_res_n,
+        )
+
 
 @query_db_app.command(
     name="structure",
@@ -548,6 +558,28 @@ def query_database_from_fasta(
                  'Defaults to the value baked in at build time. '
                  'Ignored for flat/hnsw indexes.'
         )] = None,
+        seq_identity: Annotated[bool, typer.Option(
+            help='Stage 2: after the embedding prefilter, pairwise-align each '
+                 'query against its candidate subjects and report exact sequence '
+                 'identity (requires a subject database built from FASTA).'
+        )] = False,
+        min_seq_identity: Annotated[float, typer.Option(
+            help='When --seq-identity is set, drop hits whose alignment identity '
+                 'is below this fraction (0-1).'
+        )] = 0.3,
+        min_coverage: Annotated[float, typer.Option(
+            help='When --seq-identity is set, drop hits whose query AND subject '
+                 'coverage are below this fraction (0-1).'
+        )] = 0.0,
+        gap_open: Annotated[int, typer.Option(
+            help='Gap-open penalty (positive) for Stage-2 alignment.'
+        )] = 11,
+        gap_extend: Annotated[int, typer.Option(
+            help='Gap-extend penalty (positive) for Stage-2 alignment.'
+        )] = 1,
+        align_workers: Annotated[int, typer.Option(
+            help='Process-pool size for Stage-2 alignment (0/1 = serial).'
+        )] = 0,
         log_level: Annotated[LogLevel, typer.Option(
             help='Logging level.'
         )] = LogLevel.info
@@ -585,6 +617,23 @@ def query_database_from_fasta(
         )
         logging.info(f"Searched {len(results)} sequence(s)")
         results = _filter_results_by_threshold(results, threshold)
+
+        if seq_identity:
+            from foldmatch.dataset.esm_prot_from_fasta import parse_fasta
+            query_sequences = dict(parse_fasta(fasta_file))
+            _stage2_align_and_report(
+                embedding_db=embedding_db,
+                prefilter_results=results,
+                query_sequences=query_sequences,
+                min_seq_identity=min_seq_identity,
+                min_coverage=min_coverage,
+                gap_open=gap_open,
+                gap_extend=gap_extend,
+                num_workers=align_workers,
+                output_csv=output_csv,
+            )
+            return
+
         # See query_database_from_structure for the rationale: print xor CSV.
         if output_csv:
             embedding_db.export_results(results, output_csv)
@@ -621,6 +670,28 @@ def query_database_from_database(
                  'Defaults to the value baked in at build time. '
                  'Ignored for flat/hnsw indexes.'
         )] = None,
+        seq_identity: Annotated[bool, typer.Option(
+            help='Stage 2: after the embedding prefilter, pairwise-align each '
+                 'query against its candidate subjects and report exact sequence '
+                 'identity (requires BOTH databases built from FASTA).'
+        )] = False,
+        min_seq_identity: Annotated[float, typer.Option(
+            help='When --seq-identity is set, drop hits whose alignment identity '
+                 'is below this fraction (0-1).'
+        )] = 0.3,
+        min_coverage: Annotated[float, typer.Option(
+            help='When --seq-identity is set, drop hits whose query AND subject '
+                 'coverage are below this fraction (0-1).'
+        )] = 0.0,
+        gap_open: Annotated[int, typer.Option(
+            help='Gap-open penalty (positive) for Stage-2 alignment.'
+        )] = 11,
+        gap_extend: Annotated[int, typer.Option(
+            help='Gap-extend penalty (positive) for Stage-2 alignment.'
+        )] = 1,
+        align_workers: Annotated[int, typer.Option(
+            help='Process-pool size for Stage-2 alignment (0/1 = serial).'
+        )] = 0,
         log_level: Annotated[LogLevel, typer.Option(
             help='Number of nodes to use for inference of embeddings.'
         )] = LogLevel.info
@@ -654,6 +725,32 @@ def query_database_from_database(
 
     # Filter by threshold if specified
     results = _filter_results_by_threshold(results, threshold)
+
+    if seq_identity:
+        # Query sequences come from the query database's own sequence store.
+        from foldmatch.search.embedding_database import _parse_db_path
+        from foldmatch.search.sequence_store import SequenceStore
+        q_folder, q_name, _ = _parse_db_path(query_db_path)
+        query_store = SequenceStore(q_folder, q_name)
+        if not query_store.exists():
+            raise ValueError(
+                f"Query database has no sequence store ({query_store.path}); "
+                f"Stage-2 sequence identity requires a query database built from "
+                f"FASTA sequences (fm-search build sequences)."
+            )
+        query_sequences = query_store.fetch(results.keys())
+        _stage2_align_and_report(
+            embedding_db=embedding_db,
+            prefilter_results=results,
+            query_sequences=query_sequences,
+            min_seq_identity=min_seq_identity,
+            min_coverage=min_coverage,
+            gap_open=gap_open,
+            gap_extend=gap_extend,
+            num_workers=align_workers,
+            output_csv=output_csv,
+        )
+        return
 
     # See query_database_from_structure for the rationale: print xor CSV.
     if output_csv:
@@ -859,6 +956,53 @@ def _filter_results_by_threshold(results, threshold: float | None):
     total_after = sum(len(ids) for ids, _ in filtered_results.values())
     logging.debug(f"Filtered from {total_before} to {total_after} results")
     return filtered_results
+
+def _stage2_align_and_report(
+        embedding_db,
+        prefilter_results,
+        query_sequences,
+        min_seq_identity: float,
+        min_coverage: float,
+        gap_open: int,
+        gap_extend: int,
+        num_workers: int,
+        output_csv: Optional[str],
+):
+    """Run Stage-2 pairwise alignment on prefilter candidates and report.
+
+    The subject sequences are recovered from the subject database's sidecar
+    sequence store; raises a clear error if that store is missing (e.g. a
+    database built from structures rather than FASTA).
+    """
+    from foldmatch.search.sequence_store import SequenceStore
+    from foldmatch.search import alignment
+
+    subject_store = SequenceStore(embedding_db.db_folder, embedding_db.index_name)
+    if not subject_store.exists():
+        raise ValueError(
+            f"Subject database has no sequence store ({subject_store.path}); "
+            f"Stage-2 sequence identity requires a database built from FASTA "
+            f"sequences (fm-search build sequences)."
+        )
+
+    logging.info("Computing pairwise sequence alignments (Stage 2)...")
+    aligned = alignment.align_candidates(
+        query_sequences=query_sequences,
+        prefilter_results=prefilter_results,
+        fetch_subject_sequences=subject_store.fetch,
+        min_seq_identity=min_seq_identity,
+        min_coverage=min_coverage,
+        gap_open=gap_open,
+        gap_extend=gap_extend,
+        num_workers=num_workers,
+    )
+
+    # See query_database_from_structure for the rationale: print xor CSV.
+    if output_csv:
+        alignment.export_aligned_results(aligned, output_csv)
+    else:
+        alignment.print_aligned_results(aligned)
+
 
 def _is_rank_zero():
     """Check if the current process is running in distributed mode."""
