@@ -561,7 +561,9 @@ def query_database_from_fasta(
         seq_identity: Annotated[bool, typer.Option(
             help='Stage 2: after the embedding prefilter, pairwise-align each '
                  'query against its candidate subjects and report exact sequence '
-                 'identity (requires a subject database built from FASTA).'
+                 'identity (requires a subject database built from FASTA). Also '
+                 'reports Pvalue_approx/Evalue_approx — an APPROXIMATE, relative-'
+                 'only significance signal (sampled lambda/K), not BLAST-comparable.'
         )] = False,
         min_seq_identity: Annotated[float, typer.Option(
             help='When --seq-identity is set, drop hits whose alignment identity '
@@ -674,7 +676,9 @@ def query_database_from_database(
         seq_identity: Annotated[bool, typer.Option(
             help='Stage 2: after the embedding prefilter, pairwise-align each '
                  'query against its candidate subjects and report exact sequence '
-                 'identity (requires BOTH databases built from FASTA).'
+                 'identity (requires BOTH databases built from FASTA). Also reports '
+                 'Pvalue_approx/Evalue_approx — an APPROXIMATE, relative-only '
+                 'significance signal (sampled lambda/K), not BLAST-comparable.'
         )] = False,
         min_seq_identity: Annotated[float, typer.Option(
             help='When --seq-identity is set, drop hits whose alignment identity '
@@ -684,6 +688,8 @@ def query_database_from_database(
             help='When --seq-identity is set, drop hits whose query AND subject '
                  'coverage are below this fraction (0-1).'
         )] = 0.0,
+        # Note: Pvalue_approx/Evalue_approx columns are an approximate,
+        # relative-only significance signal (sampled lambda/K) — not BLAST-comparable.
         gap_open: Annotated[int, typer.Option(
             help='Gap-open penalty (positive) for Stage-2 alignment.'
         )] = 11,
@@ -997,6 +1003,7 @@ def _stage2_align_and_report(
         gap_open=gap_open,
         gap_extend=gap_extend,
         num_workers=num_workers,
+        subject_db_size=subject_store.total_residues(),
     )
 
     # See query_database_from_structure for the rationale: print xor CSV.

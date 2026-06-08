@@ -145,3 +145,13 @@ class SequenceStore:
             return conn.execute("SELECT COUNT(*) FROM sequences").fetchone()[0]
         finally:
             conn.close()
+
+    def total_residues(self) -> int:
+        """Sum of all sequence lengths — the search space for database E-values."""
+        if not self.path.exists():
+            raise FileNotFoundError(f"Sequence store not found at {self.path}")
+        conn = sqlite3.connect(str(self.path))
+        try:
+            return conn.execute("SELECT COALESCE(SUM(length), 0) FROM sequences").fetchone()[0]
+        finally:
+            conn.close()
