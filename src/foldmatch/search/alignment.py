@@ -1,8 +1,28 @@
 import logging
+import os
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
+
+
+def _available_cpus() -> int:
+    """Number of CPUs usable by this process.
+
+    Prefers ``sched_getaffinity`` so it honors SLURM/cgroup CPU pinning (a job
+    allocated 8 of 64 cores sees 8); falls back to ``cpu_count`` on platforms
+    without it (e.g. macOS).
+    """
+    try:
+        return len(os.sched_getaffinity(0))
+    except AttributeError:
+        return os.cpu_count() or 1
+
+
+def _resolve_num_workers(requested: Optional[int], n_tasks: int) -> int:
+    """Resolve the worker count: ``None`` -> all CPUs; never more than tasks."""
+    avail = _available_cpus() if requested is None else requested
+    return max(1, min(avail, n_tasks))
 
 # The biotite ProteinSequence alphabet (20 canonical + ambiguity codes B/Z/X and
 # the stop symbol *). Anything outside this set — selenocysteine U, pyrrolysine
@@ -104,7 +124,7 @@ def align_candidates(
         min_coverage: float = 0.0,
         gap_open: int = 11,
         gap_extend: int = 1,
-        num_workers: int = 0,
+        num_workers: Optional[int] = None,
 ) -> Dict[str, List[Hit]]:
     """Stage 2: pairwise-align each prefilter candidate and re-rank by identity.
 
@@ -117,7 +137,9 @@ def align_candidates(
         min_seq_identity: drop hits whose ``identity_aln`` is below this.
         min_coverage: drop hits whose query *and* subject coverage are below this.
         gap_open / gap_extend: positive BLOSUM62 gap penalties (negated internally).
-        num_workers: process-pool size; <=1 runs serially in-process.
+        num_workers: process-pool size. ``None`` (default) uses all available
+            CPUs; ``0`` or ``1`` runs serially in-process. Capped at the number
+            of queries.
 
     Returns:
         ``{query_id: [Hit, ...]}`` sorted by ``identity_aln`` desc, then
@@ -147,10 +169,12 @@ def align_candidates(
             logger.warning(f"{missing} candidate(s) for query '{query_id}' missing from sequence store; skipped")
         tasks.append((query_id, query_seq, candidates))
 
-    if num_workers and num_workers > 1:
+    n_workers = _resolve_num_workers(num_workers, len(tasks))
+    if n_workers > 1:
+        logger.info(f"Aligning {len(tasks)} queries across {n_workers} CPU workers")
         import multiprocessing as mp
         with mp.Pool(
-            processes=num_workers,
+            processes=n_workers,
             initializer=_worker_init,
             initargs=(gap_open, gap_extend),
         ) as pool:

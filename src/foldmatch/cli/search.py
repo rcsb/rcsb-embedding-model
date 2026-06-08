@@ -577,9 +577,10 @@ def query_database_from_fasta(
         gap_extend: Annotated[int, typer.Option(
             help='Gap-extend penalty (positive) for Stage-2 alignment.'
         )] = 1,
-        align_workers: Annotated[int, typer.Option(
-            help='Process-pool size for Stage-2 alignment (0/1 = serial).'
-        )] = 0,
+        align_workers: Annotated[Optional[int], typer.Option(
+            help='Process-pool size for Stage-2 alignment. Defaults to all '
+                 'available CPUs; set to 0 or 1 to run serially.'
+        )] = None,
         log_level: Annotated[LogLevel, typer.Option(
             help='Logging level.'
         )] = LogLevel.info
@@ -689,9 +690,10 @@ def query_database_from_database(
         gap_extend: Annotated[int, typer.Option(
             help='Gap-extend penalty (positive) for Stage-2 alignment.'
         )] = 1,
-        align_workers: Annotated[int, typer.Option(
-            help='Process-pool size for Stage-2 alignment (0/1 = serial).'
-        )] = 0,
+        align_workers: Annotated[Optional[int], typer.Option(
+            help='Process-pool size for Stage-2 alignment. Defaults to all '
+                 'available CPUs; set to 0 or 1 to run serially.'
+        )] = None,
         log_level: Annotated[LogLevel, typer.Option(
             help='Number of nodes to use for inference of embeddings.'
         )] = LogLevel.info
@@ -965,7 +967,7 @@ def _stage2_align_and_report(
         min_coverage: float,
         gap_open: int,
         gap_extend: int,
-        num_workers: int,
+        num_workers: Optional[int],
         output_csv: Optional[str],
 ):
     """Run Stage-2 pairwise alignment on prefilter candidates and report.
