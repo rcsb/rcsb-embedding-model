@@ -1,44 +1,29 @@
 import logging
-from pathlib import Path
+import os
 
-import pandas as pd
+import numpy as np
 from esm.sdk.api import ESMProtein
 from torch.utils.data import Dataset
 
+# Re-exported for backwards compatibility: callers historically imported
+# parse_fasta from this module. The canonical implementations now live in the
+# dependency-light foldmatch.utils.fasta.
+from foldmatch.utils.fasta import iter_fasta, iter_fasta_offsets, parse_fasta, read_record_at
+
 logger = logging.getLogger(__name__)
 
-
-def parse_fasta(fasta_file: Path):
-    sequences = []
-    current_name = None
-    current_seq_lines = []
-
-    logger.info(f"parsing FASTA file {fasta_file}")
-    with open(fasta_file, 'r') as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            if line.startswith('>'):
-                if current_name is not None and current_seq_lines:
-                    sequences.append((current_name, ''.join(current_seq_lines)))
-                current_name = line[1:].split()[0]
-                current_seq_lines = []
-            else:
-                current_seq_lines.append(line)
-
-    if current_name is not None and current_seq_lines:
-        sequences.append((current_name, ''.join(current_seq_lines)))
-
-    return sequences
+__all__ = ["EsmProtFromFasta", "parse_fasta", "iter_fasta"]
 
 
 class EsmProtFromFasta(Dataset):
+    """Random-access FASTA dataset that never materializes the sequences.
 
-    NAME_ATTR = 'name'
-    SEQUENCE_ATTR = 'sequence'
-
-    COLUMNS = [NAME_ATTR, SEQUENCE_ATTR]
+    On init it scans the FASTA once and keeps only a compact ``int64`` array of
+    per-record byte offsets (those passing ``min_res_n``). ``__getitem__`` seeks
+    to the offset and reads that single record on demand, so peak memory is
+    ~8 bytes per record regardless of sequence length — letting the inference
+    pipeline handle FASTA files with hundreds of millions of sequences.
+    """
 
     def __init__(
         self,
@@ -46,16 +31,45 @@ class EsmProtFromFasta(Dataset):
         min_res_n=0
     ):
         super().__init__()
-        sequences = parse_fasta(fasta_file)
-        self.data = pd.DataFrame(sequences, columns=EsmProtFromFasta.COLUMNS)
-        if min_res_n > 0:
-            self.data = self.data[self.data[EsmProtFromFasta.SEQUENCE_ATTR].str.len() >= min_res_n]
-            self.data = self.data.reset_index(drop=True)
+        self.fasta_file = str(fasta_file)
+        # np.fromiter streams the generator straight into the array without an
+        # intermediate Python list, keeping the index build itself low-memory.
+        self._offsets = np.fromiter(
+            (
+                offset
+                for offset, _name, length in iter_fasta_offsets(self.fasta_file)
+                if min_res_n <= 0 or length >= min_res_n
+            ),
+            dtype=np.int64,
+        )
+        # Per-process file handle, opened lazily. Never pickled (see __getstate__)
+        # so each DataLoader worker opens its own handle and seeks independently.
+        self._fh = None
+        self._fh_pid = None
 
     def __len__(self):
-        return len(self.data)
+        return len(self._offsets)
+
+    def _handle(self):
+        pid = os.getpid()
+        if self._fh is None or self._fh_pid != pid:
+            if self._fh is not None:
+                try:
+                    self._fh.close()
+                except Exception:
+                    pass
+            self._fh = open(self.fasta_file, 'r')
+            self._fh_pid = pid
+        return self._fh
 
     def __getitem__(self, idx):
-        name = self.data.iloc[idx][EsmProtFromFasta.NAME_ATTR]
-        sequence = self.data.iloc[idx][EsmProtFromFasta.SEQUENCE_ATTR]
+        offset = int(self._offsets[idx])
+        name, sequence = read_record_at(self._handle(), offset)
         return ESMProtein(sequence=sequence), name
+
+    def __getstate__(self):
+        # Drop the open file handle so the dataset pickles cleanly to workers.
+        state = self.__dict__.copy()
+        state['_fh'] = None
+        state['_fh_pid'] = None
+        return state

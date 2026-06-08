@@ -619,8 +619,8 @@ def query_database_from_fasta(
         results = _filter_results_by_threshold(results, threshold)
 
         if seq_identity:
-            from foldmatch.dataset.esm_prot_from_fasta import parse_fasta
-            query_sequences = dict(parse_fasta(fasta_file))
+            from foldmatch.utils.fasta import iter_fasta
+            query_sequences = dict(iter_fasta(fasta_file))
             _stage2_align_and_report(
                 embedding_db=embedding_db,
                 prefilter_results=results,
