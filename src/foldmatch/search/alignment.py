@@ -41,6 +41,35 @@ def _resolve_num_workers(requested: Optional[int], n_tasks: int) -> int:
     avail = _available_cpus() if requested is None else requested
     return max(1, min(avail, n_tasks))
 
+
+def _expand_cpu_affinity() -> int:
+    """Widen this process's CPU affinity mask to all CPUs, returning the count.
+
+    A process launched under a binding scheduler (e.g. NERSC ``srun`` pins each
+    of N tasks to cpu_count/N cores) inherits a narrow mask; Stage-2 runs single-
+    process on rank 0 and would otherwise see only that slice. Widening lets it
+    (and its forked pool workers) use the whole node, so this must run *before*
+    the pool is created.
+
+    This is safe even on shared/allocated machines: the kernel intersects the
+    requested set with the process's cpuset cgroup, so ``sched_setaffinity``
+    cannot escape a real allocation — it just un-does soft ``--cpu-bind`` masks.
+    No-op where ``sched_setaffinity`` is unavailable (non-Linux).
+    """
+    n = os.cpu_count() or 1
+    if not hasattr(os, "sched_setaffinity"):
+        return n
+    before = len(os.sched_getaffinity(0))
+    try:
+        os.sched_setaffinity(0, range(n))
+    except OSError as exc:
+        logger.warning(f"Could not widen CPU affinity to all {n} CPUs: {exc}")
+        return before
+    after = len(os.sched_getaffinity(0))
+    if after != before:
+        logger.info(f"Widened CPU affinity for alignment: {before} -> {after} CPUs")
+    return after
+
 # The biotite ProteinSequence alphabet (20 canonical + ambiguity codes B/Z/X and
 # the stop symbol *). Anything outside this set — selenocysteine U, pyrrolysine
 # O, gaps, digits, whitespace — is mapped to X so alignment never crashes on a
@@ -244,9 +273,13 @@ def align_candidates(
         min_seq_identity: drop hits whose ``identity_aln`` is below this.
         min_coverage: drop hits whose query *and* subject coverage are below this.
         gap_open / gap_extend: positive BLOSUM62 gap penalties (negated internally).
-        num_workers: process-pool size. ``None`` (default) uses all available
-            CPUs; ``0`` or ``1`` runs serially in-process. Capped at the number
-            of queries.
+        num_workers: process-pool size. ``None`` (default) uses **all** CPUs:
+            it first widens the process CPU-affinity mask (undoing any scheduler
+            ``--cpu-bind`` pinning, kernel-clamped to the cgroup allocation) so a
+            binding launcher like ``srun`` can't cap it below the node's cores.
+            ``0`` or ``1`` runs serially in-process. An explicit ``N > 1`` uses
+            N workers (also widening affinity so they can spread). Capped at the
+            number of queries.
         subject_db_size: total residue count of the subject database, used as the
             search space for the database E-value. If ``None``, no E-value is
             reported (the pairwise p-value is still computed).
@@ -292,6 +325,14 @@ def align_candidates(
         lam, k = _estimate_lambda_k(
             gap_open, gap_extend, evalue_sample_size, evalue_sample_length, evalue_seed
         )
+
+    # Unless explicitly serial, widen the affinity mask before sizing the pool
+    # so a scheduler-pinned rank (e.g. srun-bound) still uses the whole node and
+    # the forked workers inherit the widened mask. Kernel-clamped to the cgroup,
+    # so this can't grab cores outside a real allocation.
+    serial = num_workers is not None and num_workers <= 1
+    if not serial and tasks:
+        _expand_cpu_affinity()
 
     n_workers = _resolve_num_workers(num_workers, len(tasks))
     init_args = (gap_open, gap_extend, lam, k, subject_db_size)

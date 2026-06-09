@@ -580,8 +580,9 @@ def query_database_from_fasta(
             help='Gap-extend penalty (positive) for Stage-2 alignment.'
         )] = 1,
         align_workers: Annotated[Optional[int], typer.Option(
-            help='Process-pool size for Stage-2 alignment. Defaults to all '
-                 'available CPUs; set to 0 or 1 to run serially.'
+            help='Process-pool size for Stage-2 alignment. Defaults to all CPUs '
+                 'on the node (widening any scheduler --cpu-bind pinning); set '
+                 'to 0 or 1 to run serially.'
         )] = None,
         log_level: Annotated[LogLevel, typer.Option(
             help='Logging level.'
@@ -697,8 +698,9 @@ def query_database_from_database(
             help='Gap-extend penalty (positive) for Stage-2 alignment.'
         )] = 1,
         align_workers: Annotated[Optional[int], typer.Option(
-            help='Process-pool size for Stage-2 alignment. Defaults to all '
-                 'available CPUs; set to 0 or 1 to run serially.'
+            help='Process-pool size for Stage-2 alignment. Defaults to all CPUs '
+                 'on the node (widening any scheduler --cpu-bind pinning); set '
+                 'to 0 or 1 to run serially.'
         )] = None,
         log_level: Annotated[LogLevel, typer.Option(
             help='Number of nodes to use for inference of embeddings.'
