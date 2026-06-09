@@ -147,17 +147,19 @@ def build_database_from_structures(
         strategy=strategy,
     )
 
-    if _is_rank_zero():
-        from foldmatch.search.embedding_database import EmbeddingDatabase
-        embedding_db = EmbeddingDatabase(
-            db_path=output_db
-        )
-        embedding_db.create_db(
-            embedding_batches=embedding_computer.get_embedding_batches(load_batch_size=load_batch_size),
-            use_gpu_index=use_gpu_index,
-            index_type=index_type,
-            index_config=IndexConfig(nlist=ivf_nlist, nprobe=ivf_nprobe),
-        )
+    if not _is_rank_zero():
+        return
+
+    from foldmatch.search.embedding_database import EmbeddingDatabase
+    embedding_db = EmbeddingDatabase(
+        db_path=output_db
+    )
+    embedding_db.create_db(
+        embedding_batches=embedding_computer.get_embedding_batches(load_batch_size=load_batch_size),
+        use_gpu_index=use_gpu_index,
+        index_type=index_type,
+        index_config=IndexConfig(nlist=ivf_nlist, nprobe=ivf_nprobe),
+    )
 
 
 @build_db_app.command(
@@ -303,27 +305,29 @@ def build_database_from_fasta(
         strategy=strategy,
     )
 
-    if _is_rank_zero():
-        from foldmatch.search.embedding_database import EmbeddingDatabase
-        embedding_db = EmbeddingDatabase(
-            db_path=output_db
-        )
-        embedding_db.create_db(
-            embedding_batches=embedding_computer.get_embedding_batches(load_batch_size=load_batch_size),
-            use_gpu_index=use_gpu_index,
-            index_type=index_type,
-            index_config=IndexConfig(nlist=ivf_nlist, nprobe=ivf_nprobe),
-        )
+    if not _is_rank_zero():
+        return
 
-        # Persist a sidecar id->sequence store so this database can be the
-        # subject (or query) of a Stage-2 pairwise-alignment search. Built
-        # directly from the FASTA — the DB ids ARE the FASTA headers — using the
-        # same min_res_n filter so store and index stay in lock-step.
-        from foldmatch.search.sequence_store import SequenceStore
-        SequenceStore(embedding_db.db_folder, embedding_db.index_name).create(
-            fasta_file=fasta_file,
-            min_res_n=min_res_n,
-        )
+    from foldmatch.search.embedding_database import EmbeddingDatabase
+    embedding_db = EmbeddingDatabase(
+        db_path=output_db
+    )
+    embedding_db.create_db(
+        embedding_batches=embedding_computer.get_embedding_batches(load_batch_size=load_batch_size),
+        use_gpu_index=use_gpu_index,
+        index_type=index_type,
+        index_config=IndexConfig(nlist=ivf_nlist, nprobe=ivf_nprobe),
+    )
+
+    # Persist a sidecar id->sequence store so this database can be the
+    # subject (or query) of a Stage-2 pairwise-alignment search. Built
+    # directly from the FASTA — the DB ids ARE the FASTA headers — using the
+    # same min_res_n filter so store and index stay in lock-step.
+    from foldmatch.search.sequence_store import SequenceStore
+    SequenceStore(embedding_db.db_folder, embedding_db.index_name).create(
+        fasta_file=fasta_file,
+        min_res_n=min_res_n,
+    )
 
 
 @query_db_app.command(
@@ -607,42 +611,41 @@ def query_database_from_fasta(
         strategy=strategy,
     )
 
-    if _is_rank_zero():
-        logging.info("Loading database...")
-        from foldmatch.search.embedding_database import EmbeddingDatabase
-        embedding_db = EmbeddingDatabase(
-            db_path=db_path,
-            use_gpu_for_search=use_gpu_index,
-        )
-        embedding_db.load(nprobe=nprobe)
-        results = embedding_db.search_by_embeddings(
-            embedding_batches=embedding_computer.get_embedding_batches(),
-            top_k=top_k
-        )
-        logging.info(f"Searched {len(results)} sequence(s)")
-        results = _filter_results_by_threshold(results, threshold)
+    if not _is_rank_zero():
+        return
 
-        if seq_identity:
-            from foldmatch.utils.fasta import iter_fasta
-            query_sequences = dict(iter_fasta(fasta_file))
-            _stage2_align_and_report(
-                embedding_db=embedding_db,
-                prefilter_results=results,
-                query_sequences=query_sequences,
-                min_seq_identity=min_seq_identity,
-                min_coverage=min_coverage,
-                gap_open=gap_open,
-                gap_extend=gap_extend,
-                num_workers=align_workers,
-                output_csv=output_csv,
-            )
-            return
+    logging.info("Loading database...")
+    from foldmatch.search.embedding_database import EmbeddingDatabase
+    embedding_db = EmbeddingDatabase(
+        db_path=db_path,
+        use_gpu_for_search=use_gpu_index,
+    )
+    embedding_db.load(nprobe=nprobe)
+    results = embedding_db.search_by_embeddings(
+        embedding_batches=embedding_computer.get_embedding_batches(),
+        top_k=top_k
+    )
+    logging.info(f"Searched {len(results)} sequence(s)")
+    results = _filter_results_by_threshold(results, threshold)
 
-        # See query_database_from_structure for the rationale: print xor CSV.
-        if output_csv:
-            embedding_db.export_results(results, output_csv)
-        else:
-            embedding_db.print_results(results)
+    if seq_identity:
+        from foldmatch.utils.fasta import iter_fasta
+        query_sequences = dict(iter_fasta(fasta_file))
+        _stage2_align_and_report(
+            embedding_db=embedding_db,
+            prefilter_results=results,
+            query_sequences=query_sequences,
+            min_seq_identity=min_seq_identity,
+            min_coverage=min_coverage,
+            gap_open=gap_open,
+            gap_extend=gap_extend,
+            num_workers=align_workers,
+            output_csv=output_csv,
+        )
+    elif output_csv:
+        embedding_db.export_results(results, output_csv)
+    else:
+        embedding_db.print_results(results)
 
 
 @query_db_app.command(
@@ -761,9 +764,7 @@ def query_database_from_database(
             output_csv=output_csv,
         )
         return
-
-    # See query_database_from_structure for the rationale: print xor CSV.
-    if output_csv:
+    elif output_csv:
         embedding_db.export_results(results, output_csv)
     else:
         embedding_db.print_results(results)
