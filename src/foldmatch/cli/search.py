@@ -1017,13 +1017,18 @@ def _stage2_align_and_report(
 
 
 def _is_rank_zero():
-    """Check if the current process is running in distributed mode."""
-    import torch.distributed as dist
-    if dist.is_available() and dist.is_initialized():
-        dist.barrier()
-    if not dist.is_available() or not dist.is_initialized() or dist.get_rank() == 0:
-        return True
-    return False
+    """True for the global-rank-0 process. Reads the rank from the
+    environment (set by the launcher) rather than torch.distributed,
+    which Lightning has already torn down by the time we return from
+    trainer.predict()."""
+    rank = (
+            os.environ.get("RANK")
+            or os.environ.get("GLOBAL_RANK")
+            or os.environ.get("SLURM_PROCID")
+            or os.environ.get("LOCAL_RANK")
+            or "0"
+    )
+    return rank == "0"
 
 
 def main():
