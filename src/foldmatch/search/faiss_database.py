@@ -201,6 +201,7 @@ class FaissEmbeddingDatabase:
         )
         faiss.normalize_L2(train_arr)
         self.index.train(train_arr)
+        logger.info("Training complete")
         del train_arr
 
         # Phase C: swap inverted lists onto disk so subsequent add() writes go to mmap.
