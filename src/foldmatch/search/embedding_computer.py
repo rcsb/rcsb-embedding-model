@@ -33,7 +33,7 @@ class EmbeddingComputer:
             embedding_folder: Path,
     ):
         self.embedding_folder = embedding_folder
-        self.out_name = f"emb_{_consolidate_id()}"
+        self.out_name = "emb_54521162"
 
     def compute_from_structures(
             self,

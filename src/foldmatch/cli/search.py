@@ -294,7 +294,7 @@ def build_database_from_fasta(
     embedding_computer = EmbeddingComputer(
         embedding_folder=tmp_embedding_folder,
     )
-    embedding_computer.compute_from_fasta(
+    """embedding_computer.compute_from_fasta(
         fasta_file=fasta_file,
         min_res_n=min_res_n,
         batch_size=batch_size,
@@ -303,7 +303,7 @@ def build_database_from_fasta(
         accelerator=accelerator,
         devices=arg_devices(devices),
         strategy=strategy,
-    )
+    )"""
 
     if not _is_rank_zero():
         return
