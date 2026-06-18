@@ -1,5 +1,6 @@
 import logging
 import os
+import time
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
@@ -294,6 +295,7 @@ def align_candidates(
         ``{query_id: [Hit, ...]}`` sorted by ``identity_aln`` desc, then
         embedding score desc. Queries with no surviving hit map to ``[]``.
     """
+    start_time = time.perf_counter()
     # Gather every candidate subject sequence in a single random-access read.
     all_subject_ids = {
         sid
@@ -358,6 +360,7 @@ def align_candidates(
         ]
         kept.sort(key=lambda h: (h.metrics.identity_aln, h.emb_score), reverse=True)
         results[query_id] = kept
+    logger.info(f"Pairwise alignments completed in {time.perf_counter() - start_time:.2f}s")
     return results
 
 
