@@ -20,6 +20,7 @@ If you are interested in training a new model with a new structure dataset, visi
 - **Sequence-based embeddings** from FASTA files without requiring 3D structures
 - **Structure-level embeddings** aggregated via a transformer-based aggregator network 
 - **Fast and efficient** FAISS-based similarity search
+- **Two-stage sequence search** — an embedding prefilter followed by exact pairwise Smith-Waterman alignment, reporting sequence identity, coverage, and approximate significance
 - **Structural clustering** using the Leiden algorithm for biological assembly identification
 - **Command-line interface** implemented with Typer for high-throughput inference workflows  
 - **Python API** for interactive embedding computation and integration into analysis pipelines  
@@ -116,6 +117,20 @@ fm-search similarity-graph  --db-path dbs/my_db --output graph.graphml
 ```
 
 All `build` commands accept `--index-type [auto|flat|hnsw|ivf_pq]` and IVF-PQ tuning flags (`--ivf-nlist`, `--ivf-nprobe`). See `fm-search <subcommand> --help` for the full surface.
+
+#### Two-stage sequence search (exact identity)
+
+`build sequences` also writes a sidecar `{db}.sequences` store next to the FAISS index. This lets sequence-built databases report **exact** sequence identity, not just embedding similarity: when you run `query sequences` (or `query db`) against such a database, a second stage pairwise-aligns each embedding hit (local Smith-Waterman, BLOSUM62) and adds `SeqIdentity_aln`, `SeqIdentity_shorter`, `QueryCoverage`, `SubjectCoverage`, `AlnLen`, `AlnScore`, and `Pvalue_approx`/`Evalue_approx` columns; surviving hits are re-ranked by identity.
+
+```bash
+# Stage 2 turns on automatically when the database has a sequence store
+fm-search query sequences --db-path dbs/my_db --fasta-file q.fasta --tmp-embedding-folder tmp
+```
+
+- **Auto by default**: Stage 2 runs when the database(s) carry a sequence store and falls back to embedding-only otherwise. Force it with `--seq-identity` (errors if no store is present) or disable with `--no-seq-identity`. `query db` requires **both** databases to have sequence stores.
+- Hits below `--min-seq-identity` (default `0.3`) or `--min-coverage` are dropped.
+- Tuning: `--gap-open`, `--gap-extend`, and `--align-workers` (defaults to all CPUs on the node).
+- `Pvalue_approx`/`Evalue_approx` are an **approximate, relative-only** significance signal (sampled Karlin–Altschul λ/K) — useful for ranking within FoldMatch, but **not** calibrated like BLAST/mmseqs2 E-values.
 
 ### `inference` — low-level inference subcommands
 
