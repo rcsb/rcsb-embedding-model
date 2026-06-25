@@ -562,13 +562,14 @@ def query_database_from_fasta(
                  'Defaults to the value baked in at build time. '
                  'Ignored for flat/hnsw indexes.'
         )] = None,
-        seq_identity: Annotated[bool, typer.Option(
+        seq_identity: Annotated[Optional[bool], typer.Option(
             help='Stage 2: after the embedding prefilter, pairwise-align each '
                  'query against its candidate subjects and report exact sequence '
-                 'identity (requires a subject database built from FASTA). Also '
-                 'reports Pvalue_approx/Evalue_approx — an APPROXIMATE, relative-'
-                 'only significance signal (sampled lambda/K), not BLAST-comparable.'
-        )] = False,
+                 'identity. Default: AUTO — on when the subject database has a '
+                 'sequence store (built from FASTA), else embedding-only. Use '
+                 '--no-seq-identity to force off, --seq-identity to force on '
+                 '(errors if the store is missing).'
+        )] = None,
         min_seq_identity: Annotated[float, typer.Option(
             help='When --seq-identity is set, drop hits whose alignment identity '
                  'is below this fraction (0-1).'
@@ -628,7 +629,16 @@ def query_database_from_fasta(
     logging.info(f"Searched {len(results)} sequence(s)")
     results = _filter_results_by_threshold(results, threshold)
 
-    if seq_identity:
+    from foldmatch.search.sequence_store import SequenceStore
+    subject_store = SequenceStore(embedding_db.db_folder, embedding_db.index_name)
+    run_stage2 = _resolve_stage2(
+        seq_identity,
+        subject_store.exists(),
+        f"Subject database has no sequence store ({subject_store.path}); "
+        f"--seq-identity requires a database built from FASTA (fm-search build sequences).",
+    )
+
+    if run_stage2:
         from foldmatch.utils.fasta import iter_fasta
         query_sequences = dict(iter_fasta(fasta_file))
         _stage2_align_and_report(
@@ -677,13 +687,14 @@ def query_database_from_database(
                  'Defaults to the value baked in at build time. '
                  'Ignored for flat/hnsw indexes.'
         )] = None,
-        seq_identity: Annotated[bool, typer.Option(
+        seq_identity: Annotated[Optional[bool], typer.Option(
             help='Stage 2: after the embedding prefilter, pairwise-align each '
                  'query against its candidate subjects and report exact sequence '
-                 'identity (requires BOTH databases built from FASTA). Also reports '
-                 'Pvalue_approx/Evalue_approx — an APPROXIMATE, relative-only '
-                 'significance signal (sampled lambda/K), not BLAST-comparable.'
-        )] = False,
+                 'identity. Default: AUTO — on when BOTH databases have a sequence '
+                 'store (built from FASTA), else embedding-only. Use '
+                 '--no-seq-identity to force off, --seq-identity to force on '
+                 '(errors if a store is missing).'
+        )] = None,
         min_seq_identity: Annotated[float, typer.Option(
             help='When --seq-identity is set, drop hits whose alignment identity '
                  'is below this fraction (0-1).'
@@ -739,18 +750,26 @@ def query_database_from_database(
     # Filter by threshold if specified
     results = _filter_results_by_threshold(results, threshold)
 
-    if seq_identity:
-        # Query sequences come from the query database's own sequence store.
-        from foldmatch.search.embedding_database import _parse_db_path
-        from foldmatch.search.sequence_store import SequenceStore
-        q_folder, q_name, _ = _parse_db_path(query_db_path)
-        query_store = SequenceStore(q_folder, q_name)
-        if not query_store.exists():
-            raise ValueError(
-                f"Query database has no sequence store ({query_store.path}); "
-                f"Stage-2 sequence identity requires a query database built from "
-                f"FASTA sequences (fm-search build sequences)."
-            )
+    # Stage 2 needs sequences for BOTH sides: queries from the query DB's store,
+    # subjects from the subject DB's store.
+    from foldmatch.search.embedding_database import _parse_db_path
+    from foldmatch.search.sequence_store import SequenceStore
+    q_folder, q_name, _ = _parse_db_path(query_db_path)
+    query_store = SequenceStore(q_folder, q_name)
+    subject_store = SequenceStore(embedding_db.db_folder, embedding_db.index_name)
+    missing = []
+    if not query_store.exists():
+        missing.append(f"query database ({query_store.path})")
+    if not subject_store.exists():
+        missing.append(f"subject database ({subject_store.path})")
+    run_stage2 = _resolve_stage2(
+        seq_identity,
+        not missing,
+        f"Stage-2 sequence identity requires a sequence store for: {', '.join(missing)}. "
+        f"Build databases with 'fm-search build sequences'.",
+    )
+
+    if run_stage2:
         query_sequences = query_store.fetch(results.keys())
         _stage2_align_and_report(
             embedding_db=embedding_db,
@@ -763,7 +782,6 @@ def query_database_from_database(
             num_workers=align_workers,
             output_csv=output_csv,
         )
-        return
     elif output_csv:
         embedding_db.export_results(results, output_csv)
     else:
@@ -967,6 +985,33 @@ def _filter_results_by_threshold(results, threshold: float | None):
     total_after = sum(len(ids) for ids, _ in filtered_results.values())
     logging.debug(f"Filtered from {total_before} to {total_after} results")
     return filtered_results
+
+def _resolve_stage2(seq_identity: Optional[bool], stores_available: bool, missing_msg: str) -> bool:
+    """Decide whether to run Stage-2 sequence-identity alignment.
+
+    ``seq_identity`` is tri-state: ``None`` = auto (run iff the required sequence
+    store(s) exist), ``True`` = force on (error if stores are missing),
+    ``False`` = force off. Returns whether to run Stage 2.
+    """
+    if seq_identity is False:
+        return False
+    if seq_identity is True:
+        if not stores_available:
+            raise ValueError(missing_msg)
+        return True
+    # auto
+    if stores_available:
+        logging.info(
+            "Sequence store detected; running Stage-2 sequence-identity alignment "
+            "(disable with --no-seq-identity)."
+        )
+        return True
+    logging.info(
+        "No sequence store for this database; reporting embedding similarity only. "
+        "Build with 'fm-search build sequences' to enable sequence identity."
+    )
+    return False
+
 
 def _stage2_align_and_report(
         embedding_db,
