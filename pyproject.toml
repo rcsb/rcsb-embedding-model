@@ -1,6 +1,6 @@
 [project]
 name = "foldmatch"
-version = "0.6.0"
+version = "0.7.0"
 authors = [
     { name="Joan Segura", email="joan.segura@rcsb.org" },
 ]
