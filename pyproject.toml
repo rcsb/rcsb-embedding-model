@@ -1,6 +1,6 @@
 [project]
 name = "foldmatch"
-version = "0.7.0"
+version = "0.7.1"
 authors = [
     { name="Joan Segura", email="joan.segura@rcsb.org" },
 ]
@@ -16,7 +16,7 @@ license = {file = "LICENSE.md"}
 dependencies=[
     "importlib-metadata==8.7.1",
     "esm==3.2.3",
-    "biotite==1.6.0",
+    "biotite==1.7.1",
     "lightning==2.6.1",
     "typer==0.24.1",
     "hf-xet==1.4.2",
