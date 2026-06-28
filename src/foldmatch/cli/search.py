@@ -2,7 +2,7 @@ import os
 import logging
 import typer
 from pathlib import Path
-from typing import Annotated, Optional, Tuple
+from typing import Annotated, Optional, List
 
 from foldmatch import __version__
 from foldmatch.cli.args_utils import arg_devices, set_log_level
@@ -76,9 +76,9 @@ def build_database_from_structures(
         accelerator: Annotated[Accelerator, typer.Option(
             help='Device used for inference.'
         )] = Accelerator.auto,
-        devices: Annotated[Tuple[str], typer.Option(
+        devices: Annotated[List[str], typer.Option(
             help='The devices to use. Can be set to a positive number or "auto". Repeat this argument to indicate multiple indices of devices. "auto" for automatic selection based on the chosen accelerator.'
-        )] = ('auto',),
+        )] = ['auto'],
         num_nodes: Annotated[int, typer.Option(
             help='Number of nodes to use for inference.'
         )] = 1,
@@ -256,9 +256,9 @@ def build_database_from_fasta(
         num_nodes: Annotated[int, typer.Option(
             help='Number of nodes to use for inference.'
         )] = 1,
-        devices: Annotated[Tuple[str], typer.Option(
+        devices: Annotated[List[str], typer.Option(
             help='The devices to use. Can be set to a positive number or "auto".'
-        )] = ('auto',),
+        )] = ['auto'],
         strategy: Annotated[Strategy, typer.Option(
             help='Lightning strategy to control distribution of inference.'
         )] = Strategy.auto,
@@ -544,9 +544,9 @@ def query_database_from_fasta(
         num_nodes: Annotated[int, typer.Option(
             help='Number of nodes to use for inference.'
         )] = 1,
-        devices: Annotated[Tuple[str], typer.Option(
+        devices: Annotated[List[str], typer.Option(
             help='The devices to use. Can be set to a positive number or "auto".'
-        )] = ('auto',),
+        )] = ['auto'],
         strategy: Annotated[Strategy, typer.Option(
             help='Lightning strategy to control distribution of inference.'
         )] = Strategy.auto,

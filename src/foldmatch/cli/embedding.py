@@ -17,7 +17,7 @@ from pathlib import Path
 
 import typer
 
-from typing import Annotated, Optional, Tuple
+from typing import Annotated, Optional, List
 
 from foldmatch import __version__
 from foldmatch.cli.args_utils import arg_devices, set_log_level
@@ -103,9 +103,9 @@ def from_structures_residue(
         accelerator: Annotated[Accelerator, typer.Option(
             help='Device used for inference.'
         )] = Accelerator.auto,
-        devices: Annotated[Tuple[str], typer.Option(
+        devices: Annotated[List[str], typer.Option(
             help='The devices to use. Can be set to a positive number or "auto". Repeat this argument to indicate multiple indices of devices.'
-        )] = ('auto',),
+        )] = ['auto'],
         strategy: Annotated[Strategy, typer.Option(
             help='Lightning strategy to control distribution of inference.'
         )] = Strategy.auto,
@@ -183,9 +183,9 @@ def from_structures_chain(
         num_nodes: Annotated[int, typer.Option(
             help='Number of nodes to use for inference.'
         )] = 1,
-        devices: Annotated[Tuple[str], typer.Option(
+        devices: Annotated[List[str], typer.Option(
             help='The devices to use. Can be set to a positive number or "auto".'
-        )] = ('auto',),
+        )] = ['auto'],
         strategy: Annotated[Strategy, typer.Option(
             help='Lightning strategy to control distribution of inference.'
         )] = Strategy.auto,
@@ -266,9 +266,9 @@ def from_structures_assembly(
         num_nodes: Annotated[int, typer.Option(
             help='Number of nodes to use for inference.'
         )] = 1,
-        devices: Annotated[Tuple[str], typer.Option(
+        devices: Annotated[List[str], typer.Option(
             help='The devices to use. Can be set to a positive number or "auto".'
-        )] = ('auto',),
+        )] = ['auto'],
         strategy: Annotated[Strategy, typer.Option(
             help='Lightning strategy to control distribution of inference.'
         )] = Strategy.auto,
@@ -344,9 +344,9 @@ def from_sequences_residue(
         accelerator: Annotated[Accelerator, typer.Option(
             help='Device used for inference.'
         )] = Accelerator.auto,
-        devices: Annotated[Tuple[str], typer.Option(
+        devices: Annotated[List[str], typer.Option(
             help='The devices to use. Can be set to a positive number or "auto".'
-        )] = ('auto',),
+        )] = ['auto'],
         strategy: Annotated[Strategy, typer.Option(
             help='Lightning strategy to control distribution of inference.'
         )] = Strategy.auto,
@@ -413,9 +413,9 @@ def from_sequences_chain(
         num_nodes: Annotated[int, typer.Option(
             help='Number of nodes to use for inference.'
         )] = 1,
-        devices: Annotated[Tuple[str], typer.Option(
+        devices: Annotated[List[str], typer.Option(
             help='The devices to use. Can be set to a positive number or "auto".'
-        )] = ('auto',),
+        )] = ['auto'],
         strategy: Annotated[Strategy, typer.Option(
             help='Lightning strategy to control distribution of inference.'
         )] = Strategy.auto,
