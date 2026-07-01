@@ -1,12 +1,15 @@
 import logging
+from datetime import timedelta
 from pathlib import Path
 
 import torch
+from lightning.pytorch.strategies import DDPStrategy
 from torch.utils.data import DataLoader
 from lightning import Trainer
 
 from foldmatch.dataset.esm_prot_from_fasta import EsmProtFromFasta
 from foldmatch.dataset.esm_prot_from_structure import EsmProtFromStructure
+from foldmatch.inference.utils import is_distributed
 from foldmatch.modules.chain_complete_module import ChainCompleteModule
 from foldmatch.types.api_types import StructureFormat, Accelerator, Devices, Strategy, \
     SrcEsmFrom, FileOrStreamTuple, SrcLocation, OutFormat
@@ -76,6 +79,8 @@ def predict(
             inference_writer = CsvBatchWriter(out_folder)
     else:
         inference_writer = None
+    if strategy == Strategy.auto and is_distributed(devices, num_nodes):
+        strategy = DDPStrategy(timeout=timedelta(days=1))
     trainer = Trainer(
         callbacks=[inference_writer] if inference_writer is not None else None,
         num_nodes=num_nodes,
