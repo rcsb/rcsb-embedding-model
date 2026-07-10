@@ -1,4 +1,5 @@
 import logging
+import math
 import os
 import time
 from dataclasses import dataclass
@@ -228,7 +229,13 @@ def _align(query_protein, query_len: int, subject_protein, subject_len: int) -> 
 
 
 def _align_query(task):
-    """Align one query against all of its candidate subjects. Runs in a worker."""
+    """Align one query against a chunk of its candidate subjects. Runs in a worker.
+
+    The chunk may be all of a query's candidates or a slice of them (see
+    :func:`_chunk_candidate_tasks`); either way the query protein is built once
+    for the chunk and a partial hit list is returned, keyed by ``query_id`` so
+    the caller can regroup a query that was split across several chunks.
+    """
     query_id, query_seq, candidates = task
     query_protein, query_len = _to_protein(query_seq)
     if query_protein is None:
@@ -241,6 +248,33 @@ def _align_query(task):
         metrics = _align(query_protein, query_len, subject_protein, subject_len)
         hits.append(Hit(subject_id=subject_id, emb_score=emb_score, metrics=metrics))
     return query_id, hits
+
+
+def _chunk_candidate_tasks(tasks, worker_budget: int, tasks_per_worker: int = 4):
+    """Split per-query tasks into per-(query, candidate-chunk) tasks for the pool.
+
+    Parallelizing over whole queries pins a single query with many candidates to
+    one worker (every other core idle); splitting a query's candidate list into
+    chunks lets the pool spread those alignments across all workers. Chunk size
+    is chosen so there are roughly ``tasks_per_worker * worker_budget`` chunks in
+    total — enough to keep every worker fed and to smooth out the load imbalance
+    from variable-length (quadratic-cost) alignments — while still batching
+    several candidates per chunk to amortize the per-chunk query rebuild and the
+    task's pickling overhead.
+
+    Queries with no candidates are dropped here (they emit no work); the caller
+    re-seeds them so they still report an empty hit list.
+    """
+    total_pairs = sum(len(candidates) for _, _, candidates in tasks)
+    if total_pairs == 0:
+        return list(tasks)
+    target_chunks = tasks_per_worker * max(1, worker_budget)
+    chunk_size = max(1, math.ceil(total_pairs / target_chunks))
+    chunked = []
+    for query_id, query_seq, candidates in tasks:
+        for start in range(0, len(candidates), chunk_size):
+            chunked.append((query_id, query_seq, candidates[start:start + chunk_size]))
+    return chunked
 
 
 def align_candidates(
@@ -336,23 +370,48 @@ def align_candidates(
     if not serial and tasks:
         _expand_cpu_affinity()
 
-    n_workers = _resolve_num_workers(num_workers, len(tasks))
     init_args = (gap_open, gap_extend, lam, k, subject_db_size)
+    if not serial and tasks:
+        # Parallelize over (query, subject) *pairs* rather than whole queries by
+        # chunking each query's candidate list, so even a single query with many
+        # candidates uses the whole node instead of one core. Size the pool by
+        # the number of chunks (capped, as before, at the worker budget).
+        worker_budget = _available_cpus() if num_workers is None else num_workers
+        pair_tasks = _chunk_candidate_tasks(tasks, worker_budget)
+        n_workers = _resolve_num_workers(num_workers, len(pair_tasks))
+    else:
+        pair_tasks = tasks
+        n_workers = 1
+
     if n_workers > 1:
-        logger.info(f"Aligning {len(tasks)} queries across {n_workers} CPU workers")
+        total_pairs = sum(len(candidates) for _, _, candidates in tasks)
+        logger.info(
+            f"Aligning {total_pairs} (query, subject) pairs from {len(tasks)} "
+            f"queries in {len(pair_tasks)} chunks across {n_workers} CPU workers"
+        )
         import multiprocessing as mp
         with mp.Pool(
             processes=n_workers,
             initializer=_worker_init,
             initargs=init_args,
         ) as pool:
-            raw = pool.map(_align_query, tasks)
+            # chunksize=1: each candidate-chunk is its own dispatch unit (we've
+            # already sized the chunks) so variable-length alignments stay
+            # balanced; pool.map preserves task order.
+            raw = pool.map(_align_query, pair_tasks, chunksize=1)
     else:
         _worker_init(*init_args)
-        raw = [_align_query(task) for task in tasks]
+        raw = [_align_query(task) for task in pair_tasks]
+
+    # A query may now span several chunks, so accumulate its hits before
+    # filtering/sorting. Pre-seed every query (in prefilter order) so those with
+    # no candidates still map to [] and the result ordering is preserved.
+    per_query: Dict[str, List[Hit]] = {query_id: [] for query_id, _, _ in tasks}
+    for query_id, hits in raw:
+        per_query[query_id].extend(hits)
 
     results: Dict[str, List[Hit]] = {}
-    for query_id, hits in raw:
+    for query_id, hits in per_query.items():
         kept = [
             hit for hit in hits
             if hit.metrics.identity_aln >= min_seq_identity
