@@ -5,8 +5,8 @@ from foldmatch.model.residue_embedding_aggregator import ResidueEmbeddingAggrega
 from foldmatch.utils.esm.loaders import esm_open
 
 REPO_ID = "rcsb/rcsb-embedding-model"
-FILE_NAME = "rcsb-embedding-model.pt"
-REVISION = "410606e40b1bb7968ce318c41009355c3ac32503"
+FILE_NAME = "rcsb-sequence-model.pt"
+REVISION = "1d1fc5043142c6422348d2a0fd0da8f79664e419"
 
 
 def get_aggregator_model(device=None):
