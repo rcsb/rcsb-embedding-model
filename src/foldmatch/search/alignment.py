@@ -86,6 +86,10 @@ _GAP: Tuple[int, int] = (-11, -1)
 # also per-process. None when significance is not being computed.
 _ESTIMATOR = None
 _DB_RESIDUES: Optional[int] = None
+# The sampled lambda/K behind the estimator, kept alongside it so the bit score
+# can be computed directly. None when significance is not being computed.
+_LAMBDA: Optional[float] = None
+_K: Optional[float] = None
 
 
 @dataclass
@@ -99,6 +103,7 @@ class AlignmentMetrics:
     score: int                 # Smith-Waterman score
     # Approximate (relative-only) Karlin-Altschul significance from sampled
     # lambda/K — see module docstring; NOT calibrated against BLAST.
+    bit_score: Optional[float] = None  # normalized score (lambda*S - lnK)/ln2, same relative-only scale
     pvalue: Optional[float] = None   # pairwise p-value (n = subject length)
     evalue: Optional[float] = None   # E-value over the subject DB (n = total residues)
 
@@ -178,13 +183,27 @@ def _pvalue_from_evalue(evalue: float) -> float:
     return float(-np.expm1(-evalue))
 
 
+def _bit_score(score: int, lam: float, k: float) -> float:
+    """BLAST-style normalized (bit) score S' = (lambda*S - ln K) / ln 2.
+
+    Uses the same sampled lambda/K as the p-/E-values, so it inherits their
+    approximate, relative-only scale (see module docstring) — NOT comparable to
+    BLAST bit scores. Because lambda/K are estimated once and shared across every
+    alignment in a run, the bit score is a strictly increasing function of the
+    raw score, so ranking by bit score matches ranking by raw Smith-Waterman
+    score regardless of the lambda/K bias.
+    """
+    return (lam * score - math.log(k)) / math.log(2.0)
+
+
 def _worker_init(gap_open: int, gap_extend: int, lam: Optional[float], k: Optional[float],
                  db_residues: Optional[int]):
-    global _MATRIX, _GAP, _ESTIMATOR, _DB_RESIDUES
+    global _MATRIX, _GAP, _ESTIMATOR, _DB_RESIDUES, _LAMBDA, _K
     import biotite.sequence.align as align
     _MATRIX = align.SubstitutionMatrix.std_protein_matrix()  # BLOSUM62
     _GAP = (-abs(gap_open), -abs(gap_extend))
     _ESTIMATOR = align.EValueEstimator(lam, k) if lam is not None else None
+    _LAMBDA, _K = lam, k
     _DB_RESIDUES = db_residues
 
 
@@ -195,10 +214,13 @@ def _align(query_protein, query_len: int, subject_protein, subject_len: int) -> 
         gap_penalty=_GAP, local=True, max_number=1,
     )[0]
     score = int(aln.score)
+    # Compute the bit score here so both return paths carry it. None when
+    # significance is off; on the same relative-only scale as the p-/E-values.
+    bit_score = _bit_score(score, _LAMBDA, _K) if _ESTIMATOR is not None else None
     trace = aln.trace
     aln_len = int(trace.shape[0])
     if aln_len == 0:
-        return AlignmentMetrics(0.0, 0.0, 0.0, 0.0, 0, score)
+        return AlignmentMetrics(0.0, 0.0, 0.0, 0.0, 0, score, bit_score=bit_score)
     identity_aln = float(align.get_sequence_identity(aln, mode="all"))
     identity_shorter = float(align.get_sequence_identity(aln, mode="shortest"))
     q_aligned = int((trace[:, 0] != -1).sum())
@@ -223,6 +245,7 @@ def _align(query_protein, query_len: int, subject_protein, subject_len: int) -> 
         subject_coverage=s_aligned / subject_len if subject_len else 0.0,
         aln_len=aln_len,
         score=score,
+        bit_score=bit_score,
         pvalue=pvalue,
         evalue=evalue,
     )
@@ -326,8 +349,11 @@ def align_candidates(
             lambda/K sampling pass.
 
     Returns:
-        ``{query_id: [Hit, ...]}`` sorted by ``identity_aln`` desc, then
-        embedding score desc. Queries with no surviving hit map to ``[]``.
+        ``{query_id: [Hit, ...]}`` sorted by ``bit_score`` desc (equivalently
+        raw alignment score, since lambda/K are shared across the run), then
+        embedding score desc; with ``compute_significance=False`` the raw
+        alignment score is used directly. Queries with no surviving hit map to
+        ``[]``.
     """
     start_time = time.perf_counter()
     # Gather every candidate subject sequence in a single random-access read.
@@ -417,7 +443,17 @@ def align_candidates(
             if hit.metrics.identity_aln >= min_seq_identity
             and min(hit.metrics.query_coverage, hit.metrics.subject_coverage) >= min_coverage
         ]
-        kept.sort(key=lambda h: (h.metrics.identity_aln, h.emb_score), reverse=True)
+        # Rank by bit score (desc), embedding score breaking ties. When
+        # significance is disabled there is no bit score, so fall back to the raw
+        # alignment score — the same ordering, since the bit score is monotonic
+        # in the raw score under the run-wide shared lambda/K.
+        kept.sort(
+            key=lambda h: (
+                h.metrics.bit_score if h.metrics.bit_score is not None else h.metrics.score,
+                h.emb_score,
+            ),
+            reverse=True,
+        )
         results[query_id] = kept
     logger.info(f"Pairwise alignments completed in {time.perf_counter() - start_time:.2f}s")
     return results
@@ -433,17 +469,18 @@ def print_aligned_results(results: Dict[str, List[Hit]]) -> None:
         logging.info(
             f"{'Rank':<6} {'Match':<40} {'EmbScore':<10} {'Ident':<8} "
             f"{'IdentSh':<8} {'QCov':<7} {'SCov':<7} {'AlnLen':<7} {'AlnScore':<9} "
-            f"{'Pval~':<11} {'Eval~':<11}"
+            f"{'Bits~':<9} {'Pval~':<11} {'Eval~':<11}"
         )
         for rank, hit in enumerate(hits, 1):
             m = hit.metrics
+            bits = f"{m.bit_score:.1f}" if m.bit_score is not None else "-"
             pval = f"{m.pvalue:.2e}" if m.pvalue is not None else "-"
             eval_ = f"{m.evalue:.2e}" if m.evalue is not None else "-"
             logging.info(
                 f"{rank:<6} {hit.subject_id:<40} {hit.emb_score:<10.6f} "
                 f"{m.identity_aln:<8.4f} {m.identity_shorter:<8.4f} "
                 f"{m.query_coverage:<7.4f} {m.subject_coverage:<7.4f} "
-                f"{m.aln_len:<7} {m.score:<9} {pval:<11} {eval_:<11}"
+                f"{m.aln_len:<7} {m.score:<9} {bits:<9} {pval:<11} {eval_:<11}"
             )
 
 
@@ -456,7 +493,7 @@ def export_aligned_results(results: Dict[str, List[Hit]], output_file: str) -> N
             'Query', 'Rank', 'Match', 'EmbScore',
             'SeqIdentity_aln', 'SeqIdentity_shorter',
             'QueryCoverage', 'SubjectCoverage', 'AlnLen', 'AlnScore',
-            'Pvalue_approx', 'Evalue_approx',
+            'BitScore_approx', 'Pvalue_approx', 'Evalue_approx',
         ])
         for query_id, hits in results.items():
             for rank, hit in enumerate(hits, 1):
@@ -466,6 +503,7 @@ def export_aligned_results(results: Dict[str, List[Hit]], output_file: str) -> N
                     f"{m.identity_aln:.6f}", f"{m.identity_shorter:.6f}",
                     f"{m.query_coverage:.6f}", f"{m.subject_coverage:.6f}",
                     m.aln_len, m.score,
+                    f"{m.bit_score:.4f}" if m.bit_score is not None else "",
                     f"{m.pvalue:.6e}" if m.pvalue is not None else "",
                     f"{m.evalue:.6e}" if m.evalue is not None else "",
                 ])
