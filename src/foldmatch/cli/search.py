@@ -584,6 +584,12 @@ def query_database_from_fasta(
         gap_extend: Annotated[int, typer.Option(
             help='Gap-extend penalty (positive) for Stage-2 alignment.'
         )] = 1,
+        significance_mode: Annotated[str, typer.Option(
+            help="Scale for the BitScore/Pvalue/Evalue columns. 'mmseqs' "
+                 "(default) matches mmseqs search output but requires the "
+                 "default gap penalties 11/1; 'sampled' works at any gap "
+                 "penalties but is only comparable within this tool."
+        )] = 'mmseqs',
         align_workers: Annotated[Optional[int], typer.Option(
             help='Process-pool size for Stage-2 alignment. Defaults to all CPUs '
                  'on the node (widening any scheduler --cpu-bind pinning); set '
@@ -651,6 +657,7 @@ def query_database_from_fasta(
             gap_extend=gap_extend,
             num_workers=align_workers,
             output_csv=output_csv,
+            significance_mode=significance_mode,
         )
     elif output_csv:
         embedding_db.export_results(results, output_csv)
@@ -703,14 +710,20 @@ def query_database_from_database(
             help='When --seq-identity is set, drop hits whose query AND subject '
                  'coverage are below this fraction (0-1).'
         )] = 0.0,
-        # Note: Pvalue_approx/Evalue_approx columns are an approximate,
-        # relative-only significance signal (sampled lambda/K) — not BLAST-comparable.
+        # Note: the BitScore/Pvalue/Evalue columns are on the MMseqs2 scale by
+        # default (see --significance-mode) — never comparable to BLAST.
         gap_open: Annotated[int, typer.Option(
             help='Gap-open penalty (positive) for Stage-2 alignment.'
         )] = 11,
         gap_extend: Annotated[int, typer.Option(
             help='Gap-extend penalty (positive) for Stage-2 alignment.'
         )] = 1,
+        significance_mode: Annotated[str, typer.Option(
+            help="Scale for the BitScore/Pvalue/Evalue columns. 'mmseqs' "
+                 "(default) matches mmseqs search output but requires the "
+                 "default gap penalties 11/1; 'sampled' works at any gap "
+                 "penalties but is only comparable within this tool."
+        )] = 'mmseqs',
         align_workers: Annotated[Optional[int], typer.Option(
             help='Process-pool size for Stage-2 alignment. Defaults to all CPUs '
                  'on the node (widening any scheduler --cpu-bind pinning); set '
@@ -781,6 +794,7 @@ def query_database_from_database(
             gap_extend=gap_extend,
             num_workers=align_workers,
             output_csv=output_csv,
+            significance_mode=significance_mode,
         )
     elif output_csv:
         embedding_db.export_results(results, output_csv)
@@ -1023,6 +1037,7 @@ def _stage2_align_and_report(
         gap_extend: int,
         num_workers: Optional[int],
         output_csv: Optional[str],
+        significance_mode: str = "mmseqs",
 ):
     """Run Stage-2 pairwise alignment on prefilter candidates and report.
 
@@ -1052,6 +1067,7 @@ def _stage2_align_and_report(
         gap_extend=gap_extend,
         num_workers=num_workers,
         subject_db_size=subject_store.total_residues(),
+        significance_mode=significance_mode,
     )
 
     # See query_database_from_structure for the rationale: print xor CSV.

@@ -7,13 +7,27 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
+from . import mmseqs_stats
+
 logger = logging.getLogger(__name__)
 
-# Karlin-Altschul lambda/K are estimated by sampling random alignments via
-# biotite (see _estimate_lambda_k). These estimates are biased relative to NCBI's
-# published BLOSUM62 constants (measured lambda ~0.18-0.22 vs 0.267, K ~5x low),
-# so the resulting p-/E-values are an APPROXIMATE, RELATIVE-ONLY significance
-# signal — useful for ranking/filtering within this tool, NOT comparable to BLAST.
+# Significance (p-/E-values, bit scores) comes in two flavors, selected by
+# ``significance_mode``:
+#
+#   'mmseqs' (default) — MMseqs2-calibrated. Uses the ALP constants and the
+#       finite-size-corrected search space that MMseqs2 itself uses, so the
+#       numbers land on the same scale as ``mmseqs search`` output. See
+#       mmseqs_stats.py. Only BLOSUM62 at gaps 11/1 is supported (the one
+#       combination MMseqs2 hardcodes); other gap penalties raise.
+#       NOT comparable to BLAST: MMseqs2's nominal 11/1 equals BLAST's 10/1 in
+#       total gap cost, and its lambda/K differ from NCBI's published values.
+#
+#   'sampled' — the original behavior: lambda/K estimated by sampling random
+#       alignments via biotite (see _estimate_lambda_k). Those estimates are
+#       biased relative to NCBI's published BLOSUM62 constants (measured lambda
+#       ~0.18-0.22 vs 0.267, K ~5x low), so the result is an APPROXIMATE,
+#       RELATIVE-ONLY signal — fine for ranking within this tool, comparable to
+#       nothing outside it. Use it for gap penalties 'mmseqs' cannot serve.
 
 # Robinson & Robinson (1991) background amino-acid frequencies, used to generate
 # the random sequences sampled when estimating lambda/K.
@@ -83,11 +97,14 @@ _BIOTITE_ALPHABET = set("ACDEFGHIKLMNPQRSTVWYBZX*")
 _MATRIX = None
 _GAP: Tuple[int, int] = (-11, -1)
 # Karlin-Altschul E-value estimator (biotite) and the subject-DB residue total,
-# also per-process. None when significance is not being computed.
+# also per-process. _ESTIMATOR is None unless significance_mode='sampled'.
 _ESTIMATOR = None
 _DB_RESIDUES: Optional[int] = None
-# The sampled lambda/K behind the estimator, kept alongside it so the bit score
-# can be computed directly. None when significance is not being computed.
+# MMseqs2 ALP parameter set; None unless significance_mode='mmseqs'.
+_ALP = None
+# The active lambda/K (MMseqs2's or the sampled ones), kept so the bit score can
+# be computed directly. None when significance is not being computed at all —
+# this is the single gate for "is significance on?".
 _LAMBDA: Optional[float] = None
 _K: Optional[float] = None
 
@@ -101,9 +118,10 @@ class AlignmentMetrics:
     subject_coverage: float    # aligned subject residues / full subject length
     aln_len: int               # alignment length (columns, gaps included)
     score: int                 # Smith-Waterman score
-    # Approximate (relative-only) Karlin-Altschul significance from sampled
-    # lambda/K — see module docstring; NOT calibrated against BLAST.
-    bit_score: Optional[float] = None  # normalized score (lambda*S - lnK)/ln2, same relative-only scale
+    # Karlin-Altschul significance. Scale depends on significance_mode:
+    # MMseqs2-comparable ('mmseqs', default) or relative-only ('sampled').
+    # Never BLAST-comparable — see module header.
+    bit_score: Optional[float] = None  # normalized score (lambda*S - lnK)/ln2
     pvalue: Optional[float] = None   # pairwise p-value (n = subject length)
     evalue: Optional[float] = None   # E-value over the subject DB (n = total residues)
 
@@ -184,26 +202,34 @@ def _pvalue_from_evalue(evalue: float) -> float:
 
 
 def _bit_score(score: int, lam: float, k: float) -> float:
-    """BLAST-style normalized (bit) score S' = (lambda*S - ln K) / ln 2.
+    """Normalized (bit) score S' = (lambda*S - ln K) / ln 2.
 
-    Uses the same sampled lambda/K as the p-/E-values, so it inherits their
-    approximate, relative-only scale (see module docstring) — NOT comparable to
-    BLAST bit scores. Because lambda/K are estimated once and shared across every
-    alignment in a run, the bit score is a strictly increasing function of the
-    raw score, so ranking by bit score matches ranking by raw Smith-Waterman
-    score regardless of the lambda/K bias.
+    Uses the same lambda/K as the p-/E-values, so it inherits the active mode's
+    scale: MMseqs2-comparable under 'mmseqs', relative-only under 'sampled'.
+    Never BLAST-comparable (see module header). Because lambda/K are fixed for a
+    whole run, the bit score is a strictly increasing function of the raw score,
+    so ranking by bit score matches ranking by raw Smith-Waterman score in either
+    mode.
     """
     return (lam * score - math.log(k)) / math.log(2.0)
 
 
 def _worker_init(gap_open: int, gap_extend: int, lam: Optional[float], k: Optional[float],
-                 db_residues: Optional[int]):
-    global _MATRIX, _GAP, _ESTIMATOR, _DB_RESIDUES, _LAMBDA, _K
+                 db_residues: Optional[int], alp_params=None):
+    global _MATRIX, _GAP, _ESTIMATOR, _DB_RESIDUES, _LAMBDA, _K, _ALP
     import biotite.sequence.align as align
     _MATRIX = align.SubstitutionMatrix.std_protein_matrix()  # BLOSUM62
+    # Gap penalties are passed through unmodified: biotite charges a length-L gap
+    # as open + (L-1)*extend, which is exactly MMseqs2's convention, so 11/1 here
+    # is the scoring system its hardcoded lambda/K were shipped with.
     _GAP = (-abs(gap_open), -abs(gap_extend))
-    _ESTIMATOR = align.EValueEstimator(lam, k) if lam is not None else None
-    _LAMBDA, _K = lam, k
+    _ALP = alp_params
+    if alp_params is not None:
+        _ESTIMATOR = None
+        _LAMBDA, _K = alp_params.lam, alp_params.k
+    else:
+        _ESTIMATOR = align.EValueEstimator(lam, k) if lam is not None else None
+        _LAMBDA, _K = lam, k
     _DB_RESIDUES = db_residues
 
 
@@ -215,8 +241,8 @@ def _align(query_protein, query_len: int, subject_protein, subject_len: int) -> 
     )[0]
     score = int(aln.score)
     # Compute the bit score here so both return paths carry it. None when
-    # significance is off; on the same relative-only scale as the p-/E-values.
-    bit_score = _bit_score(score, _LAMBDA, _K) if _ESTIMATOR is not None else None
+    # significance is off; otherwise on whatever scale the active mode implies.
+    bit_score = _bit_score(score, _LAMBDA, _K) if _LAMBDA is not None else None
     trace = aln.trace
     aln_len = int(trace.shape[0])
     if aln_len == 0:
@@ -227,12 +253,24 @@ def _align(query_protein, query_len: int, subject_protein, subject_len: int) -> 
     s_aligned = int((trace[:, 1] != -1).sum())
 
     pvalue = evalue = None
-    if _ESTIMATOR is not None:
+    if _ALP is not None:
+        # MMseqs2-calibrated: ALP constants + ALP's finite-size-corrected area.
         # Pairwise p-value: search space = the two sequences (n = subject length).
+        # MMseqs2 itself emits no p-value; this is the ALP p-value of the
+        # pairwise E, kept for continuity with the 'sampled' mode.
+        pvalue = mmseqs_stats.pvalue_from_evalue(
+            mmseqs_stats.evalue(score, query_len, subject_len, _ALP)
+        )
+        # Database E-value: this is the MMseqs2-comparable quantity — search
+        # space = the whole target DB as one concatenated sequence, exactly as
+        # MMseqs2 does (no per-sequence term, no multiply by sequence count).
+        if _DB_RESIDUES:
+            evalue = mmseqs_stats.evalue(score, query_len, _DB_RESIDUES, _ALP)
+    elif _ESTIMATOR is not None:
+        # Sampled/relative-only: biotite's raw K*m*n*exp(-lambda*S), no edge correction.
         pvalue = _pvalue_from_evalue(
             _evalue_from_log(_ESTIMATOR.log_evalue(score, query_len, subject_len))
         )
-        # Database E-value: search space = full subject DB (n = total residues).
         if _DB_RESIDUES:
             evalue = _evalue_from_log(
                 _ESTIMATOR.log_evalue(score, query_len, _DB_RESIDUES)
@@ -311,6 +349,7 @@ def align_candidates(
         num_workers: Optional[int] = None,
         subject_db_size: Optional[int] = None,
         compute_significance: bool = True,
+        significance_mode: str = "mmseqs",
         # Defaults of 500x500 (vs biotite's own 1000x1000) chosen from a one-off
         # benchmark (BLOSUM62, 11/1 gaps): lambda/K had already converged to
         # within ~1% of the 1000x1000 values by 500x500, at ~8x less wall time
@@ -341,12 +380,19 @@ def align_candidates(
         subject_db_size: total residue count of the subject database, used as the
             search space for the database E-value. If ``None``, no E-value is
             reported (the pairwise p-value is still computed).
-        compute_significance: when ``True``, annotate each hit with an approximate
-            (relative-only) Karlin-Altschul pairwise p-value and (if
-            ``subject_db_size`` is given) a database E-value. These come from
-            sampled lambda/K and are NOT calibrated against BLAST.
+        compute_significance: when ``True``, annotate each hit with a bit score,
+            a pairwise p-value and (if ``subject_db_size`` is given) a database
+            E-value.
+        significance_mode: ``'mmseqs'`` (default) puts those numbers on the same
+            scale as ``mmseqs search`` output, using MMseqs2's own ALP constants
+            and finite-size-corrected search space; it supports only
+            ``gap_open=11, gap_extend=1`` (the sole gapped BLOSUM62 combination
+            MMseqs2 hardcodes) and raises otherwise. ``'sampled'`` restores the
+            previous behavior — lambda/K estimated by sampling, giving an
+            approximate signal comparable only within this tool. Neither mode is
+            BLAST-comparable; see the module header.
         evalue_sample_size / evalue_sample_length / evalue_seed: controls for the
-            lambda/K sampling pass.
+            lambda/K sampling pass (``'sampled'`` mode only).
 
     Returns:
         ``{query_id: [Hit, ...]}`` sorted by ``bit_score`` desc (equivalently
@@ -380,13 +426,26 @@ def align_candidates(
             logger.warning(f"{missing} candidate(s) for query '{query_id}' missing from sequence store; skipped")
         tasks.append((query_id, query_seq, candidates))
 
-    # Estimate Karlin-Altschul lambda/K once (a single sampling pass) and share
-    # with workers via the cheap EValueEstimator(lam, k) constructor.
-    lam = k = None
+    # Resolve the significance parameters once and share them with the workers.
+    # 'mmseqs' is a table lookup (no sampling pass); 'sampled' runs the estimator.
+    lam = k = alp_params = None
     if compute_significance and tasks:
-        lam, k = _estimate_lambda_k(
-            gap_open, gap_extend, evalue_sample_size, evalue_sample_length, evalue_seed
-        )
+        if significance_mode == "mmseqs":
+            alp_params = mmseqs_stats.params_for(gap_open, gap_extend)
+            logger.info(
+                f"Using MMseqs2-calibrated significance (ALP BLOSUM62 "
+                f"{gap_open}/{gap_extend}: lambda={alp_params.lam:.8f}, "
+                f"K={alp_params.k:.9f}); E-values are on the mmseqs scale, not BLAST's."
+            )
+        elif significance_mode == "sampled":
+            lam, k = _estimate_lambda_k(
+                gap_open, gap_extend, evalue_sample_size, evalue_sample_length, evalue_seed
+            )
+        else:
+            raise ValueError(
+                f"Unknown significance_mode {significance_mode!r}; "
+                f"expected 'mmseqs' or 'sampled'."
+            )
 
     # Unless explicitly serial, widen the affinity mask before sizing the pool
     # so a scheduler-pinned rank (e.g. srun-bound) still uses the whole node and
@@ -396,7 +455,7 @@ def align_candidates(
     if not serial and tasks:
         _expand_cpu_affinity()
 
-    init_args = (gap_open, gap_extend, lam, k, subject_db_size)
+    init_args = (gap_open, gap_extend, lam, k, subject_db_size, alp_params)
     if not serial and tasks:
         # Parallelize over (query, subject) *pairs* rather than whole queries by
         # chunking each query's candidate list, so even a single query with many
@@ -469,7 +528,7 @@ def print_aligned_results(results: Dict[str, List[Hit]]) -> None:
         logging.info(
             f"{'Rank':<6} {'Match':<40} {'EmbScore':<10} {'Ident':<8} "
             f"{'IdentSh':<8} {'QCov':<7} {'SCov':<7} {'AlnLen':<7} {'AlnScore':<9} "
-            f"{'Bits~':<9} {'Pval~':<11} {'Eval~':<11}"
+            f"{'Bits':<9} {'Pval':<11} {'Eval':<11}"
         )
         for rank, hit in enumerate(hits, 1):
             m = hit.metrics
@@ -493,7 +552,7 @@ def export_aligned_results(results: Dict[str, List[Hit]], output_file: str) -> N
             'Query', 'Rank', 'Match', 'EmbScore',
             'SeqIdentity_aln', 'SeqIdentity_shorter',
             'QueryCoverage', 'SubjectCoverage', 'AlnLen', 'AlnScore',
-            'BitScore_approx', 'Pvalue_approx', 'Evalue_approx',
+            'BitScore', 'Pvalue', 'Evalue',
         ])
         for query_id, hits in results.items():
             for rank, hit in enumerate(hits, 1):
