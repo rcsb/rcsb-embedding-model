@@ -591,7 +591,7 @@ def query_database_from_fasta(
                  "11/1; 'sampled' works at any gap penalties but its absolute "
                  "values are unreliable and comparable only within this tool."
         )] = SignificanceMode.default,
-        evalue_sample_size: Annotated[int, typer.Option(
+        significance_sample_size: Annotated[int, typer.Option(
             help="For --significance-mode sampled: number of random alignments "
                  "sampled to estimate lambda/K for the BitScore/Pvalue/Evalue "
                  "columns. Larger is slower; ignored when mode is 'default'."
@@ -664,7 +664,7 @@ def query_database_from_fasta(
             num_workers=align_workers,
             output_csv=output_csv,
             significance_mode=significance_mode,
-            evalue_sample_size=evalue_sample_size,
+            significance_sample_size=significance_sample_size,
         )
     elif output_csv:
         embedding_db.export_results(results, output_csv)
@@ -729,7 +729,7 @@ def query_database_from_database(
                  "11/1; 'sampled' works at any gap penalties but its absolute "
                  "values are unreliable and comparable only within this tool."
         )] = SignificanceMode.default,
-        evalue_sample_size: Annotated[int, typer.Option(
+        significance_sample_size: Annotated[int, typer.Option(
             help="For --significance-mode sampled: number of random alignments "
                  "sampled to estimate lambda/K for the BitScore/Pvalue/Evalue "
                  "columns. Larger is slower; ignored when mode is 'default'."
@@ -805,7 +805,7 @@ def query_database_from_database(
             num_workers=align_workers,
             output_csv=output_csv,
             significance_mode=significance_mode,
-            evalue_sample_size=evalue_sample_size,
+            significance_sample_size=significance_sample_size,
         )
     elif output_csv:
         embedding_db.export_results(results, output_csv)
@@ -1049,7 +1049,7 @@ def _stage2_align_and_report(
         num_workers: Optional[int],
         output_csv: Optional[str],
         significance_mode: SignificanceMode = SignificanceMode.default,
-        evalue_sample_size: int = 500,
+        significance_sample_size: int = 500,
 ):
     """Run Stage-2 pairwise alignment on prefilter candidates and report.
 
@@ -1080,7 +1080,7 @@ def _stage2_align_and_report(
         num_workers=num_workers,
         subject_db_size=subject_store.total_residues(),
         significance_mode=significance_mode,
-        evalue_sample_size=evalue_sample_size,
+        significance_sample_size=significance_sample_size,
     )
 
     # See query_database_from_structure for the rationale: print xor CSV.

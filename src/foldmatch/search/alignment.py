@@ -364,9 +364,9 @@ def align_candidates(
         # table in the module header). Raising these does NOT buy a steadier
         # estimate, so treat 'sampled' absolute values as unreliable and prefer
         # significance_mode='default' wherever the gap penalties allow it.
-        evalue_sample_size: int = 500,
-        evalue_sample_length: int = 500,
-        evalue_seed: int = 0,
+        significance_sample_size: int = 500,
+        significance_sample_length: int = 500,
+        significance_seed: int = 0,
 ) -> Dict[str, List[Hit]]:
     """Stage 2: pairwise-align each prefilter candidate and re-rank by identity.
 
@@ -402,7 +402,7 @@ def align_candidates(
             (they do not converge with sample size) though the ranking is sound;
             use it for gap penalties ``'default'`` cannot serve. Neither mode is
             BLAST-comparable; see the module header.
-        evalue_sample_size / evalue_sample_length / evalue_seed: controls for the
+        significance_sample_size / significance_sample_length / significance_seed: controls for the
             lambda/K sampling pass (``'sampled'`` mode only).
 
     Returns:
@@ -460,7 +460,7 @@ def align_candidates(
             )
         elif significance_mode is SignificanceMode.sampled:
             lam, k = _estimate_lambda_k(
-                gap_open, gap_extend, evalue_sample_size, evalue_sample_length, evalue_seed
+                gap_open, gap_extend, significance_sample_size, significance_sample_length, significance_seed
             )
         else:  # unreachable; guards against a new member added without a branch
             raise ValueError(f"Unhandled significance_mode {significance_mode!r}")
