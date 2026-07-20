@@ -7,27 +7,33 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
-from . import mmseqs_stats
+from . import karlin_altschul
 
 logger = logging.getLogger(__name__)
 
 # Significance (p-/E-values, bit scores) comes in two flavors, selected by
 # ``significance_mode``:
 #
-#   'mmseqs' (default) — MMseqs2-calibrated. Uses the ALP constants and the
-#       finite-size-corrected search space that MMseqs2 itself uses, so the
-#       numbers land on the same scale as ``mmseqs search`` output. See
-#       mmseqs_stats.py. Only BLOSUM62 at gaps 11/1 is supported (the one
-#       combination MMseqs2 hardcodes); other gap penalties raise.
-#       NOT comparable to BLAST: MMseqs2's nominal 11/1 equals BLAST's 10/1 in
-#       total gap cost, and its lambda/K differ from NCBI's published values.
+#   'default' — calibrated. Uses published ALP Karlin-Altschul constants and a
+#       finite-size-corrected search space, so the values are exact and
+#       reproducible (a table lookup, no sampling pass). Implementation and full
+#       provenance in karlin_altschul.py. Only BLOSUM62 at gaps 11/1 is supported;
+#       other gap penalties raise rather than fall back silently.
+#       NOT comparable to BLAST: the nominal 11/1 gap cost here equals BLAST's
+#       10/1, and these lambda/K differ from NCBI's published values.
 #
 #   'sampled' — the original behavior: lambda/K estimated by sampling random
-#       alignments via biotite (see _estimate_lambda_k). Those estimates are
-#       biased relative to NCBI's published BLOSUM62 constants (measured lambda
-#       ~0.18-0.22 vs 0.267, K ~5x low), so the result is an APPROXIMATE,
-#       RELATIVE-ONLY signal — fine for ranking within this tool, comparable to
-#       nothing outside it. Use it for gap penalties 'mmseqs' cannot serve.
+#       alignments via biotite (see _estimate_lambda_k). The estimate does NOT
+#       converge with sample size — measured at BLOSUM62 11/1, seed 0:
+#           100x100   lambda 0.382  K 0.445
+#           250x250   lambda 0.256  K 0.027
+#           500x500   lambda 0.279  K 0.062   (this module's default)
+#           1000x1000 lambda 0.222  K 0.008
+#       i.e. K spans ~57x and lambda 0.22-0.38 purely as a function of the
+#       sampling knobs. Since E scales linearly with K and exponentially in
+#       lambda*S, the absolute values are unreliable; only the RANKING is
+#       trustworthy (it is monotonic in the raw score for any lambda > 0).
+#       Use this mode only for gap penalties 'default' cannot serve.
 
 # Robinson & Robinson (1991) background amino-acid frequencies, used to generate
 # the random sequences sampled when estimating lambda/K.
@@ -100,10 +106,10 @@ _GAP: Tuple[int, int] = (-11, -1)
 # also per-process. _ESTIMATOR is None unless significance_mode='sampled'.
 _ESTIMATOR = None
 _DB_RESIDUES: Optional[int] = None
-# MMseqs2 ALP parameter set; None unless significance_mode='mmseqs'.
+# Calibrated ALP parameter set; None unless significance_mode='default'.
 _ALP = None
-# The active lambda/K (MMseqs2's or the sampled ones), kept so the bit score can
-# be computed directly. None when significance is not being computed at all —
+# The active lambda/K (calibrated or sampled), kept so the bit score can be
+# computed directly. None when significance is not being computed at all —
 # this is the single gate for "is significance on?".
 _LAMBDA: Optional[float] = None
 _K: Optional[float] = None
@@ -119,7 +125,7 @@ class AlignmentMetrics:
     aln_len: int               # alignment length (columns, gaps included)
     score: int                 # Smith-Waterman score
     # Karlin-Altschul significance. Scale depends on significance_mode:
-    # MMseqs2-comparable ('mmseqs', default) or relative-only ('sampled').
+    # calibrated ('default') or relative-only ('sampled').
     # Never BLAST-comparable — see module header.
     bit_score: Optional[float] = None  # normalized score (lambda*S - lnK)/ln2
     pvalue: Optional[float] = None   # pairwise p-value (n = subject length)
@@ -205,7 +211,7 @@ def _bit_score(score: int, lam: float, k: float) -> float:
     """Normalized (bit) score S' = (lambda*S - ln K) / ln 2.
 
     Uses the same lambda/K as the p-/E-values, so it inherits the active mode's
-    scale: MMseqs2-comparable under 'mmseqs', relative-only under 'sampled'.
+    scale: calibrated under 'default', relative-only under 'sampled'.
     Never BLAST-comparable (see module header). Because lambda/K are fixed for a
     whole run, the bit score is a strictly increasing function of the raw score,
     so ranking by bit score matches ranking by raw Smith-Waterman score in either
@@ -254,18 +260,18 @@ def _align(query_protein, query_len: int, subject_protein, subject_len: int) -> 
 
     pvalue = evalue = None
     if _ALP is not None:
-        # MMseqs2-calibrated: ALP constants + ALP's finite-size-corrected area.
+        # Calibrated: ALP constants + ALP's finite-size-corrected area.
         # Pairwise p-value: search space = the two sequences (n = subject length).
         # MMseqs2 itself emits no p-value; this is the ALP p-value of the
         # pairwise E, kept for continuity with the 'sampled' mode.
-        pvalue = mmseqs_stats.pvalue_from_evalue(
-            mmseqs_stats.evalue(score, query_len, subject_len, _ALP)
+        pvalue = karlin_altschul.pvalue_from_evalue(
+            karlin_altschul.evalue(score, query_len, subject_len, _ALP)
         )
         # Database E-value: this is the MMseqs2-comparable quantity — search
         # space = the whole target DB as one concatenated sequence, exactly as
         # MMseqs2 does (no per-sequence term, no multiply by sequence count).
         if _DB_RESIDUES:
-            evalue = mmseqs_stats.evalue(score, query_len, _DB_RESIDUES, _ALP)
+            evalue = karlin_altschul.evalue(score, query_len, _DB_RESIDUES, _ALP)
     elif _ESTIMATOR is not None:
         # Sampled/relative-only: biotite's raw K*m*n*exp(-lambda*S), no edge correction.
         pvalue = _pvalue_from_evalue(
@@ -349,12 +355,13 @@ def align_candidates(
         num_workers: Optional[int] = None,
         subject_db_size: Optional[int] = None,
         compute_significance: bool = True,
-        significance_mode: str = "mmseqs",
-        # Defaults of 500x500 (vs biotite's own 1000x1000) chosen from a one-off
-        # benchmark (BLOSUM62, 11/1 gaps): lambda/K had already converged to
-        # within ~1% of the 1000x1000 values by 500x500, at ~8x less wall time
-        # (~3s vs ~24s). Fine since the significance is relative-only anyway;
-        # raise these for a steadier estimate.
+        significance_mode: str = "default",
+        # 'sampled' mode only. NOTE: an earlier comment here claimed lambda/K had
+        # converged to within ~1% of the 1000x1000 values by 500x500 — that is
+        # measurably wrong (lambda 0.279 vs 0.222, K 0.062 vs 0.008; see the
+        # table in the module header). Raising these does NOT buy a steadier
+        # estimate, so treat 'sampled' absolute values as unreliable and prefer
+        # significance_mode='default' wherever the gap penalties allow it.
         evalue_sample_size: int = 500,
         evalue_sample_length: int = 500,
         evalue_seed: int = 0,
@@ -383,13 +390,13 @@ def align_candidates(
         compute_significance: when ``True``, annotate each hit with a bit score,
             a pairwise p-value and (if ``subject_db_size`` is given) a database
             E-value.
-        significance_mode: ``'mmseqs'`` (default) puts those numbers on the same
-            scale as ``mmseqs search`` output, using MMseqs2's own ALP constants
-            and finite-size-corrected search space; it supports only
-            ``gap_open=11, gap_extend=1`` (the sole gapped BLOSUM62 combination
-            MMseqs2 hardcodes) and raises otherwise. ``'sampled'`` restores the
-            previous behavior — lambda/K estimated by sampling, giving an
-            approximate signal comparable only within this tool. Neither mode is
+        significance_mode: ``'default'`` uses calibrated Karlin-Altschul
+            constants with a finite-size-corrected search space, giving exact,
+            reproducible values; it supports only ``gap_open=11, gap_extend=1``
+            and raises otherwise. ``'sampled'`` restores the previous behavior —
+            lambda/K estimated by sampling, whose absolute values are unreliable
+            (they do not converge with sample size) though the ranking is sound;
+            use it for gap penalties ``'default'`` cannot serve. Neither mode is
             BLAST-comparable; see the module header.
         evalue_sample_size / evalue_sample_length / evalue_seed: controls for the
             lambda/K sampling pass (``'sampled'`` mode only).
@@ -427,15 +434,15 @@ def align_candidates(
         tasks.append((query_id, query_seq, candidates))
 
     # Resolve the significance parameters once and share them with the workers.
-    # 'mmseqs' is a table lookup (no sampling pass); 'sampled' runs the estimator.
+    # 'default' is a table lookup (no sampling pass); 'sampled' runs the estimator.
     lam = k = alp_params = None
     if compute_significance and tasks:
-        if significance_mode == "mmseqs":
-            alp_params = mmseqs_stats.params_for(gap_open, gap_extend)
+        if significance_mode == "default":
+            alp_params = karlin_altschul.params_for(gap_open, gap_extend)
             logger.info(
-                f"Using MMseqs2-calibrated significance (ALP BLOSUM62 "
-                f"{gap_open}/{gap_extend}: lambda={alp_params.lam:.8f}, "
-                f"K={alp_params.k:.9f}); E-values are on the mmseqs scale, not BLAST's."
+                f"Using calibrated significance (BLOSUM62 {gap_open}/{gap_extend}: "
+                f"lambda={alp_params.lam:.8f}, K={alp_params.k:.9f}); "
+                f"E-values are not comparable to BLAST."
             )
         elif significance_mode == "sampled":
             lam, k = _estimate_lambda_k(
@@ -444,7 +451,7 @@ def align_candidates(
         else:
             raise ValueError(
                 f"Unknown significance_mode {significance_mode!r}; "
-                f"expected 'mmseqs' or 'sampled'."
+                f"expected 'default' or 'sampled'."
             )
 
     # Unless explicitly serial, widen the affinity mask before sizing the pool

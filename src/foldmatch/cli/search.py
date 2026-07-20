@@ -585,11 +585,11 @@ def query_database_from_fasta(
             help='Gap-extend penalty (positive) for Stage-2 alignment.'
         )] = 1,
         significance_mode: Annotated[str, typer.Option(
-            help="Scale for the BitScore/Pvalue/Evalue columns. 'mmseqs' "
-                 "(default) matches mmseqs search output but requires the "
-                 "default gap penalties 11/1; 'sampled' works at any gap "
-                 "penalties but is only comparable within this tool."
-        )] = 'mmseqs',
+            help="Scale for the BitScore/Pvalue/Evalue columns. 'default' uses "
+                 "calibrated statistics, but requires the default gap penalties "
+                 "11/1; 'sampled' works at any gap penalties but its absolute "
+                 "values are unreliable and comparable only within this tool."
+        )] = 'default',
         align_workers: Annotated[Optional[int], typer.Option(
             help='Process-pool size for Stage-2 alignment. Defaults to all CPUs '
                  'on the node (widening any scheduler --cpu-bind pinning); set '
@@ -710,8 +710,6 @@ def query_database_from_database(
             help='When --seq-identity is set, drop hits whose query AND subject '
                  'coverage are below this fraction (0-1).'
         )] = 0.0,
-        # Note: the BitScore/Pvalue/Evalue columns are on the MMseqs2 scale by
-        # default (see --significance-mode) — never comparable to BLAST.
         gap_open: Annotated[int, typer.Option(
             help='Gap-open penalty (positive) for Stage-2 alignment.'
         )] = 11,
@@ -719,11 +717,11 @@ def query_database_from_database(
             help='Gap-extend penalty (positive) for Stage-2 alignment.'
         )] = 1,
         significance_mode: Annotated[str, typer.Option(
-            help="Scale for the BitScore/Pvalue/Evalue columns. 'mmseqs' "
-                 "(default) matches mmseqs search output but requires the "
-                 "default gap penalties 11/1; 'sampled' works at any gap "
-                 "penalties but is only comparable within this tool."
-        )] = 'mmseqs',
+            help="Scale for the BitScore/Pvalue/Evalue columns. 'default' uses "
+                 "calibrated statistics, but requires the default gap penalties "
+                 "11/1; 'sampled' works at any gap penalties but its absolute "
+                 "values are unreliable and comparable only within this tool."
+        )] = 'default',
         align_workers: Annotated[Optional[int], typer.Option(
             help='Process-pool size for Stage-2 alignment. Defaults to all CPUs '
                  'on the node (widening any scheduler --cpu-bind pinning); set '
@@ -1037,7 +1035,7 @@ def _stage2_align_and_report(
         gap_extend: int,
         num_workers: Optional[int],
         output_csv: Optional[str],
-        significance_mode: str = "mmseqs",
+        significance_mode: str = "default",
 ):
     """Run Stage-2 pairwise alignment on prefilter candidates and report.
 

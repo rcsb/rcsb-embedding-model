@@ -1,12 +1,14 @@
-"""MMseqs2-comparable Karlin-Altschul statistics.
+"""Calibrated Karlin-Altschul statistics for gapped local alignment.
 
-A direct Python port of the finite-size-corrected E-value computation that
-MMseqs2 uses, so that the E-/p-values and bit scores produced by this package
-land on the *same scale* as ``mmseqs search`` output.
+Computes E-values, p-values and bit scores from a raw Smith-Waterman score using
+published Karlin-Altschul constants and a finite-size (edge-effect) corrected
+search space, so the values are exact and reproducible rather than estimated by
+sampling.
 
-MMseqs2 does not implement these statistics itself: it vendors NCBI's ALP
-("Sequence Local Statistics", Sheetlin/Park/Spouge) library and calls
-``Sls::AlignmentEvaluer``. This module ports that call path:
+The constants and the correction are those of NCBI's ALP library ("Sequence
+Local Statistics", Sheetlin/Park/Spouge), taken as vendored and called by MMseqs2
+via ``Sls::AlignmentEvaluer`` — which makes the output directly comparable to
+``mmseqs search``. This module ports that call path:
 
     E = K * exp(-lambda * S) * area(S, query_len, db_residues)
 
@@ -23,6 +25,18 @@ Source map (soedinglab/MMseqs2, pinned to commit
     1-exp(y)             lib/alp/sls_basic.cpp:94-105
     parameter table      src/alignment/EvalueComputation.h:56-81
     caller               src/alignment/EvalueComputation.h:32-45
+
+Validated against mmseqs 18-8cc5c on 33,192 real hits (200 SCOP queries vs a
+200k-sequence, 64.5M-residue UniProt subset, E-values spanning 8e-32 to 1e4),
+run with ``--comp-bias-corr 0 --mask 0``: worst relative E-value error 4.7e-4,
+which is mmseqs's own 4-significant-digit output precision, and 400/400 sampled
+pairs had identical raw Smith-Waterman scores under biotite.
+
+Caution when diffing against mmseqs yourself: its ``raw`` output column is
+reconstructed from the stored *integer* bit score and is lossy by +/-1. Since
+E = K*exp(-lambda*S)*area, a 1-unit score error moves E by exp(+/-lambda) ~ 1.31x.
+Recover the true score as the integer consistent with both the reported bit
+score and the reported E-value.
 
 Fidelity notes (deliberate, do not "fix"):
 
@@ -128,12 +142,10 @@ def params_for(gap_open: int, gap_extend: int, matrix_name: str = "BLOSUM62") ->
         return _SUPPORTED[key]
     except KeyError:
         raise ValueError(
-            f"No MMseqs2-calibrated statistics for {matrix_name} with gaps "
-            f"{gap_open}/{gap_extend}. MMseqs2 hardcodes only "
-            f"{SUPPORTED_COMBINATIONS} and otherwise runs a machine-speed-"
-            f"dependent Monte-Carlo fit that cannot be reproduced offline. "
-            f"Use significance_mode='sampled' for a relative-only signal at "
-            f"these gap penalties."
+            f"No calibrated statistics for {matrix_name} with gaps "
+            f"{gap_open}/{gap_extend}; the only supported combination is "
+            f"{SUPPORTED_COMBINATIONS}. Use significance_mode='sampled' for a "
+            f"relative-only signal at these gap penalties."
         ) from None
 
 
