@@ -1,4 +1,5 @@
 import os
+import re
 import shutil
 import unittest
 import tempfile
@@ -521,6 +522,110 @@ class TestCliSearch(unittest.TestCase):
         ns = {'g': 'http://graphml.graphdrawing.org/xmlns'}
         nodes = root.findall('.//g:node', ns)
         self.assertGreater(len(nodes), 0)
+
+    def test_25_stage2_format_output_tsv(self):
+        """Stage-2 sequence-identity search emits mmseqs-style TSV columns.
+
+        A FASTA-built database carries a sequence store, so querying it with
+        FASTA sequences triggers Stage-2 alignment; the results are written as
+        tab-separated rows (no header) over the requested --format-output fields.
+        """
+        from foldmatch.cli.search import (
+            build_database_from_fasta,
+            query_database_from_fasta,
+        )
+
+        fasta_file = Path(f"{self.__test_path}/resources/fasta/test_sequences.fasta")
+        subject_db = os.path.join(self.__temp_dir, "test_stage2_fmt_db")
+        build_database_from_fasta(
+            fasta_file=fasta_file,
+            output_db=subject_db,
+            tmp_embedding_folder=self.__temp_dir,
+            accelerator=Accelerator.cpu,
+            use_gpu_index=False,
+        )
+
+        # Default format: the 12 mmseqs default columns, TSV, no header.
+        default_csv = os.path.join(self.__temp_dir, "stage2_default.tsv")
+        query_database_from_fasta(
+            db_path=subject_db,
+            fasta_file=fasta_file,
+            tmp_embedding_folder=self.__temp_dir,
+            top_k=5,
+            threshold=None,
+            output_csv=default_csv,
+            accelerator=Accelerator.cpu,
+            use_gpu_index=False,
+        )
+        with open(default_csv) as f:
+            lines = [ln.rstrip("\n") for ln in f if ln.strip()]
+        self.assertGreater(len(lines), 0)
+        for ln in lines:
+            cols = ln.split("\t")
+            self.assertEqual(len(cols), 12)      # default field count
+            self.assertNotIn(",", ln)            # tab-separated, not CSV
+        # No header row: first token of every line is a real query id.
+        query_ids = {ln.split("\t")[0] for ln in lines}
+        self.assertTrue(query_ids <= {"1acb_E", "2uzi_A"})
+        # Each query self-matches at full identity (fident is column 3).
+        self_hits = [ln for ln in lines if ln.split("\t")[0] == ln.split("\t")[1]]
+        self.assertTrue(self_hits)
+        self.assertEqual(self_hits[0].split("\t")[2], "1.000")
+
+        # Custom format: a heavy column (cigar) plus qseq/qlen must be honored.
+        custom_csv = os.path.join(self.__temp_dir, "stage2_custom.tsv")
+        query_database_from_fasta(
+            db_path=subject_db,
+            fasta_file=fasta_file,
+            tmp_embedding_folder=self.__temp_dir,
+            top_k=5,
+            threshold=None,
+            output_csv=custom_csv,
+            accelerator=Accelerator.cpu,
+            use_gpu_index=False,
+            format_output="query,target,pident,alnlen,cigar,qseq,qlen",
+        )
+        with open(custom_csv) as f:
+            rows = [ln.rstrip("\n").split("\t") for ln in f if ln.strip()]
+        self.assertTrue(rows)
+        for cols in rows:
+            self.assertEqual(len(cols), 7)
+            _q, _t, _pident, alnlen, cigar, qseq, qlen = cols
+            # CIGAR is a run-length M/D/I string summing to the alignment length.
+            self.assertRegex(cigar, r"^(\d+[MDI])+$")
+            self.assertEqual(len(qseq), int(qlen))
+            cigar_len = sum(int(n) for n in re.findall(r"(\d+)[MDI]", cigar))
+            self.assertEqual(cigar_len, int(alnlen))
+
+    def test_26_stage2_rejects_unknown_format_field(self):
+        """An unknown --format-output field fails with a clear error."""
+        from foldmatch.cli.search import (
+            build_database_from_fasta,
+            query_database_from_fasta,
+        )
+
+        fasta_file = Path(f"{self.__test_path}/resources/fasta/test_sequences.fasta")
+        subject_db = os.path.join(self.__temp_dir, "test_stage2_badfmt_db")
+        build_database_from_fasta(
+            fasta_file=fasta_file,
+            output_db=subject_db,
+            tmp_embedding_folder=self.__temp_dir,
+            accelerator=Accelerator.cpu,
+            use_gpu_index=False,
+        )
+        with self.assertRaises(ValueError) as ctx:
+            query_database_from_fasta(
+                db_path=subject_db,
+                fasta_file=fasta_file,
+                tmp_embedding_folder=self.__temp_dir,
+                top_k=5,
+                threshold=None,
+                output_csv=os.path.join(self.__temp_dir, "unused.tsv"),
+                accelerator=Accelerator.cpu,
+                use_gpu_index=False,
+                format_output="query,target,not_a_field",
+            )
+        self.assertIn("not_a_field", str(ctx.exception))
 
 
 if __name__ == '__main__':

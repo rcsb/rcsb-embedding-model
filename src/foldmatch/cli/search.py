@@ -6,6 +6,7 @@ from typing import Annotated, Optional, List
 
 from foldmatch import __version__
 from foldmatch.cli.args_utils import arg_devices, set_log_level
+from foldmatch.search.alignment import DEFAULT_FORMAT_OUTPUT, SUPPORTED_OUTPUT_FIELDS
 from foldmatch.types.api_types import (
     StructureFormat,
     Accelerator,
@@ -35,6 +36,14 @@ query_db_app = typer.Typer(
     help="Query an existing embedding database."
 )
 app.add_typer(query_db_app, name="query")
+
+# Help text for the Stage-2 --format-output option, shared by the commands that
+# run sequence-identity alignment.
+_FORMAT_OUTPUT_HELP = (
+    "Comma-separated columns for the Stage-2 sequence-identity output, written "
+    "as tab-separated rows with no header. "
+    f"Available fields: {', '.join(SUPPORTED_OUTPUT_FIELDS)}."
+)
 
 
 @build_db_app.command(
@@ -601,6 +610,9 @@ def query_database_from_fasta(
                  'on the node (widening any scheduler --cpu-bind pinning); set '
                  'to 0 or 1 to run serially.'
         )] = None,
+        format_output: Annotated[str, typer.Option(
+            help=_FORMAT_OUTPUT_HELP
+        )] = DEFAULT_FORMAT_OUTPUT,
         log_level: Annotated[LogLevel, typer.Option(
             help='Logging level.'
         )] = LogLevel.info
@@ -665,6 +677,7 @@ def query_database_from_fasta(
             output_csv=output_csv,
             significance_mode=significance_mode,
             significance_sample_size=significance_sample_size,
+            format_output=format_output,
         )
     elif output_csv:
         embedding_db.export_results(results, output_csv)
@@ -739,6 +752,9 @@ def query_database_from_database(
                  'on the node (widening any scheduler --cpu-bind pinning); set '
                  'to 0 or 1 to run serially.'
         )] = None,
+        format_output: Annotated[str, typer.Option(
+            help=_FORMAT_OUTPUT_HELP
+        )] = DEFAULT_FORMAT_OUTPUT,
         log_level: Annotated[LogLevel, typer.Option(
             help='Number of nodes to use for inference of embeddings.'
         )] = LogLevel.info
@@ -806,6 +822,7 @@ def query_database_from_database(
             output_csv=output_csv,
             significance_mode=significance_mode,
             significance_sample_size=significance_sample_size,
+            format_output=format_output,
         )
     elif output_csv:
         embedding_db.export_results(results, output_csv)
@@ -1050,15 +1067,21 @@ def _stage2_align_and_report(
         output_csv: Optional[str],
         significance_mode: SignificanceMode = SignificanceMode.default,
         significance_sample_size: int = 500,
+        format_output: str = DEFAULT_FORMAT_OUTPUT,
 ):
     """Run Stage-2 pairwise alignment on prefilter candidates and report.
 
     The subject sequences are recovered from the subject database's sidecar
     sequence store; raises a clear error if that store is missing (e.g. a
-    database built from structures rather than FASTA).
+    database built from structures rather than FASTA). Results are written as
+    MMseqs2-style tab-separated rows over the ``--format-output`` columns.
     """
     from foldmatch.search.sequence_store import SequenceStore
     from foldmatch.search import alignment
+
+    # Validate the requested columns before doing any alignment work, so a typo
+    # fails fast with the full list of supported fields.
+    output_fields = alignment.parse_format_output(format_output)
 
     subject_store = SequenceStore(embedding_db.db_folder, embedding_db.index_name)
     if not subject_store.exists():
@@ -1079,15 +1102,16 @@ def _stage2_align_and_report(
         gap_extend=gap_extend,
         num_workers=num_workers,
         subject_db_size=subject_store.total_residues(),
+        # Only pay for the significance pass when a significance column
+        # (evalue/bits) is actually requested.
+        compute_significance=alignment.needs_significance(output_fields),
         significance_mode=significance_mode,
         significance_sample_size=significance_sample_size,
+        output_fields=output_fields,
     )
 
-    # See query_database_from_structure for the rationale: print xor CSV.
-    if output_csv:
-        alignment.export_aligned_results(aligned, output_csv)
-    else:
-        alignment.print_aligned_results(aligned)
+    # See query_database_from_structure for the rationale: file xor stdout.
+    alignment.write_aligned_results(aligned, output_fields, output_csv)
 
 
 def _is_rank_zero():

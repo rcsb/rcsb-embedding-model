@@ -120,17 +120,40 @@ All `build` commands accept `--index-type [auto|flat|hnsw|ivf_pq]` and IVF-PQ tu
 
 #### Two-stage sequence search (exact identity)
 
-`build sequences` also writes a sidecar `{db}.sequences` store next to the FAISS index. This lets sequence-built databases report **exact** sequence identity, not just embedding similarity: when you run `query sequences` (or `query db`) against such a database, a second stage pairwise-aligns each embedding hit (local Smith-Waterman, BLOSUM62) and adds `SeqIdentity_aln`, `SeqIdentity_shorter`, `QueryCoverage`, `SubjectCoverage`, `AlnLen`, `AlnScore`, and `Pvalue_approx`/`Evalue_approx` columns; surviving hits are re-ranked by identity.
+`build sequences` also writes a sidecar `{db}.sequences` store next to the FAISS index. This lets sequence-built databases report **exact** sequence identity, not just embedding similarity: when you run `query sequences` (or `query db`) against such a database, a second stage pairwise-aligns each embedding hit (local Smith-Waterman, BLOSUM62) and re-ranks the surviving hits by identity.
+
+Stage-2 hits are written as **tab-separated rows with no header**. Pick the columns with `--format-output`:
 
 ```bash
 # Stage 2 turns on automatically when the database has a sequence store
 fm-search query sequences --db-path dbs/my_db --fasta-file q.fasta --tmp-embedding-folder tmp
+
+# Choose the output columns
+fm-search query sequences --db-path dbs/my_db --fasta-file q.fasta --tmp-embedding-folder tmp \
+    --format-output "query,target,fident,alnlen,evalue,bits,qaln,taln"
 ```
+
+Default columns: `query,target,fident,alnlen,mismatch,gapopen,qstart,qend,tstart,tend,evalue,bits`.
+
+Supported `--format-output` fields:
+
+| Field | Meaning | Field | Meaning |
+|-------|---------|-------|---------|
+| `query` | Query sequence identifier | `tlen` | Target sequence length |
+| `target` | Target sequence identifier | `alnlen` | Alignment length (aligned columns) |
+| `evalue` | E-value | `raw` | Raw alignment score |
+| `gapopen` | Number of gap **open events** (not gap chars) | `bits` | Bit score (integer) |
+| `pident` | Percentage of identical matches | `cigar` | CIGAR string (`M` match, `D` gap in query, `I` gap in target) |
+| `fident` | Fraction of identical matches | `qseq` / `tseq` | Query / target sequence |
+| `nident` | Number of identical matches | `qaln` / `taln` | Aligned query / target sequence with gaps |
+| `qstart` / `qend` | 1-indexed alignment bounds in query | `mismatch` | Number of mismatches |
+| `qlen` | Query sequence length | `qcov` / `tcov` | Fraction of query / target covered |
+| `tstart` / `tend` | 1-indexed alignment bounds in target | | |
 
 - **Auto by default**: Stage 2 runs when the database(s) carry a sequence store and falls back to embedding-only otherwise. Force it with `--seq-identity` (errors if no store is present) or disable with `--no-seq-identity`. `query db` requires **both** databases to have sequence stores.
 - Hits below `--min-seq-identity` (default `0.3`) or `--min-coverage` are dropped.
 - Tuning: `--gap-open`, `--gap-extend`, and `--align-workers` (defaults to all CPUs on the node).
-- `Pvalue_approx`/`Evalue_approx` are an **approximate, relative-only** significance signal (sampled Karlin–Altschul λ/K) — useful for ranking within FoldMatch, but **not** calibrated like BLAST/mmseqs2 E-values.
+- `evalue`/`bits` use calibrated Karlin–Altschul statistics by default (`--significance-mode default`). `--significance-mode sampled` estimates λ/K by sampling for other gap penalties, but its absolute magnitudes are relative-only. The significance pass is skipped automatically when neither `evalue` nor `bits` is in `--format-output`.
 
 ### `inference` — low-level inference subcommands
 

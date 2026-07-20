@@ -3,7 +3,7 @@ import math
 import os
 import time
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -44,6 +44,154 @@ _ROBINSON_FREQUENCIES = {
     'Q': 0.0426, 'E': 0.0629, 'G': 0.0737, 'H': 0.0220, 'I': 0.0514,
     'L': 0.0901, 'K': 0.0574, 'M': 0.0224, 'F': 0.0385, 'P': 0.0520,
     'S': 0.0712, 'T': 0.0584, 'W': 0.0133, 'Y': 0.0323, 'V': 0.0644,
+}
+
+# --------------------------------------------------------------------------- #
+# mmseqs-style tabular output
+#
+# Stage-2 hits are reported as a subset of the same columns MMseqs2 emits from
+# ``mmseqs convertalis``, selected with ``--format-output`` and written as
+# tab-separated rows with no header (MMseqs2's ``--format-mode 0`` default). The
+# default column set below matches MMseqs2's own default.
+#
+# Fidelity notes:
+#   * ``fident`` is nident/alnlen (identical columns over the whole alignment
+#     length, gaps included) — the same fraction MMseqs2 reports; ``pident`` is
+#     that fraction as a percentage (100*fident), per the field's name.
+#   * ``bits`` is emitted as an integer via MMseqs2's ``int(bitScore + 0.5)``.
+#   * ``gapopen`` counts maximal gap RUNS (query- and target-side independently),
+#     not gap characters.
+#   * CIGAR ops follow MMseqs2: ``M`` aligned pair, ``D`` gap in query (deletion),
+#     ``I`` gap in target (insertion).
+# --------------------------------------------------------------------------- #
+
+# Ordered registry of every supported field -> one-line description (used for
+# validation and the CLI help text). Order here is the canonical field order.
+OUTPUT_FIELD_DESCRIPTIONS: Dict[str, str] = {
+    "query": "Query sequence identifier",
+    "target": "Target sequence identifier",
+    "evalue": "E-value",
+    "gapopen": "Number of gap open events (not the number of gap characters)",
+    "pident": "Percentage of identical matches",
+    "fident": "Fraction of identical matches",
+    "nident": "Number of identical matches",
+    "qstart": "1-indexed alignment start position in query sequence",
+    "qend": "1-indexed alignment end position in query sequence",
+    "qlen": "Query sequence length",
+    "tstart": "1-indexed alignment start position in target sequence",
+    "tend": "1-indexed alignment end position in target sequence",
+    "tlen": "Target sequence length",
+    "alnlen": "Alignment length (number of aligned columns)",
+    "raw": "Raw alignment score",
+    "bits": "Bit score",
+    "cigar": "Alignment CIGAR string (M match, D gap in query, I gap in target)",
+    "qseq": "Query sequence",
+    "tseq": "Target sequence",
+    "qaln": "Aligned query sequence with gaps",
+    "taln": "Aligned target sequence with gaps",
+    "mismatch": "Number of mismatches",
+    "qcov": "Fraction of query sequence covered by alignment",
+    "tcov": "Fraction of target sequence covered by alignment",
+}
+
+SUPPORTED_OUTPUT_FIELDS: Tuple[str, ...] = tuple(OUTPUT_FIELD_DESCRIPTIONS)
+
+# MMseqs2's own default column set.
+DEFAULT_OUTPUT_FIELDS: Tuple[str, ...] = (
+    "query", "target", "fident", "alnlen", "mismatch", "gapopen",
+    "qstart", "qend", "tstart", "tend", "evalue", "bits",
+)
+DEFAULT_FORMAT_OUTPUT: str = ",".join(DEFAULT_OUTPUT_FIELDS)
+
+# Fields whose value comes from Karlin-Altschul significance; requesting none of
+# these lets the caller skip the significance pass entirely (and, in 'default'
+# mode, its 11/1 gap-penalty requirement).
+SIGNIFICANCE_FIELDS: frozenset = frozenset({"evalue", "bits"})
+
+# The heavy per-hit strings (full sequences and the aligned/CIGAR renderings).
+# They are only materialized when requested so a default-format search over a
+# large candidate set does not pay their memory/pickle cost.
+_HEAVY_FIELDS: frozenset = frozenset({"cigar", "qaln", "taln", "qseq", "tseq"})
+
+
+def parse_format_output(spec: Optional[str]) -> List[str]:
+    """Parse a comma-separated ``--format-output`` spec into validated fields.
+
+    ``None`` yields the default column set. Order and repeats are preserved
+    (each field is emitted where the user placed it). Raises ``ValueError`` with
+    the full supported list on an empty spec or any unknown field.
+    """
+    if spec is None:
+        return list(DEFAULT_OUTPUT_FIELDS)
+    fields = [tok.strip() for tok in spec.split(",") if tok.strip()]
+    if not fields:
+        raise ValueError(
+            "Empty --format-output; give a comma-separated list of fields, e.g. "
+            f"'{DEFAULT_FORMAT_OUTPUT}'."
+        )
+    unknown = [f for f in fields if f not in OUTPUT_FIELD_DESCRIPTIONS]
+    if unknown:
+        raise ValueError(
+            f"Unknown --format-output field(s): {', '.join(unknown)}. "
+            f"Supported fields: {', '.join(SUPPORTED_OUTPUT_FIELDS)}."
+        )
+    return fields
+
+
+def needs_significance(fields: List[str]) -> bool:
+    """Whether any requested field requires the significance (lambda/K) pass."""
+    return any(f in SIGNIFICANCE_FIELDS for f in fields)
+
+
+@dataclass(frozen=True)
+class _FieldNeeds:
+    """Which heavy per-hit strings the requested columns actually require."""
+    cigar: bool
+    qaln: bool
+    taln: bool
+    qseq: bool
+    tseq: bool
+
+
+def _needs_from_fields(fields: List[str]) -> _FieldNeeds:
+    fs = set(fields)
+    return _FieldNeeds(
+        cigar="cigar" in fs,
+        qaln="qaln" in fs,
+        taln="taln" in fs,
+        qseq="qseq" in fs,
+        tseq="tseq" in fs,
+    )
+
+
+# Per-field renderers: ``(query_id, hit) -> str``. Significance-derived fields
+# render to "" when significance was not computed; heavy strings render to ""
+# when they were not requested (and so were never materialized).
+_FIELD_RENDERERS: Dict[str, Callable[[str, "Hit"], str]] = {
+    "query":    lambda qid, h: qid,
+    "target":   lambda qid, h: h.subject_id,
+    "evalue":   lambda qid, h: f"{h.metrics.evalue:.3E}" if h.metrics.evalue is not None else "",
+    "gapopen":  lambda qid, h: str(h.metrics.gap_open),
+    "pident":   lambda qid, h: f"{100.0 * h.metrics.identity_aln:.3f}",
+    "fident":   lambda qid, h: f"{h.metrics.identity_aln:.3f}",
+    "nident":   lambda qid, h: str(h.metrics.n_ident),
+    "qstart":   lambda qid, h: str(h.metrics.q_start),
+    "qend":     lambda qid, h: str(h.metrics.q_end),
+    "qlen":     lambda qid, h: str(h.metrics.query_len),
+    "tstart":   lambda qid, h: str(h.metrics.t_start),
+    "tend":     lambda qid, h: str(h.metrics.t_end),
+    "tlen":     lambda qid, h: str(h.metrics.subject_len),
+    "alnlen":   lambda qid, h: str(h.metrics.aln_len),
+    "raw":      lambda qid, h: str(h.metrics.score),
+    "bits":     lambda qid, h: str(int(h.metrics.bit_score + 0.5)) if h.metrics.bit_score is not None else "",
+    "cigar":    lambda qid, h: h.metrics.cigar or "",
+    "qseq":     lambda qid, h: h.metrics.q_seq or "",
+    "tseq":     lambda qid, h: h.metrics.t_seq or "",
+    "qaln":     lambda qid, h: h.metrics.q_aln or "",
+    "taln":     lambda qid, h: h.metrics.t_aln or "",
+    "mismatch": lambda qid, h: str(h.metrics.mismatch),
+    "qcov":     lambda qid, h: f"{h.metrics.query_coverage:.3f}",
+    "tcov":     lambda qid, h: f"{h.metrics.subject_coverage:.3f}",
 }
 
 
@@ -115,23 +263,51 @@ _ALP = None
 # this is the single gate for "is significance on?".
 _LAMBDA: Optional[float] = None
 _K: Optional[float] = None
+# Which heavy per-hit strings the active output format requires; set per-process
+# by the pool initializer so workers only build (and pickle back) what's needed.
+_OUTPUT_NEEDS: "_FieldNeeds" = _FieldNeeds(False, False, False, False, False)
 
 
 @dataclass
 class AlignmentMetrics:
-    """Outcome of one pairwise local alignment."""
-    identity_aln: float        # identical positions / alignment length (BLAST-like pident)
+    """Outcome of one pairwise local alignment.
+
+    Carries every quantity needed to render any ``--format-output`` column. The
+    scalar fields are always computed (cheap); the heavy strings (``cigar``,
+    ``q_aln``, ``t_aln``, ``q_seq``, ``t_seq``) are ``None`` unless the active
+    output format requested them (see :class:`_FieldNeeds`).
+    """
+    identity_aln: float        # identical positions / alignment length == fident
     identity_shorter: float    # identical positions / length of the shorter sequence
-    query_coverage: float      # aligned query residues / full query length
-    subject_coverage: float    # aligned subject residues / full subject length
-    aln_len: int               # alignment length (columns, gaps included)
-    score: int                 # Smith-Waterman score
+    query_coverage: float      # aligned query residues / full query length == qcov
+    subject_coverage: float    # aligned subject residues / full subject length == tcov
+    aln_len: int               # alignment length (columns, gaps included) == alnlen
+    score: int                 # raw Smith-Waterman score == raw
     # Karlin-Altschul significance. Scale depends on significance_mode:
     # calibrated ('default') or relative-only ('sampled').
     # Never BLAST-comparable — see module header.
-    bit_score: Optional[float] = None  # normalized score (lambda*S - lnK)/ln2
+    bit_score: Optional[float] = None  # normalized score (lambda*S - lnK)/ln2 == bits
     pvalue: Optional[float] = None   # pairwise p-value (n = subject length)
     evalue: Optional[float] = None   # E-value over the subject DB (n = total residues)
+    # Full sequence lengths (qlen/tlen). Default 0 for the degenerate empty
+    # alignment; overwritten with the real lengths otherwise.
+    query_len: int = 0
+    subject_len: int = 0
+    # Column tallies over the alignment.
+    n_ident: int = 0           # identical aligned columns == nident
+    mismatch: int = 0          # aligned non-gap columns that differ == mismatch
+    gap_open: int = 0          # number of maximal gap runs (both sides) == gapopen
+    # 1-indexed alignment bounds within each sequence (0 for an empty alignment).
+    q_start: int = 0
+    q_end: int = 0
+    t_start: int = 0
+    t_end: int = 0
+    # Heavy strings — only populated when the output format requests them.
+    cigar: Optional[str] = None
+    q_aln: Optional[str] = None
+    t_aln: Optional[str] = None
+    q_seq: Optional[str] = None
+    t_seq: Optional[str] = None
 
 
 @dataclass
@@ -148,12 +324,94 @@ def sanitize_sequence(sequence: str) -> str:
 
 
 def _to_protein(sequence: str):
-    """Build a biotite ProteinSequence from a (sanitized) string, or None if empty."""
+    """Build a biotite ProteinSequence from a sequence string.
+
+    Returns ``(protein, clean_str, length)``; ``(None, "", 0)`` for an empty
+    sequence. The sanitized ``clean_str`` is what is actually aligned, so the
+    ``qseq``/``tseq``/``qaln``/``taln`` columns and the position indices are all
+    derived from it (keeping ``qaln`` a gapped substring of ``qseq``).
+    """
     import biotite.sequence as seq
     clean = sanitize_sequence(sequence)
     if not clean:
-        return None, 0
-    return seq.ProteinSequence(clean), len(clean)
+        return None, "", 0
+    return seq.ProteinSequence(clean), clean, len(clean)
+
+
+def _count_runs(mask: np.ndarray) -> int:
+    """Number of maximal runs of ``True`` in a 1-D boolean mask (gap-open count)."""
+    if mask.size == 0:
+        return 0
+    return int(mask[0]) + int(np.count_nonzero(mask[1:] & ~mask[:-1]))
+
+
+def _run_length_encode(ops: str) -> str:
+    """Collapse a per-column op string (e.g. 'MMMDDMM') to CIGAR ('3M2D2M')."""
+    if not ops:
+        return ""
+    out: List[str] = []
+    prev = ops[0]
+    count = 1
+    for ch in ops[1:]:
+        if ch == prev:
+            count += 1
+        else:
+            out.append(f"{count}{prev}")
+            prev = ch
+            count = 1
+    out.append(f"{count}{prev}")
+    return "".join(out)
+
+
+def _derive_alignment_extras(trace, query_str: str, subject_str: str, needs: "_FieldNeeds"):
+    """Compute the mmseqs column values that need the alignment trace.
+
+    Returns ``(n_ident, mismatch, gap_open, q_start, q_end, t_start, t_end,
+    cigar, q_aln, t_aln)``. The trace must be non-empty; column ``(-1, -1)`` never
+    occurs (biotite emits no double-gap columns), so the three masks partition
+    the columns exactly.
+    """
+    q_idx = trace[:, 0]
+    s_idx = trace[:, 1]
+    q_gap = q_idx == -1
+    s_gap = s_idx == -1
+    both = ~q_gap & ~s_gap
+
+    q_arr = np.frombuffer(query_str.encode("ascii"), dtype=np.uint8)
+    s_arr = np.frombuffer(subject_str.encode("ascii"), dtype=np.uint8)
+
+    # 1-indexed bounds over each side's non-gap columns (min/max, so a terminal
+    # gap column — should one ever occur — cannot skew the reported extent).
+    q_res = q_idx[~q_gap]
+    s_res = s_idx[~s_gap]
+    q_start = int(q_res.min()) + 1
+    q_end = int(q_res.max()) + 1
+    t_start = int(s_res.min()) + 1
+    t_end = int(s_res.max()) + 1
+
+    # Identity/mismatch only over columns aligned on both sides.
+    matches = q_arr[q_idx[both]] == s_arr[s_idx[both]]
+    n_ident = int(np.count_nonzero(matches))
+    aligned_pairs = int(both.sum())
+    mismatch = aligned_pairs - n_ident
+
+    # A gap-open event is one maximal run of gaps; count query- and target-side
+    # runs independently (no column is a gap on both sides).
+    gap_open = _count_runs(q_gap) + _count_runs(s_gap)
+
+    cigar = q_aln = t_aln = None
+    if needs.cigar:
+        ops = np.empty(trace.shape[0], dtype="U1")
+        ops[both] = "M"
+        ops[q_gap] = "D"   # deletion: gap in query
+        ops[s_gap] = "I"   # insertion: gap in target
+        cigar = _run_length_encode("".join(ops.tolist()))
+    if needs.qaln:
+        q_aln = "".join(query_str[i] if i != -1 else "-" for i in q_idx)
+    if needs.taln:
+        t_aln = "".join(subject_str[i] if i != -1 else "-" for i in s_idx)
+
+    return n_ident, mismatch, gap_open, q_start, q_end, t_start, t_end, cigar, q_aln, t_aln
 
 
 def _robinson_frequency_vector(alphabet) -> np.ndarray:
@@ -223,9 +481,10 @@ def _bit_score(score: int, lam: float, k: float) -> float:
 
 
 def _worker_init(gap_open: int, gap_extend: int, lam: Optional[float], k: Optional[float],
-                 db_residues: Optional[int], alp_params=None):
-    global _MATRIX, _GAP, _ESTIMATOR, _DB_RESIDUES, _LAMBDA, _K, _ALP
+                 db_residues: Optional[int], alp_params=None, needs: Optional["_FieldNeeds"] = None):
+    global _MATRIX, _GAP, _ESTIMATOR, _DB_RESIDUES, _LAMBDA, _K, _ALP, _OUTPUT_NEEDS
     import biotite.sequence.align as align
+    _OUTPUT_NEEDS = needs if needs is not None else _FieldNeeds(False, False, False, False, False)
     _MATRIX = align.SubstitutionMatrix.std_protein_matrix()  # BLOSUM62
     # Gap penalties are passed through unmodified: biotite charges a length-L gap
     # as open + (L-1)*extend, which is exactly MMseqs2's convention, so 11/1 here
@@ -241,7 +500,8 @@ def _worker_init(gap_open: int, gap_extend: int, lam: Optional[float], k: Option
     _DB_RESIDUES = db_residues
 
 
-def _align(query_protein, query_len: int, subject_protein, subject_len: int) -> AlignmentMetrics:
+def _align(query_protein, query_str: str, query_len: int,
+           subject_protein, subject_str: str, subject_len: int) -> AlignmentMetrics:
     import biotite.sequence.align as align
     aln = align.align_optimal(
         query_protein, subject_protein, _MATRIX,
@@ -251,14 +511,26 @@ def _align(query_protein, query_len: int, subject_protein, subject_len: int) -> 
     # Compute the bit score here so both return paths carry it. None when
     # significance is off; otherwise on whatever scale the active mode implies.
     bit_score = _bit_score(score, _LAMBDA, _K) if _LAMBDA is not None else None
+    needs = _OUTPUT_NEEDS
+    q_seq = query_str if needs.qseq else None
+    t_seq = subject_str if needs.tseq else None
     trace = aln.trace
     aln_len = int(trace.shape[0])
     if aln_len == 0:
-        return AlignmentMetrics(0.0, 0.0, 0.0, 0.0, 0, score, bit_score=bit_score)
+        return AlignmentMetrics(
+            0.0, 0.0, 0.0, 0.0, 0, score, bit_score=bit_score,
+            query_len=query_len, subject_len=subject_len,
+            cigar=("" if needs.cigar else None),
+            q_aln=("" if needs.qaln else None),
+            t_aln=("" if needs.taln else None),
+            q_seq=q_seq, t_seq=t_seq,
+        )
     identity_aln = float(align.get_sequence_identity(aln, mode="all"))
     identity_shorter = float(align.get_sequence_identity(aln, mode="shortest"))
     q_aligned = int((trace[:, 0] != -1).sum())
     s_aligned = int((trace[:, 1] != -1).sum())
+    (n_ident, mismatch, gap_open, q_start, q_end, t_start, t_end,
+     cigar, q_aln, t_aln) = _derive_alignment_extras(trace, query_str, subject_str, needs)
 
     pvalue = evalue = None
     if _ALP is not None:
@@ -294,6 +566,20 @@ def _align(query_protein, query_len: int, subject_protein, subject_len: int) -> 
         bit_score=bit_score,
         pvalue=pvalue,
         evalue=evalue,
+        query_len=query_len,
+        subject_len=subject_len,
+        n_ident=n_ident,
+        mismatch=mismatch,
+        gap_open=gap_open,
+        q_start=q_start,
+        q_end=q_end,
+        t_start=t_start,
+        t_end=t_end,
+        cigar=cigar,
+        q_aln=q_aln,
+        t_aln=t_aln,
+        q_seq=q_seq,
+        t_seq=t_seq,
     )
 
 
@@ -306,15 +592,18 @@ def _align_query(task):
     the caller can regroup a query that was split across several chunks.
     """
     query_id, query_seq, candidates = task
-    query_protein, query_len = _to_protein(query_seq)
+    query_protein, query_clean, query_len = _to_protein(query_seq)
     if query_protein is None:
         return query_id, []
     hits: List[Hit] = []
     for subject_id, subject_seq, emb_score in candidates:
-        subject_protein, subject_len = _to_protein(subject_seq)
+        subject_protein, subject_clean, subject_len = _to_protein(subject_seq)
         if subject_protein is None:
             continue
-        metrics = _align(query_protein, query_len, subject_protein, subject_len)
+        metrics = _align(
+            query_protein, query_clean, query_len,
+            subject_protein, subject_clean, subject_len,
+        )
         hits.append(Hit(subject_id=subject_id, emb_score=emb_score, metrics=metrics))
     return query_id, hits
 
@@ -367,6 +656,7 @@ def align_candidates(
         significance_sample_size: int = 500,
         significance_sample_length: int = 500,
         significance_seed: int = 0,
+        output_fields: Optional[List[str]] = None,
 ) -> Dict[str, List[Hit]]:
     """Stage 2: pairwise-align each prefilter candidate and re-rank by identity.
 
@@ -404,6 +694,12 @@ def align_candidates(
             BLAST-comparable; see the module header.
         significance_sample_size / significance_sample_length / significance_seed: controls for the
             lambda/K sampling pass (``'sampled'`` mode only).
+        output_fields: the ``--format-output`` columns that will be rendered
+            (see :data:`OUTPUT_FIELD_DESCRIPTIONS`); defaults to
+            :data:`DEFAULT_OUTPUT_FIELDS`. Only the heavy string columns actually
+            requested (``cigar``/``qaln``/``taln``/``qseq``/``tseq``) are built
+            and carried on each :class:`AlignmentMetrics`, so a default-format
+            search stays lean. Every scalar column is always available.
 
     Returns:
         ``{query_id: [Hit, ...]}`` sorted by ``bit_score`` desc (equivalently
@@ -413,6 +709,10 @@ def align_candidates(
         ``[]``.
     """
     start_time = time.perf_counter()
+    # Resolve the requested output columns to the set of heavy strings the
+    # workers must build (default format needs none of them).
+    output_fields = list(output_fields) if output_fields else list(DEFAULT_OUTPUT_FIELDS)
+    needs = _needs_from_fields(output_fields)
     # Validate up front (and coerce a plain string), so a typo fails immediately
     # rather than only when significance happens to be computed.
     try:
@@ -473,7 +773,7 @@ def align_candidates(
     if not serial and tasks:
         _expand_cpu_affinity()
 
-    init_args = (gap_open, gap_extend, lam, k, subject_db_size, alp_params)
+    init_args = (gap_open, gap_extend, lam, k, subject_db_size, alp_params, needs)
     if not serial and tasks:
         # Parallelize over (query, subject) *pairs* rather than whole queries by
         # chunking each query's candidate list, so even a single query with many
@@ -517,7 +817,12 @@ def align_candidates(
     for query_id, hits in per_query.items():
         kept = [
             hit for hit in hits
-            if hit.metrics.identity_aln >= min_seq_identity
+            # A candidate with no positive-scoring local alignment yields an empty
+            # trace (aln_len == 0) and thus no valid coordinates; it is not a hit,
+            # so drop it outright (MMseqs2 never emits an alnlen=0 / position-0
+            # row). This matters when the thresholds below are relaxed to 0.
+            if hit.metrics.aln_len > 0
+            and hit.metrics.identity_aln >= min_seq_identity
             and min(hit.metrics.query_coverage, hit.metrics.subject_coverage) >= min_coverage
         ]
         # Rank by bit score (desc), embedding score breaking ties. When
@@ -536,52 +841,37 @@ def align_candidates(
     return results
 
 
-def print_aligned_results(results: Dict[str, List[Hit]]) -> None:
-    """Pretty-print Stage-2 aligned results."""
-    for query_id, hits in results.items():
-        logging.info(f"Query: {query_id}")
-        if not hits:
-            logging.info("No results found matching the criteria")
-            continue
-        logging.info(
-            f"{'Rank':<6} {'Match':<40} {'EmbScore':<10} {'Ident':<8} "
-            f"{'IdentSh':<8} {'QCov':<7} {'SCov':<7} {'AlnLen':<7} {'AlnScore':<9} "
-            f"{'Bits':<9} {'Pval':<11} {'Eval':<11}"
-        )
-        for rank, hit in enumerate(hits, 1):
-            m = hit.metrics
-            bits = f"{m.bit_score:.1f}" if m.bit_score is not None else "-"
-            pval = f"{m.pvalue:.2e}" if m.pvalue is not None else "-"
-            eval_ = f"{m.evalue:.2e}" if m.evalue is not None else "-"
-            logging.info(
-                f"{rank:<6} {hit.subject_id:<40} {hit.emb_score:<10.6f} "
-                f"{m.identity_aln:<8.4f} {m.identity_shorter:<8.4f} "
-                f"{m.query_coverage:<7.4f} {m.subject_coverage:<7.4f} "
-                f"{m.aln_len:<7} {m.score:<9} {bits:<9} {pval:<11} {eval_:<11}"
-            )
+def format_row(query_id: str, hit: "Hit", output_fields: List[str], delimiter: str = "\t") -> str:
+    """Render one hit as a delimited row over ``output_fields`` (in order)."""
+    return delimiter.join(_FIELD_RENDERERS[field](query_id, hit) for field in output_fields)
 
 
-def export_aligned_results(results: Dict[str, List[Hit]], output_file: str) -> None:
-    """Export Stage-2 aligned results to CSV."""
-    import csv
-    with open(output_file, 'w', newline='') as f:
-        writer = csv.writer(f)
-        writer.writerow([
-            'Query', 'Rank', 'Match', 'EmbScore',
-            'SeqIdentity_aln', 'SeqIdentity_shorter',
-            'QueryCoverage', 'SubjectCoverage', 'AlnLen', 'AlnScore',
-            'BitScore', 'Pvalue', 'Evalue',
-        ])
+def write_aligned_results(
+        results: Dict[str, List[Hit]],
+        output_fields: List[str],
+        output_file: Optional[str] = None,
+        delimiter: str = "\t",
+) -> None:
+    """Write Stage-2 hits as MMseqs2-style delimited rows (no header).
+
+    One row per (query, surviving hit) over the requested ``output_fields`` in
+    the order given — tab-separated by default, matching ``mmseqs convertalis``
+    ``--format-mode 0``. With ``output_file`` the rows are written there;
+    otherwise they are printed to stdout.
+    """
+    def _rows():
         for query_id, hits in results.items():
-            for rank, hit in enumerate(hits, 1):
-                m = hit.metrics
-                writer.writerow([
-                    query_id, rank, hit.subject_id, f"{hit.emb_score:.6f}",
-                    f"{m.identity_aln:.6f}", f"{m.identity_shorter:.6f}",
-                    f"{m.query_coverage:.6f}", f"{m.subject_coverage:.6f}",
-                    m.aln_len, m.score,
-                    f"{m.bit_score:.4f}" if m.bit_score is not None else "",
-                    f"{m.pvalue:.6e}" if m.pvalue is not None else "",
-                    f"{m.evalue:.6e}" if m.evalue is not None else "",
-                ])
-    logging.info(f"Results exported to {output_file}")
+            for hit in hits:
+                yield format_row(query_id, hit, output_fields, delimiter)
+
+    if output_file:
+        n = 0
+        with open(output_file, "w", newline="") as fh:
+            for row in _rows():
+                fh.write(row)
+                fh.write("\n")
+                n += 1
+        logging.info(f"Wrote {n} alignment row(s) to {output_file}")
+    else:
+        for row in _rows():
+            print(row)
