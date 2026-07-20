@@ -7,6 +7,8 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
+from foldmatch.types.api_types import SignificanceMode
+
 from . import karlin_altschul
 
 logger = logging.getLogger(__name__)
@@ -355,7 +357,7 @@ def align_candidates(
         num_workers: Optional[int] = None,
         subject_db_size: Optional[int] = None,
         compute_significance: bool = True,
-        significance_mode: str = "default",
+        significance_mode: SignificanceMode = SignificanceMode.default,
         # 'sampled' mode only. NOTE: an earlier comment here claimed lambda/K had
         # converged to within ~1% of the 1000x1000 values by 500x500 — that is
         # measurably wrong (lambda 0.279 vs 0.222, K 0.062 vs 0.008; see the
@@ -390,7 +392,9 @@ def align_candidates(
         compute_significance: when ``True``, annotate each hit with a bit score,
             a pairwise p-value and (if ``subject_db_size`` is given) a database
             E-value.
-        significance_mode: ``'default'`` uses calibrated Karlin-Altschul
+        significance_mode: a :class:`SignificanceMode` (a plain string with the
+            same value is accepted and coerced).
+            ``'default'`` uses calibrated Karlin-Altschul
             constants with a finite-size-corrected search space, giving exact,
             reproducible values; it supports only ``gap_open=11, gap_extend=1``
             and raises otherwise. ``'sampled'`` restores the previous behavior —
@@ -409,6 +413,16 @@ def align_candidates(
         ``[]``.
     """
     start_time = time.perf_counter()
+    # Validate up front (and coerce a plain string), so a typo fails immediately
+    # rather than only when significance happens to be computed.
+    try:
+        significance_mode = SignificanceMode(significance_mode)
+    except ValueError:
+        raise ValueError(
+            f"Unknown significance_mode {significance_mode!r}; expected one of: "
+            f"{', '.join(m.value for m in SignificanceMode)}."
+        ) from None
+
     # Gather every candidate subject sequence in a single random-access read.
     all_subject_ids = {
         sid
@@ -437,22 +451,19 @@ def align_candidates(
     # 'default' is a table lookup (no sampling pass); 'sampled' runs the estimator.
     lam = k = alp_params = None
     if compute_significance and tasks:
-        if significance_mode == "default":
+        if significance_mode is SignificanceMode.default:
             alp_params = karlin_altschul.params_for(gap_open, gap_extend)
             logger.info(
                 f"Using calibrated significance (BLOSUM62 {gap_open}/{gap_extend}: "
                 f"lambda={alp_params.lam:.8f}, K={alp_params.k:.9f}); "
                 f"E-values are not comparable to BLAST."
             )
-        elif significance_mode == "sampled":
+        elif significance_mode is SignificanceMode.sampled:
             lam, k = _estimate_lambda_k(
                 gap_open, gap_extend, evalue_sample_size, evalue_sample_length, evalue_seed
             )
-        else:
-            raise ValueError(
-                f"Unknown significance_mode {significance_mode!r}; "
-                f"expected 'default' or 'sampled'."
-            )
+        else:  # unreachable; guards against a new member added without a branch
+            raise ValueError(f"Unhandled significance_mode {significance_mode!r}")
 
     # Unless explicitly serial, widen the affinity mask before sizing the pool
     # so a scheduler-pinned rank (e.g. srun-bound) still uses the whole node and

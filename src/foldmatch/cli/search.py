@@ -14,6 +14,7 @@ from foldmatch.types.api_types import (
     IndexConfig,
     IndexType,
     LogLevel,
+    SignificanceMode,
 )
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
@@ -584,12 +585,12 @@ def query_database_from_fasta(
         gap_extend: Annotated[int, typer.Option(
             help='Gap-extend penalty (positive) for Stage-2 alignment.'
         )] = 1,
-        significance_mode: Annotated[str, typer.Option(
+        significance_mode: Annotated[SignificanceMode, typer.Option(
             help="Scale for the BitScore/Pvalue/Evalue columns. 'default' uses "
                  "calibrated statistics, but requires the default gap penalties "
                  "11/1; 'sampled' works at any gap penalties but its absolute "
                  "values are unreliable and comparable only within this tool."
-        )] = 'default',
+        )] = SignificanceMode.default,
         align_workers: Annotated[Optional[int], typer.Option(
             help='Process-pool size for Stage-2 alignment. Defaults to all CPUs '
                  'on the node (widening any scheduler --cpu-bind pinning); set '
@@ -716,12 +717,12 @@ def query_database_from_database(
         gap_extend: Annotated[int, typer.Option(
             help='Gap-extend penalty (positive) for Stage-2 alignment.'
         )] = 1,
-        significance_mode: Annotated[str, typer.Option(
+        significance_mode: Annotated[SignificanceMode, typer.Option(
             help="Scale for the BitScore/Pvalue/Evalue columns. 'default' uses "
                  "calibrated statistics, but requires the default gap penalties "
                  "11/1; 'sampled' works at any gap penalties but its absolute "
                  "values are unreliable and comparable only within this tool."
-        )] = 'default',
+        )] = SignificanceMode.default,
         align_workers: Annotated[Optional[int], typer.Option(
             help='Process-pool size for Stage-2 alignment. Defaults to all CPUs '
                  'on the node (widening any scheduler --cpu-bind pinning); set '
@@ -1035,7 +1036,7 @@ def _stage2_align_and_report(
         gap_extend: int,
         num_workers: Optional[int],
         output_csv: Optional[str],
-        significance_mode: str = "default",
+        significance_mode: SignificanceMode = SignificanceMode.default,
 ):
     """Run Stage-2 pairwise alignment on prefilter candidates and report.
 

@@ -83,6 +83,12 @@ class IndexType(str, Enum):
     ivf_pq = "ivf_pq"    # OPQ + IVF-PQ with OnDiskInvertedLists — approximate, on-disk
 
 
+class SignificanceMode(str, Enum):
+    """Scale used for Stage-2 bit scores, p-values and E-values."""
+    default = "default"  # calibrated constants + finite-size correction; needs gaps 11/1
+    sampled = "sampled"  # lambda/K estimated by sampling; any gaps, unreliable magnitudes
+
+
 @dataclass
 class IndexConfig:
     """Tuning knobs for IndexType. All fields are optional; sensible defaults apply."""
