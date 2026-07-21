@@ -451,7 +451,7 @@ def _estimate_lambda_k(
     )
     logger.info(
         f"Estimated lambda={estimator.lam:.4f}, K={estimator.k:.5f} by sampling "
-        f"{sample_size} alignments (approximate significance, relative-only — not BLAST-comparable)."
+        f"{sample_size} alignments (approximate significance)."
     )
     return float(estimator.lam), float(estimator.k)
 
