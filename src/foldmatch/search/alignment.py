@@ -756,7 +756,6 @@ def align_candidates(
             logger.info(
                 f"Using calibrated significance (BLOSUM62 {gap_open}/{gap_extend}: "
                 f"lambda={alp_params.lam:.8f}, K={alp_params.k:.9f}); "
-                f"E-values are not comparable to BLAST."
             )
         elif significance_mode is SignificanceMode.sampled:
             lam, k = _estimate_lambda_k(
