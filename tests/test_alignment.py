@@ -4,10 +4,10 @@ import unittest
 from pathlib import Path
 
 from foldmatch.search import alignment, output
-from foldmatch.search.alignment import (
+from foldmatch.search.alignment import _chunk_candidate_tasks
+from foldmatch.search.output import (
     DEFAULT_OUTPUT_FIELDS,
     SUPPORTED_OUTPUT_FIELDS,
-    _chunk_candidate_tasks,
     parse_format_output,
 )
 
@@ -161,8 +161,39 @@ class TestParseFormatOutput(unittest.TestCase):
         # Registry and renderer table must stay in lock-step.
         self.assertEqual(
             set(SUPPORTED_OUTPUT_FIELDS),
-            set(alignment._FIELD_RENDERERS),
+            set(output._FIELD_RENDERERS),
         )
+
+    def test_every_supported_field_materializes_when_requested_alone(self):
+        """Guard the registry (output.py) against the compute gate (alignment.py).
+
+        The expensive per-hit strings are only built when the requested columns
+        ask for them, and that gate — ``alignment._needs_from_fields`` — lives on
+        the other side of the module boundary from the field registry. A column
+        added to the registry and renderer but not wired into the gate would
+        never be materialized and would silently render as an empty string in
+        every output file. Requesting each field *on its own* is what exercises
+        the gate; asking for them all at once would mask a missing entry.
+        """
+        for field in SUPPORTED_OUTPUT_FIELDS:
+            with self.subTest(field=field):
+                res = alignment.align_candidates(
+                    query_sequences={"q1": _STORE["s1"]},
+                    prefilter_results={"q1": (["s1"], [0.9])},
+                    fetch_subject_sequences=_fetch,
+                    min_seq_identity=0.0,
+                    min_coverage=0.0,
+                    num_workers=1,
+                    subject_db_size=sum(len(v) for v in _STORE.values()),
+                    compute_significance=True,
+                    output_fields=[field],
+                )
+                hit = res["q1"][0]
+                self.assertNotEqual(
+                    output.format_row("q1", hit, [field]), "",
+                    f"column '{field}' rendered empty when requested alone — "
+                    f"is it wired into alignment._needs_from_fields?",
+                )
 
 
 def _cigar_counts(cigar):
@@ -254,7 +285,7 @@ class TestOutputFieldComputation(unittest.TestCase):
     def test_serial_and_parallel_agree_on_all_fields(self):
         def sig(results):
             return {
-                qid: [alignment.format_row(qid, h, list(SUPPORTED_OUTPUT_FIELDS), "|") for h in hits]
+                qid: [output.format_row(qid, h, list(SUPPORTED_OUTPUT_FIELDS), "|") for h in hits]
                 for qid, hits in results.items()
             }
         self.assertEqual(
@@ -318,7 +349,7 @@ class TestWriteAlignedResults(unittest.TestCase):
         )
         with tempfile.TemporaryDirectory() as d:
             out = Path(d) / "hits.tsv"
-            alignment.write_aligned_results(res, fields, str(out))
+            output.write_aligned_results(res, fields, str(out))
             lines = out.read_text().splitlines()
 
         self.assertEqual(len(lines), 2)  # two hits, no header row
@@ -344,7 +375,7 @@ class TestWriteAlignedResults(unittest.TestCase):
         )
         with tempfile.TemporaryDirectory() as d:
             out = Path(d) / "hits.tsv"
-            alignment.write_aligned_results(res, fields, str(out))
+            output.write_aligned_results(res, fields, str(out))
             rows = [ln.split("\t") for ln in out.read_text().splitlines()]
 
         by_target = {r[1]: r[2] for r in rows}
@@ -355,7 +386,7 @@ class TestWriteAlignedResults(unittest.TestCase):
 
     def test_default_format_leads_with_ids_then_embedding_score(self):
         self.assertEqual(
-            alignment.DEFAULT_OUTPUT_FIELDS[:3],
+            output.DEFAULT_OUTPUT_FIELDS[:3],
             ("query", "target", "embscore"),
         )
 

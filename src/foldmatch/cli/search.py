@@ -6,10 +6,11 @@ from typing import Annotated, Optional, List
 
 from foldmatch import __version__
 from foldmatch.cli.args_utils import arg_devices, set_log_level
-from foldmatch.search.alignment import DEFAULT_FORMAT_OUTPUT, SUPPORTED_OUTPUT_FIELDS
 from foldmatch.search.output import (
     CLUSTER_OUTPUT_FIELDS,
+    DEFAULT_FORMAT_OUTPUT,
     EMBEDDING_OUTPUT_FIELDS,
+    SUPPORTED_OUTPUT_FIELDS,
     write_embedding_results,
 )
 from foldmatch.types.api_types import (
@@ -1069,11 +1070,11 @@ def _stage2_align_and_report(
     MMseqs2-style tab-separated rows over the ``--format-output`` columns.
     """
     from foldmatch.search.sequence_store import SequenceStore
-    from foldmatch.search import alignment
+    from foldmatch.search import alignment, output
 
     # Validate the requested columns before doing any alignment work, so a typo
     # fails fast with the full list of supported fields.
-    output_fields = alignment.parse_format_output(format_output)
+    output_fields = output.parse_format_output(format_output)
 
     subject_store = SequenceStore(embedding_db.db_folder, embedding_db.index_name)
     if not subject_store.exists():
@@ -1096,13 +1097,13 @@ def _stage2_align_and_report(
         subject_db_size=subject_store.total_residues(),
         # Only pay for the significance pass when a significance column
         # (evalue/bits) is actually requested.
-        compute_significance=alignment.needs_significance(output_fields),
+        compute_significance=output.needs_significance(output_fields),
         significance_mode=significance_mode,
         significance_sample_size=significance_sample_size,
         output_fields=output_fields,
     )
 
-    alignment.write_aligned_results(aligned, output_fields, output_file)
+    output.write_aligned_results(aligned, output_fields, output_file)
 
 
 def _is_rank_zero():

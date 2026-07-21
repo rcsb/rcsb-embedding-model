@@ -9,7 +9,7 @@ from tqdm import tqdm
 
 from foldmatch.search import FaissEmbeddingDatabase
 from foldmatch.search.embedding_database import _parse_db_path
-from foldmatch.search.output import DELIMITER, write_rows
+from foldmatch.search.output import write_cluster_results
 
 logger = logging.getLogger(__name__)
 
@@ -199,12 +199,12 @@ class EmbeddingClusterer:
         for cluster_id in self.clusters:
             cluster_sizes[cluster_id] = cluster_sizes.get(cluster_id, 0) + 1
 
-        rows = [
-            DELIMITER.join((str(chain_id), str(cluster_id), str(cluster_sizes[cluster_id])))
+        assignments = [
+            (chain_id, cluster_id, cluster_sizes[cluster_id])
             for chain_id, cluster_id in zip(self.chain_ids, self.clusters)
             if min_cluster_size is None or cluster_sizes[cluster_id] >= min_cluster_size
         ]
-        exported = write_rows(rows, str(output_path))
+        exported = write_cluster_results(assignments, str(output_path))
         logging.info(f"Cluster assignments exported to {output_file}")
 
         if min_cluster_size:

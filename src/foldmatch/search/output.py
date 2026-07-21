@@ -1,42 +1,51 @@
-"""Shared tabular output contract for search results.
+"""Tabular output contract for search results.
 
-Every result file this package writes — the Stage-1 embedding search and the
-Stage-2 sequence alignment alike — has the same shape: delimited rows, one hit
-per line, no header. Downstream parsing therefore never has to branch on which
-stage produced a file, and a column name means the same thing in both.
+This module owns everything about *how results are presented*: which columns
+exist, how each one renders, and how rows reach disk. The modules that compute
+results (:mod:`alignment`, :mod:`clustering`, the embedding search) stay pure
+computation and hand their values here.
 
-Field *rendering* for Stage-2's selectable columns lives in :mod:`alignment`,
-which owns the alignment internals those columns are derived from. This module
-owns the file-level convention (delimiter, no header) and the column set an
-embedding-only search emits.
+Every result file has the same shape — delimited rows, one record per line, no
+header — so downstream parsing never has to branch on which command produced a
+file, and a column name means the same thing everywhere.
+
+Three column sets are defined here:
+
+* :data:`EMBEDDING_OUTPUT_FIELDS` — an embedding-only search.
+* :data:`OUTPUT_FIELD_DESCRIPTIONS` — the selectable Stage-2 alignment columns
+  (``--format-output``), of which :data:`DEFAULT_OUTPUT_FIELDS` is the default.
+* :data:`CLUSTER_OUTPUT_FIELDS` — ``fm-search cluster``.
+
+--------------------------------------------------------------------------- #
+mmseqs-style tabular output
+
+Stage-2 hits are reported as a subset of the same columns MMseqs2 emits from
+``mmseqs convertalis``, selected with ``--format-output`` and written as
+tab-separated rows with no header (MMseqs2's ``--format-mode 0`` default). The
+default column set below matches MMseqs2's own default.
+
+Fidelity notes:
+  * ``fident`` is nident/alnlen (identical columns over the whole alignment
+    length, gaps included) — the same fraction MMseqs2 reports; ``pident`` is
+    that fraction as a percentage (100*fident), per the field's name.
+  * ``bits`` is emitted as an integer via MMseqs2's ``int(bitScore + 0.5)``.
+  * ``gapopen`` counts maximal gap RUNS (query- and target-side independently),
+    not gap characters.
+  * CIGAR ops follow MMseqs2: ``M`` aligned pair, ``D`` gap in query (deletion),
+    ``I`` gap in target (insertion).
+--------------------------------------------------------------------------- #
 """
 
 import logging
-from typing import Dict, Iterable, List, Tuple
+from typing import TYPE_CHECKING, Callable, Dict, Iterable, List, Optional, Tuple
+
+if TYPE_CHECKING:  # avoids a runtime import cycle; alignment imports this module
+    from .alignment import Hit
 
 logger = logging.getLogger(__name__)
 
 # Tab-separated, no header row — the shape of every result file.
 DELIMITER = "\t"
-
-# Columns emitted by an embedding-only search (i.e. no Stage-2 alignment: the
-# structure/embedding queries, and the sequence queries when Stage 2 is off).
-# These reuse the Stage-2 field names so the columns line up across both files.
-EMBEDDING_OUTPUT_FIELDS: Tuple[str, ...] = ("query", "target", "embscore")
-
-# Columns emitted by ``fm-search cluster``. Clustering describes the database
-# rather than a query/target pair, so it has its own column set — but the same
-# tab-separated, no-header file convention.
-CLUSTER_OUTPUT_FIELDS: Tuple[str, ...] = ("chain_id", "cluster_id", "cluster_size")
-
-
-def format_embedding_score(score: float) -> str:
-    """Render an embedding similarity score.
-
-    Single source of truth, so an embedding-only file and Stage-2's
-    ``embscore`` column format the same number identically.
-    """
-    return f"{score:.6f}"
 
 
 def write_rows(rows: Iterable[str], output_file: str) -> int:
@@ -48,6 +57,25 @@ def write_rows(rows: Iterable[str], output_file: str) -> int:
             fh.write("\n")
             n += 1
     return n
+
+
+# --------------------------------------------------------------------------- #
+# Embedding-only search output
+# --------------------------------------------------------------------------- #
+
+# Columns emitted by an embedding-only search (i.e. no Stage-2 alignment: the
+# structure/embedding queries, and the sequence queries when Stage 2 is off).
+# These reuse the Stage-2 field names so the columns line up across both files.
+EMBEDDING_OUTPUT_FIELDS: Tuple[str, ...] = ("query", "target", "embscore")
+
+
+def format_embedding_score(score: float) -> str:
+    """Render an embedding similarity score.
+
+    Single source of truth, so an embedding-only file and Stage-2's
+    ``embscore`` column format the same number identically.
+    """
+    return f"{score:.6f}"
 
 
 def write_embedding_results(
@@ -69,3 +97,172 @@ def write_embedding_results(
 
     n = write_rows(_rows(), output_file)
     logger.info(f"Wrote {n} result row(s) to {output_file}")
+
+
+# --------------------------------------------------------------------------- #
+# Clustering output
+# --------------------------------------------------------------------------- #
+
+# Columns emitted by ``fm-search cluster``. Clustering describes the database
+# rather than a query/target pair, so it has its own column set — but the same
+# tab-separated, no-header file convention.
+CLUSTER_OUTPUT_FIELDS: Tuple[str, ...] = ("chain_id", "cluster_id", "cluster_size")
+
+
+def write_cluster_results(
+        assignments: Iterable[Tuple[str, int, int]],
+        output_file: str,
+        delimiter: str = DELIMITER,
+) -> int:
+    """Write cluster assignments in :data:`CLUSTER_OUTPUT_FIELDS` order.
+
+    ``assignments`` is an iterable of ``(chain_id, cluster_id, cluster_size)``;
+    the caller owns which rows to include (e.g. a ``min_cluster_size`` filter).
+    Emitting the columns here keeps their order next to the declared field list,
+    which the CLI help text is generated from. Returns the number of rows.
+    """
+    return write_rows(
+        (delimiter.join((str(chain_id), str(cluster_id), str(cluster_size)))
+         for chain_id, cluster_id, cluster_size in assignments),
+        output_file,
+    )
+
+
+# --------------------------------------------------------------------------- #
+# Stage-2 alignment output (selectable columns)
+# --------------------------------------------------------------------------- #
+
+# Ordered registry of every supported field -> one-line description (used for
+# validation and the CLI help text). Order here is the canonical field order.
+OUTPUT_FIELD_DESCRIPTIONS: Dict[str, str] = {
+    "query": "Query sequence identifier",
+    "target": "Target sequence identifier",
+    "embscore": "Embedding similarity score from the Stage-1 prefilter",
+    "evalue": "E-value",
+    "gapopen": "Number of gap open events (not the number of gap characters)",
+    "pident": "Percentage of identical matches",
+    "fident": "Fraction of identical matches",
+    "nident": "Number of identical matches",
+    "qstart": "1-indexed alignment start position in query sequence",
+    "qend": "1-indexed alignment end position in query sequence",
+    "qlen": "Query sequence length",
+    "tstart": "1-indexed alignment start position in target sequence",
+    "tend": "1-indexed alignment end position in target sequence",
+    "tlen": "Target sequence length",
+    "alnlen": "Alignment length (number of aligned columns)",
+    "raw": "Raw alignment score",
+    "bits": "Bit score",
+    "cigar": "Alignment CIGAR string (M match, D gap in query, I gap in target)",
+    "qseq": "Query sequence",
+    "tseq": "Target sequence",
+    "qaln": "Aligned query sequence with gaps",
+    "taln": "Aligned target sequence with gaps",
+    "mismatch": "Number of mismatches",
+    "qcov": "Fraction of query sequence covered by alignment",
+    "tcov": "Fraction of target sequence covered by alignment",
+}
+
+SUPPORTED_OUTPUT_FIELDS: Tuple[str, ...] = tuple(OUTPUT_FIELD_DESCRIPTIONS)
+
+# MMseqs2's own default column set, plus the Stage-1 embedding score right
+# after the identifiers (this tool's prefilter has no MMseqs2 equivalent, and
+# keeping it in the default output makes the two stages' files line up).
+DEFAULT_OUTPUT_FIELDS: Tuple[str, ...] = (
+    "query", "target", "embscore", "fident", "alnlen", "mismatch", "gapopen",
+    "qstart", "qend", "tstart", "tend", "evalue", "bits",
+)
+DEFAULT_FORMAT_OUTPUT: str = ",".join(DEFAULT_OUTPUT_FIELDS)
+
+# Fields whose value comes from Karlin-Altschul significance; requesting none of
+# these lets the caller skip the significance pass entirely (and, in 'default'
+# mode, its 11/1 gap-penalty requirement).
+SIGNIFICANCE_FIELDS: frozenset = frozenset({"evalue", "bits"})
+
+
+def parse_format_output(spec: Optional[str]) -> List[str]:
+    """Parse a comma-separated ``--format-output`` spec into validated fields.
+
+    ``None`` yields the default column set. Order and repeats are preserved
+    (each field is emitted where the user placed it). Raises ``ValueError`` with
+    the full supported list on an empty spec or any unknown field.
+    """
+    if spec is None:
+        return list(DEFAULT_OUTPUT_FIELDS)
+    fields = [tok.strip() for tok in spec.split(",") if tok.strip()]
+    if not fields:
+        raise ValueError(
+            "Empty --format-output; give a comma-separated list of fields, e.g. "
+            f"'{DEFAULT_FORMAT_OUTPUT}'."
+        )
+    unknown = [f for f in fields if f not in OUTPUT_FIELD_DESCRIPTIONS]
+    if unknown:
+        raise ValueError(
+            f"Unknown --format-output field(s): {', '.join(unknown)}. "
+            f"Supported fields: {', '.join(SUPPORTED_OUTPUT_FIELDS)}."
+        )
+    return fields
+
+
+def needs_significance(fields: List[str]) -> bool:
+    """Whether any requested field requires the significance (lambda/K) pass."""
+    return any(f in SIGNIFICANCE_FIELDS for f in fields)
+
+
+# Per-field renderers: ``(query_id, hit) -> str``. Significance-derived fields
+# render to "" when significance was not computed; heavy strings render to ""
+# when they were not requested (and so were never materialized).
+_FIELD_RENDERERS: Dict[str, Callable[[str, "Hit"], str]] = {
+    "query":    lambda qid, h: qid,
+    "target":   lambda qid, h: h.subject_id,
+    "embscore": lambda qid, h: format_embedding_score(h.emb_score),
+    "evalue":   lambda qid, h: f"{h.metrics.evalue:.3E}" if h.metrics.evalue is not None else "",
+    "gapopen":  lambda qid, h: str(h.metrics.gap_open),
+    "pident":   lambda qid, h: f"{100.0 * h.metrics.identity_aln:.3f}",
+    "fident":   lambda qid, h: f"{h.metrics.identity_aln:.3f}",
+    "nident":   lambda qid, h: str(h.metrics.n_ident),
+    "qstart":   lambda qid, h: str(h.metrics.q_start),
+    "qend":     lambda qid, h: str(h.metrics.q_end),
+    "qlen":     lambda qid, h: str(h.metrics.query_len),
+    "tstart":   lambda qid, h: str(h.metrics.t_start),
+    "tend":     lambda qid, h: str(h.metrics.t_end),
+    "tlen":     lambda qid, h: str(h.metrics.subject_len),
+    "alnlen":   lambda qid, h: str(h.metrics.aln_len),
+    "raw":      lambda qid, h: str(h.metrics.score),
+    "bits":     lambda qid, h: str(int(h.metrics.bit_score + 0.5)) if h.metrics.bit_score is not None else "",
+    "cigar":    lambda qid, h: h.metrics.cigar or "",
+    "qseq":     lambda qid, h: h.metrics.q_seq or "",
+    "tseq":     lambda qid, h: h.metrics.t_seq or "",
+    "qaln":     lambda qid, h: h.metrics.q_aln or "",
+    "taln":     lambda qid, h: h.metrics.t_aln or "",
+    "mismatch": lambda qid, h: str(h.metrics.mismatch),
+    "qcov":     lambda qid, h: f"{h.metrics.query_coverage:.3f}",
+    "tcov":     lambda qid, h: f"{h.metrics.subject_coverage:.3f}",
+}
+
+
+def format_row(query_id: str, hit: "Hit", output_fields: List[str],
+               delimiter: str = DELIMITER) -> str:
+    """Render one hit as a delimited row over ``output_fields`` (in order)."""
+    return delimiter.join(_FIELD_RENDERERS[field](query_id, hit) for field in output_fields)
+
+
+def write_aligned_results(
+        results: Dict[str, List["Hit"]],
+        output_fields: List[str],
+        output_file: str,
+        delimiter: str = DELIMITER,
+) -> None:
+    """Write Stage-2 hits as MMseqs2-style delimited rows (no header).
+
+    One row per (query, surviving hit) over the requested ``output_fields`` in
+    the order given — tab-separated, matching ``mmseqs convertalis``
+    ``--format-mode 0`` and the embedding-only output written by
+    :func:`write_embedding_results`.
+    """
+    def _rows():
+        for query_id, hits in results.items():
+            for hit in hits:
+                yield format_row(query_id, hit, output_fields, delimiter)
+
+    n = write_rows(_rows(), output_file)
+    logger.info(f"Wrote {n} alignment row(s) to {output_file}")

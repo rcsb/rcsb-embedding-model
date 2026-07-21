@@ -5,8 +5,7 @@ import unittest
 import tempfile
 from pathlib import Path
 
-from foldmatch.search.alignment import DEFAULT_OUTPUT_FIELDS
-from foldmatch.search.output import CLUSTER_OUTPUT_FIELDS
+from foldmatch.search.output import CLUSTER_OUTPUT_FIELDS, DEFAULT_OUTPUT_FIELDS
 from foldmatch.types.api_types import StructureFormat, Accelerator, Granularity
 
 
