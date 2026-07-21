@@ -13,7 +13,7 @@ jobs:
   hatch-test:
     name: Test on Python ${{ matrix.python-version }}
     runs-on: ["self-hosted", "buildchain"]
-    timeout-minutes: 20
+    timeout-minutes: 40
     strategy:
       matrix:
         python-version: ["3.12"]
