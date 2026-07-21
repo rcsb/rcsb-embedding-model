@@ -22,6 +22,7 @@ from foldmatch.types.api_types import (
     IndexType,
     LogLevel,
     SignificanceMode,
+    FormatMode,
 )
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
@@ -51,6 +52,11 @@ app.add_typer(query_db_app, name="query")
 _OUTPUT_FILE_HELP = (
     "Path to write results, as tab-separated rows with no header. "
     f"An embedding-only search writes: {', '.join(EMBEDDING_OUTPUT_FIELDS)}."
+)
+
+_FORMAT_MODE_HELP = (
+    "Layout of the output file: 'headless_tsv' (tab-separated, no header) "
+    "or 'tsv' (same, with a header row naming each column)."
 )
 
 _FORMAT_OUTPUT_HELP = (
@@ -408,6 +414,9 @@ def query_database_from_structure(
                  'Defaults to the value baked in at build time. '
                  'Ignored for flat/hnsw indexes.'
         )] = None,
+        format_mode: Annotated[FormatMode, typer.Option(
+            help=_FORMAT_MODE_HELP
+        )] = FormatMode.headless_tsv,
         log_level: Annotated[LogLevel, typer.Option(
             help='Number of nodes to use for inference of embeddings.'
         )] = LogLevel.info
@@ -443,7 +452,7 @@ def query_database_from_structure(
     # Filter by threshold if specified
     results = _filter_results_by_threshold(results, threshold)
 
-    write_embedding_results(results, output_file)
+    write_embedding_results(results, output_file, format_mode)
 
 
 @query_db_app.command(
@@ -482,6 +491,9 @@ def query_database_from_embedding(
                  'Defaults to the value baked in at build time. '
                  'Ignored for flat/hnsw indexes.'
         )] = None,
+        format_mode: Annotated[FormatMode, typer.Option(
+            help=_FORMAT_MODE_HELP
+        )] = FormatMode.headless_tsv,
         log_level: Annotated[LogLevel, typer.Option(
             help='Logging level.'
         )] = LogLevel.info
@@ -512,7 +524,7 @@ def query_database_from_embedding(
     logging.info(f"Found {len(results)} results from {embedding_folder}")
     results = _filter_results_by_threshold(results, threshold)
 
-    write_embedding_results(results, output_file)
+    write_embedding_results(results, output_file, format_mode)
 
 
 @query_db_app.command(
@@ -617,6 +629,9 @@ def query_database_from_fasta(
         format_output: Annotated[str, typer.Option(
             help=_FORMAT_OUTPUT_HELP
         )] = DEFAULT_FORMAT_OUTPUT,
+        format_mode: Annotated[FormatMode, typer.Option(
+            help=_FORMAT_MODE_HELP
+        )] = FormatMode.headless_tsv,
         log_level: Annotated[LogLevel, typer.Option(
             help='Logging level.'
         )] = LogLevel.info
@@ -682,9 +697,10 @@ def query_database_from_fasta(
             significance_mode=significance_mode,
             significance_sample_size=significance_sample_size,
             format_output=format_output,
+            format_mode=format_mode,
         )
     else:
-        write_embedding_results(results, output_file)
+        write_embedding_results(results, output_file, format_mode)
 
 
 @query_db_app.command(
@@ -757,6 +773,9 @@ def query_database_from_database(
         format_output: Annotated[str, typer.Option(
             help=_FORMAT_OUTPUT_HELP
         )] = DEFAULT_FORMAT_OUTPUT,
+        format_mode: Annotated[FormatMode, typer.Option(
+            help=_FORMAT_MODE_HELP
+        )] = FormatMode.headless_tsv,
         log_level: Annotated[LogLevel, typer.Option(
             help='Number of nodes to use for inference of embeddings.'
         )] = LogLevel.info
@@ -825,9 +844,10 @@ def query_database_from_database(
             significance_mode=significance_mode,
             significance_sample_size=significance_sample_size,
             format_output=format_output,
+            format_mode=format_mode,
         )
     else:
-        write_embedding_results(results, output_file)
+        write_embedding_results(results, output_file, format_mode)
 
 
 @app.command(
@@ -895,6 +915,9 @@ def cluster_database(
         seed: Annotated[Optional[int], typer.Option(
             help='Random seed for reproducibility.'
         )] = None,
+        format_mode: Annotated[FormatMode, typer.Option(
+            help=_FORMAT_MODE_HELP
+        )] = FormatMode.headless_tsv,
         log_level: Annotated[LogLevel, typer.Option(
             help='Number of nodes to use for inference of embeddings.'
         )] = LogLevel.info
@@ -932,7 +955,8 @@ def cluster_database(
     # Export results
     clusterer.export_clusters(
         output_file=output_file,
-        min_cluster_size=min_cluster_size
+        min_cluster_size=min_cluster_size,
+        format_mode=format_mode,
     )
 
 
@@ -1061,6 +1085,7 @@ def _stage2_align_and_report(
         significance_mode: SignificanceMode = SignificanceMode.default,
         significance_sample_size: int = 500,
         format_output: str = DEFAULT_FORMAT_OUTPUT,
+        format_mode: FormatMode = FormatMode.headless_tsv,
 ):
     """Run Stage-2 pairwise alignment on prefilter candidates and report.
 
@@ -1103,7 +1128,7 @@ def _stage2_align_and_report(
         output_fields=output_fields,
     )
 
-    output.write_aligned_results(aligned, output_fields, output_file)
+    output.write_aligned_results(aligned, output_fields, output_file, format_mode)
 
 
 def _is_rank_zero():

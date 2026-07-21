@@ -5,6 +5,7 @@ from pathlib import Path
 
 from foldmatch.search import alignment, output
 from foldmatch.search.alignment import _chunk_candidate_tasks
+from foldmatch.types.api_types import FormatMode
 from foldmatch.search.output import (
     DEFAULT_OUTPUT_FIELDS,
     SUPPORTED_OUTPUT_FIELDS,
@@ -391,6 +392,78 @@ class TestWriteAlignedResults(unittest.TestCase):
         )
 
 
+class TestFormatMode(unittest.TestCase):
+    """--format-mode selects the file layout; the column set is chosen elsewhere."""
+
+    def _hits(self, fields):
+        return alignment.align_candidates(
+            query_sequences={"q1": _STORE["s1"]},
+            prefilter_results={"q1": (["s1", "s2"], [0.9, 0.8])},
+            fetch_subject_sequences=_fetch,
+            min_seq_identity=0.0,
+            num_workers=1,
+            compute_significance=False,
+            output_fields=fields,
+        )
+
+    def test_headless_is_the_default_and_emits_no_header(self):
+        fields = ["query", "target", "fident"]
+        res = self._hits(fields)
+        with tempfile.TemporaryDirectory() as d:
+            implicit, explicit = Path(d) / "a.tsv", Path(d) / "b.tsv"
+            output.write_aligned_results(res, fields, str(implicit))
+            output.write_aligned_results(res, fields, str(explicit),
+                                         FormatMode.headless_tsv)
+            a, b = implicit.read_text(), explicit.read_text()
+        # Omitting the argument must equal asking for headless explicitly.
+        self.assertEqual(a, b)
+        self.assertEqual(a.splitlines()[0].split("\t")[0], "q1")  # data, not a header
+
+    def test_tsv_mode_adds_exactly_one_header_row(self):
+        fields = ["query", "target", "fident", "alnlen"]
+        res = self._hits(fields)
+        with tempfile.TemporaryDirectory() as d:
+            headless, headed = Path(d) / "a.tsv", Path(d) / "b.tsv"
+            output.write_aligned_results(res, fields, str(headless))
+            output.write_aligned_results(res, fields, str(headed), FormatMode.tsv)
+            bare, hdr = headless.read_text().splitlines(), headed.read_text().splitlines()
+        self.assertEqual(hdr[0].split("\t"), fields)   # header names the columns
+        self.assertEqual(hdr[1:], bare)                # data rows are untouched
+        self.assertEqual(len(hdr), len(bare) + 1)      # exactly one extra line
+
+    def test_header_follows_the_requested_column_order(self):
+        fields = ["bits", "query", "cigar", "target"]  # deliberately not canonical
+        res = self._hits(fields)
+        with tempfile.TemporaryDirectory() as d:
+            out = Path(d) / "a.tsv"
+            output.write_aligned_results(res, fields, str(out), FormatMode.tsv)
+            header = out.read_text().splitlines()[0]
+        self.assertEqual(header.split("\t"), fields)
+
+    def test_cluster_header(self):
+        with tempfile.TemporaryDirectory() as d:
+            out = Path(d) / "c.tsv"
+            n = output.write_cluster_results(
+                [("1acb.A", 0, 2), ("1acb.B", 0, 2)], str(out), FormatMode.tsv)
+            lines = out.read_text().splitlines()
+        self.assertEqual(lines[0].split("\t"), list(output.CLUSTER_OUTPUT_FIELDS))
+        self.assertEqual(n, 2, "returned count must exclude the header row")
+
+    def test_plain_string_mode_is_accepted(self):
+        # Typer hands over the enum, but the API should tolerate its value too.
+        self.assertEqual(output.format_spec("tsv"), output.format_spec(FormatMode.tsv))
+
+    def test_unknown_mode_raises_with_supported_list(self):
+        with self.assertRaises(ValueError) as ctx:
+            output.format_spec("json")
+        self.assertIn("headless_tsv", str(ctx.exception))
+
+    def test_every_mode_has_a_spec(self):
+        # A FormatMode member added without a spec would fail only at write time.
+        for mode in FormatMode:
+            self.assertIsNotNone(output.format_spec(mode))
+
+
 class TestWriteEmbeddingResults(unittest.TestCase):
     """The embedding-only (Stage-1) output shares the Stage-2 file convention."""
 
@@ -416,6 +489,15 @@ class TestWriteEmbeddingResults(unittest.TestCase):
             out = Path(d) / "emb.tsv"
             output.write_embedding_results({"q1": ([], [])}, str(out))
             self.assertEqual(out.read_text(), "")
+
+    def test_header_mode_prepends_column_names(self):
+        results = {"q1": (["s1"], [0.91])}
+        with tempfile.TemporaryDirectory() as d:
+            out = Path(d) / "emb.tsv"
+            output.write_embedding_results(results, str(out), FormatMode.tsv)
+            lines = out.read_text().splitlines()
+        self.assertEqual(lines[0].split("\t"), list(output.EMBEDDING_OUTPUT_FIELDS))
+        self.assertEqual(lines[1].split("\t"), ["q1", "s1", "0.910000"])
 
     def test_columns_match_stage2_field_names(self):
         # Every embedding-only column name is also a Stage-2 field, so the two

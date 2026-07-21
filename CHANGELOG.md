@@ -23,6 +23,14 @@ command and to `cluster` / `similarity-graph`** — see *Migration* below.
   `qcov`, `tcov`. An unknown column fails immediately with the supported list.
 - **`embscore` column**, carrying the Stage-1 embedding similarity score through
   to the Stage-2 output so both stages' files line up.
+- **`--format-mode`**, selecting the layout of the output file: `headless_tsv`
+  (tab-separated with no header row — the default, and the previous behaviour)
+  or `tsv` (the same, with a header row naming each column). Available on every
+  command that writes a result file: the four `query` commands and `cluster`.
+  The header names the columns actually emitted, in the order emitted, so for a
+  sequence-identity search it reflects your `--format-output` selection.
+  `--format-mode` controls the file's shape; `--format-output` controls which
+  columns it contains.
 - **Calibrated alignment significance.** E-values and bit scores are now computed
   from published Karlin-Altschul constants with a finite-size-corrected search
   space, making them exact and reproducible rather than sampled. Selected with
@@ -43,7 +51,8 @@ command and to `cluster` / `similarity-graph`** — see *Migration* below.
 - **BREAKING — `--output-csv` is now `--output-file`, and it is required** on
   `query structure`, `query embedding`, `query sequences`, and `query db`.
 - **BREAKING — all result files are now tab-separated with no header row**
-  (previously comma-separated with a header).
+  (previously comma-separated with a header). Pass `--format-mode tsv` to get a
+  header row back.
 - **BREAKING — results are always written to a file.** Printing results to
   stdout when no output path was given has been removed.
 - **BREAKING — the Stage-2 column set changed.** Output is now the
@@ -84,7 +93,7 @@ command and to `cluster` / `similarity-graph`** — see *Migration* below.
 | `fm-search cluster --output clusters.csv` | `fm-search cluster --output-file clusters.tsv` |
 | `fm-search cluster --output clusters.json` | no JSON equivalent; output is TSV |
 | `fm-search similarity-graph --output g.graphml` | `--output-file g.graphml` |
-| parsing results with `csv.reader(f)` after skipping a header | split on `\t`; there is no header row |
+| parsing results with `csv.reader(f)` after skipping a header | split on `\t`; there is no header row by default (`--format-mode tsv` restores one) |
 | `db.export_results(results, path)` | `output.write_embedding_results(results, path)` |
 
 Scripts that read the Stage-2 columns positionally must be updated: pass an

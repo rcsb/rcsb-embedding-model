@@ -120,7 +120,24 @@ All `build` commands accept `--index-type [auto|flat|hnsw|ivf_pq]` and IVF-PQ tu
 
 #### Output format
 
-Every command writes **tab-separated rows with no header** to `--output-file` — one record per line. `query` results are ordered best-first per query, so rank is simply the row order.
+Every command writes **tab-separated rows** to `--output-file` — one record per line. `query` results are ordered best-first per query, so rank is simply the row order.
+
+`--format-mode` selects the file layout:
+
+| Mode | Layout |
+|---|---|
+| `headless_tsv` *(default)* | Tab-separated, **no header row** |
+| `tsv` | Tab-separated, with a header row naming each column |
+
+```bash
+# Add a header row naming the columns
+fm-search query sequences --db-path dbs/my_db --fasta-file q.fasta \
+    --tmp-embedding-folder tmp --output-file hits.tsv --format-mode tsv
+```
+
+The header always names the columns actually emitted, in the order emitted — for a
+sequence-identity search that is your `--format-output` selection. `--format-mode`
+controls only the file's shape; `--format-output` controls which columns it holds.
 
 An **embedding-only** search — `query structure`, `query embedding`, or any query whose database has no sequence store — emits three columns:
 

@@ -37,19 +37,50 @@ Fidelity notes:
 """
 
 import logging
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Callable, Dict, Iterable, List, Optional, Tuple
+
+from foldmatch.types.api_types import FormatMode
 
 if TYPE_CHECKING:  # avoids a runtime import cycle; alignment imports this module
     from .alignment import Hit
 
 logger = logging.getLogger(__name__)
 
-# Tab-separated, no header row — the shape of every result file.
+# Default column separator. The active FormatMode is the authority (see
+# _FORMATS); this is kept for callers that render a row outside a writer.
 DELIMITER = "\t"
 
 
+@dataclass(frozen=True)
+class _FormatSpec:
+    """The file-level shape a :class:`FormatMode` selects."""
+    delimiter: str
+    header: bool
+
+
+# One entry per FormatMode. A new layout (say a comma-separated or commented-
+# header variant) is added by defining the member in FormatMode and its spec
+# here — no writer needs to change, since all three go through _emit().
+_FORMATS: Dict[FormatMode, _FormatSpec] = {
+    FormatMode.headless_tsv: _FormatSpec(delimiter="\t", header=False),
+    FormatMode.tsv:          _FormatSpec(delimiter="\t", header=True),
+}
+
+
+def format_spec(format_mode: FormatMode) -> _FormatSpec:
+    """Resolve a :class:`FormatMode` (or its plain string value) to its spec."""
+    try:
+        return _FORMATS[FormatMode(format_mode)]
+    except ValueError:
+        raise ValueError(
+            f"Unknown format mode {format_mode!r}; expected one of: "
+            f"{', '.join(m.value for m in FormatMode)}."
+        ) from None
+
+
 def write_rows(rows: Iterable[str], output_file: str) -> int:
-    """Write pre-rendered rows (no header) to ``output_file``; return the count."""
+    """Write pre-rendered rows verbatim to ``output_file``; return the count."""
     n = 0
     with open(output_file, "w", newline="") as fh:
         for row in rows:
@@ -57,6 +88,24 @@ def write_rows(rows: Iterable[str], output_file: str) -> int:
             fh.write("\n")
             n += 1
     return n
+
+
+def _emit(field_names: Iterable[str], rows: Iterable[str], output_file: str,
+          format_mode: FormatMode) -> int:
+    """Write ``rows``, prefixed by a header when the format asks for one.
+
+    Returns the number of *data* rows, so callers can log a count that doesn't
+    silently include the header.
+    """
+    spec = format_spec(format_mode)
+
+    def _all():
+        if spec.header:
+            yield spec.delimiter.join(field_names)
+        yield from rows
+
+    written = write_rows(_all(), output_file)
+    return written - 1 if spec.header else written
 
 
 # --------------------------------------------------------------------------- #
@@ -81,7 +130,7 @@ def format_embedding_score(score: float) -> str:
 def write_embedding_results(
         results: Dict[str, Tuple[List[str], List[float]]],
         output_file: str,
-        delimiter: str = DELIMITER,
+        format_mode: FormatMode = FormatMode.headless_tsv,
 ) -> None:
     """Write embedding-search hits as ``query, target, embscore`` rows.
 
@@ -90,12 +139,14 @@ def write_embedding_results(
     them (descending similarity), so rank is simply the row order — there is no
     separate rank column.
     """
+    delimiter = format_spec(format_mode).delimiter
+
     def _rows():
         for query_id, (target_ids, scores) in results.items():
             for target_id, score in zip(target_ids, scores):
                 yield delimiter.join((query_id, target_id, format_embedding_score(score)))
 
-    n = write_rows(_rows(), output_file)
+    n = _emit(EMBEDDING_OUTPUT_FIELDS, _rows(), output_file, format_mode)
     logger.info(f"Wrote {n} result row(s) to {output_file}")
 
 
@@ -112,19 +163,22 @@ CLUSTER_OUTPUT_FIELDS: Tuple[str, ...] = ("chain_id", "cluster_id", "cluster_siz
 def write_cluster_results(
         assignments: Iterable[Tuple[str, int, int]],
         output_file: str,
-        delimiter: str = DELIMITER,
+        format_mode: FormatMode = FormatMode.headless_tsv,
 ) -> int:
     """Write cluster assignments in :data:`CLUSTER_OUTPUT_FIELDS` order.
 
     ``assignments`` is an iterable of ``(chain_id, cluster_id, cluster_size)``;
     the caller owns which rows to include (e.g. a ``min_cluster_size`` filter).
     Emitting the columns here keeps their order next to the declared field list,
-    which the CLI help text is generated from. Returns the number of rows.
+    which the CLI help text is generated from. Returns the number of data rows.
     """
-    return write_rows(
+    delimiter = format_spec(format_mode).delimiter
+    return _emit(
+        CLUSTER_OUTPUT_FIELDS,
         (delimiter.join((str(chain_id), str(cluster_id), str(cluster_size)))
          for chain_id, cluster_id, cluster_size in assignments),
         output_file,
+        format_mode,
     )
 
 
@@ -250,19 +304,21 @@ def write_aligned_results(
         results: Dict[str, List["Hit"]],
         output_fields: List[str],
         output_file: str,
-        delimiter: str = DELIMITER,
+        format_mode: FormatMode = FormatMode.headless_tsv,
 ) -> None:
-    """Write Stage-2 hits as MMseqs2-style delimited rows (no header).
+    """Write Stage-2 hits as MMseqs2-style delimited rows.
 
     One row per (query, surviving hit) over the requested ``output_fields`` in
-    the order given — tab-separated, matching ``mmseqs convertalis``
-    ``--format-mode 0`` and the embedding-only output written by
+    the order given. Under the default headless format this matches ``mmseqs
+    convertalis --format-mode 0``, and the embedding-only output written by
     :func:`write_embedding_results`.
     """
+    delimiter = format_spec(format_mode).delimiter
+
     def _rows():
         for query_id, hits in results.items():
             for hit in hits:
                 yield format_row(query_id, hit, output_fields, delimiter)
 
-    n = write_rows(_rows(), output_file)
+    n = _emit(output_fields, _rows(), output_file, format_mode)
     logger.info(f"Wrote {n} alignment row(s) to {output_file}")

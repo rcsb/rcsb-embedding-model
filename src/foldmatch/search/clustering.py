@@ -10,6 +10,7 @@ from tqdm import tqdm
 from foldmatch.search import FaissEmbeddingDatabase
 from foldmatch.search.embedding_database import _parse_db_path
 from foldmatch.search.output import write_cluster_results
+from foldmatch.types.api_types import FormatMode
 
 logger = logging.getLogger(__name__)
 
@@ -175,7 +176,8 @@ class EmbeddingClusterer:
     def export_clusters(
             self,
             output_file: str,
-            min_cluster_size: Optional[int] = None
+            min_cluster_size: Optional[int] = None,
+            format_mode: FormatMode = FormatMode.headless_tsv,
     ):
         """
         Export cluster assignments as tab-separated rows with no header.
@@ -187,6 +189,7 @@ class EmbeddingClusterer:
         Args:
             output_file: Path to output file
             min_cluster_size: Only include clusters with at least this many members
+            format_mode: File layout (header or headless); see :class:`FormatMode`
         """
         if self.clusters is None:
             raise ValueError("Clustering not performed. Call cluster_leiden() first.")
@@ -204,7 +207,7 @@ class EmbeddingClusterer:
             for chain_id, cluster_id in zip(self.chain_ids, self.clusters)
             if min_cluster_size is None or cluster_sizes[cluster_id] >= min_cluster_size
         ]
-        exported = write_cluster_results(assignments, str(output_path))
+        exported = write_cluster_results(assignments, str(output_path), format_mode)
         logging.info(f"Cluster assignments exported to {output_file}")
 
         if min_cluster_size:

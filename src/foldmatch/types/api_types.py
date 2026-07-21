@@ -83,6 +83,18 @@ class IndexType(str, Enum):
     ivf_pq = "ivf_pq"    # OPQ + IVF-PQ with OnDiskInvertedLists — approximate, on-disk
 
 
+class FormatMode(str, Enum):
+    """How a result file is laid out.
+
+    The column *set* is chosen elsewhere (``--format-output`` for a
+    sequence-identity search; fixed for the other commands); this only controls
+    the file's shape. New layouts are added by defining a member here and a
+    matching spec in :mod:`foldmatch.search.output`.
+    """
+    headless_tsv = "headless_tsv"  # tab-separated, no header row (default)
+    tsv = "tsv"                    # tab-separated with a header row
+
+
 class SignificanceMode(str, Enum):
     """Scale used for Stage-2 bit scores, p-values and E-values."""
     default = "default"  # calibrated constants + finite-size correction; needs gaps 11/1

@@ -6,7 +6,7 @@ import tempfile
 from pathlib import Path
 
 from foldmatch.search.output import CLUSTER_OUTPUT_FIELDS, DEFAULT_OUTPUT_FIELDS
-from foldmatch.types.api_types import StructureFormat, Accelerator, Granularity
+from foldmatch.types.api_types import StructureFormat, Accelerator, Granularity, FormatMode
 
 
 class TestCliSearch(unittest.TestCase):
@@ -484,6 +484,23 @@ class TestCliSearch(unittest.TestCase):
         with open(output_file, 'r') as f:
             lines = [ln.rstrip("\n") for ln in f if ln.strip()]
 
+        # Same clustering with --format-mode tsv gains exactly one header row.
+        headed = os.path.join(self.__temp_dir, "clusters_headed.tsv")
+        cluster_database(
+            db_path=self.__db_path,
+            threshold=0.0,
+            resolution=1.0,
+            output_file=headed,
+            max_neighbors=10,
+            min_cluster_size=None,
+            use_gpu_index=False,
+            seed=42,
+            format_mode=FormatMode.tsv,
+        )
+        with open(headed, 'r') as f:
+            headed_lines = [ln.rstrip("\n") for ln in f if ln.strip()]
+        self.assertEqual(headed_lines[0].split("\t"), list(CLUSTER_OUTPUT_FIELDS))
+
         # TSV, no header: every line is a real chain assignment.
         self.assertGreater(len(lines), 0)
         for ln in lines:
@@ -500,6 +517,9 @@ class TestCliSearch(unittest.TestCase):
         for ln in lines:
             _chain, cluster_id, size = ln.split("\t")
             self.assertEqual(int(size), counts[cluster_id])
+
+        # The header is the only difference between the two modes.
+        self.assertEqual(headed_lines[1:], lines)
 
     def test_24_similarity_graph(self):
         """Test similarity_graph CLI command exports a non-empty GraphML file."""
