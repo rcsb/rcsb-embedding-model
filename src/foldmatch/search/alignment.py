@@ -10,6 +10,7 @@ import numpy as np
 from foldmatch.types.api_types import SignificanceMode
 
 from . import karlin_altschul
+from .output import DELIMITER, format_embedding_score, write_rows
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +71,7 @@ _ROBINSON_FREQUENCIES = {
 OUTPUT_FIELD_DESCRIPTIONS: Dict[str, str] = {
     "query": "Query sequence identifier",
     "target": "Target sequence identifier",
+    "embscore": "Embedding similarity score from the Stage-1 prefilter",
     "evalue": "E-value",
     "gapopen": "Number of gap open events (not the number of gap characters)",
     "pident": "Percentage of identical matches",
@@ -96,9 +98,11 @@ OUTPUT_FIELD_DESCRIPTIONS: Dict[str, str] = {
 
 SUPPORTED_OUTPUT_FIELDS: Tuple[str, ...] = tuple(OUTPUT_FIELD_DESCRIPTIONS)
 
-# MMseqs2's own default column set.
+# MMseqs2's own default column set, plus the Stage-1 embedding score right
+# after the identifiers (this tool's prefilter has no MMseqs2 equivalent, and
+# keeping it in the default output makes the two stages' files line up).
 DEFAULT_OUTPUT_FIELDS: Tuple[str, ...] = (
-    "query", "target", "fident", "alnlen", "mismatch", "gapopen",
+    "query", "target", "embscore", "fident", "alnlen", "mismatch", "gapopen",
     "qstart", "qend", "tstart", "tend", "evalue", "bits",
 )
 DEFAULT_FORMAT_OUTPUT: str = ",".join(DEFAULT_OUTPUT_FIELDS)
@@ -107,11 +111,6 @@ DEFAULT_FORMAT_OUTPUT: str = ",".join(DEFAULT_OUTPUT_FIELDS)
 # these lets the caller skip the significance pass entirely (and, in 'default'
 # mode, its 11/1 gap-penalty requirement).
 SIGNIFICANCE_FIELDS: frozenset = frozenset({"evalue", "bits"})
-
-# The heavy per-hit strings (full sequences and the aligned/CIGAR renderings).
-# They are only materialized when requested so a default-format search over a
-# large candidate set does not pay their memory/pickle cost.
-_HEAVY_FIELDS: frozenset = frozenset({"cigar", "qaln", "taln", "qseq", "tseq"})
 
 
 def parse_format_output(spec: Optional[str]) -> List[str]:
@@ -170,6 +169,7 @@ def _needs_from_fields(fields: List[str]) -> _FieldNeeds:
 _FIELD_RENDERERS: Dict[str, Callable[[str, "Hit"], str]] = {
     "query":    lambda qid, h: qid,
     "target":   lambda qid, h: h.subject_id,
+    "embscore": lambda qid, h: format_embedding_score(h.emb_score),
     "evalue":   lambda qid, h: f"{h.metrics.evalue:.3E}" if h.metrics.evalue is not None else "",
     "gapopen":  lambda qid, h: str(h.metrics.gap_open),
     "pident":   lambda qid, h: f"{100.0 * h.metrics.identity_aln:.3f}",
@@ -840,7 +840,7 @@ def align_candidates(
     return results
 
 
-def format_row(query_id: str, hit: "Hit", output_fields: List[str], delimiter: str = "\t") -> str:
+def format_row(query_id: str, hit: "Hit", output_fields: List[str], delimiter: str = DELIMITER) -> str:
     """Render one hit as a delimited row over ``output_fields`` (in order)."""
     return delimiter.join(_FIELD_RENDERERS[field](query_id, hit) for field in output_fields)
 
@@ -848,29 +848,20 @@ def format_row(query_id: str, hit: "Hit", output_fields: List[str], delimiter: s
 def write_aligned_results(
         results: Dict[str, List[Hit]],
         output_fields: List[str],
-        output_file: Optional[str] = None,
-        delimiter: str = "\t",
+        output_file: str,
+        delimiter: str = DELIMITER,
 ) -> None:
     """Write Stage-2 hits as MMseqs2-style delimited rows (no header).
 
     One row per (query, surviving hit) over the requested ``output_fields`` in
-    the order given — tab-separated by default, matching ``mmseqs convertalis``
-    ``--format-mode 0``. With ``output_file`` the rows are written there;
-    otherwise they are printed to stdout.
+    the order given — tab-separated, matching ``mmseqs convertalis``
+    ``--format-mode 0`` and the embedding-only output written by
+    :func:`~foldmatch.search.output.write_embedding_results`.
     """
     def _rows():
         for query_id, hits in results.items():
             for hit in hits:
                 yield format_row(query_id, hit, output_fields, delimiter)
 
-    if output_file:
-        n = 0
-        with open(output_file, "w", newline="") as fh:
-            for row in _rows():
-                fh.write(row)
-                fh.write("\n")
-                n += 1
-        logging.info(f"Wrote {n} alignment row(s) to {output_file}")
-    else:
-        for row in _rows():
-            print(row)
+    n = write_rows(_rows(), output_file)
+    logger.info(f"Wrote {n} alignment row(s) to {output_file}")

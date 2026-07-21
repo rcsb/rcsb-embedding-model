@@ -7,6 +7,11 @@ from typing import Annotated, Optional, List
 from foldmatch import __version__
 from foldmatch.cli.args_utils import arg_devices, set_log_level
 from foldmatch.search.alignment import DEFAULT_FORMAT_OUTPUT, SUPPORTED_OUTPUT_FIELDS
+from foldmatch.search.output import (
+    CLUSTER_OUTPUT_FIELDS,
+    EMBEDDING_OUTPUT_FIELDS,
+    write_embedding_results,
+)
 from foldmatch.types.api_types import (
     StructureFormat,
     Accelerator,
@@ -39,6 +44,14 @@ app.add_typer(query_db_app, name="query")
 
 # Help text for the Stage-2 --format-output option, shared by the commands that
 # run sequence-identity alignment.
+# Every search command writes the same shape of file: tab-separated rows, no
+# header. Embedding-only searches emit the EMBEDDING_OUTPUT_FIELDS columns;
+# sequence-identity (Stage-2) searches emit the --format-output columns.
+_OUTPUT_FILE_HELP = (
+    "Path to write results, as tab-separated rows with no header. "
+    f"An embedding-only search writes: {', '.join(EMBEDDING_OUTPUT_FIELDS)}."
+)
+
 _FORMAT_OUTPUT_HELP = (
     "Comma-separated columns for the Stage-2 sequence-identity output, written "
     "as tab-separated rows with no header. "
@@ -355,6 +368,9 @@ def query_database_from_structure(
             resolve_path=True,
             help='Path to query structure file.'
         )],
+        output_file: Annotated[str, typer.Option(
+            help=_OUTPUT_FILE_HELP
+        )],
         structure_format: Annotated[StructureFormat, typer.Option(
             help='Structure file format (mmcif, binarycif or pdb)'
         )] = StructureFormat.mmcif,
@@ -373,9 +389,6 @@ def query_database_from_structure(
         threshold: Annotated[Optional[float], typer.Option(
             help='Similarity score threshold to filter results (only return matches with score >= threshold).'
         )] = 0.8,
-        output_csv: Annotated[Optional[str], typer.Option(
-            help='Path to save results as CSV file (optional).'
-        )] = None,
         min_res: Annotated[int, typer.Option(
             help='Minimum residue length for chains.'
         )] = 10,
@@ -429,13 +442,7 @@ def query_database_from_structure(
     # Filter by threshold if specified
     results = _filter_results_by_threshold(results, threshold)
 
-    # Either print to stdout OR export to CSV — never both. Printing thousands
-    # of result rows to stdout can swamp SLURM's I/O pipeline (Abandoning IO
-    # warnings) and is redundant when the CSV is the real artifact.
-    if output_csv:
-        embedding_db.export_results(results, output_csv)
-    else:
-        embedding_db.print_results(results)
+    write_embedding_results(results, output_file)
 
 
 @query_db_app.command(
@@ -453,6 +460,9 @@ def query_database_from_embedding(
             resolve_path=True,
             help='Directory containing pre-computed embedding files (.pt, .csv, or .parquet).'
         )],
+        output_file: Annotated[str, typer.Option(
+            help=_OUTPUT_FILE_HELP
+        )],
         file_extension: Annotated[Optional[str], typer.Option(
             help='Restrict loading to a single extension (.pt, .csv, or .parquet). If unset, all three are collected.'
         )] = None,
@@ -462,9 +472,6 @@ def query_database_from_embedding(
         threshold: Annotated[Optional[float], typer.Option(
             help='Similarity score threshold to filter results (only return matches with score >= threshold).'
         )] = 0.8,
-        output_csv: Annotated[Optional[str], typer.Option(
-            help='Path to save results as CSV file (optional).'
-        )] = None,
         use_gpu_index: Annotated[bool, typer.Option(
             help='Use GPU for FAISS search (requires faiss-gpu).'
         )] = False,
@@ -504,11 +511,7 @@ def query_database_from_embedding(
     logging.info(f"Found {len(results)} results from {embedding_folder}")
     results = _filter_results_by_threshold(results, threshold)
 
-    # See query_database_from_structure for the rationale: print xor CSV.
-    if output_csv:
-        embedding_db.export_results(results, output_csv)
-    else:
-        embedding_db.print_results(results)
+    write_embedding_results(results, output_file)
 
 
 @query_db_app.command(
@@ -533,6 +536,9 @@ def query_database_from_fasta(
             resolve_path=True,
             help='Directory for intermediate embeddings.'
         )],
+        output_file: Annotated[str, typer.Option(
+            help=_OUTPUT_FILE_HELP
+        )],
         min_res_n: Annotated[int, typer.Option(
             help='Consider only sequences with at least <min_res_n> residues.'
         )] = 0,
@@ -542,9 +548,6 @@ def query_database_from_fasta(
         threshold: Annotated[Optional[float], typer.Option(
             help='Similarity score threshold to filter results (only return matches with score >= threshold).'
         )] = 0.8,
-        output_csv: Annotated[Optional[str], typer.Option(
-            help='Path to save results as CSV file (optional).'
-        )] = None,
         use_gpu_index: Annotated[bool, typer.Option(
             help='Use GPU for FAISS search (requires faiss-gpu).'
         )] = False,
@@ -674,15 +677,13 @@ def query_database_from_fasta(
             gap_open=gap_open,
             gap_extend=gap_extend,
             num_workers=align_workers,
-            output_csv=output_csv,
+            output_file=output_file,
             significance_mode=significance_mode,
             significance_sample_size=significance_sample_size,
             format_output=format_output,
         )
-    elif output_csv:
-        embedding_db.export_results(results, output_csv)
     else:
-        embedding_db.print_results(results)
+        write_embedding_results(results, output_file)
 
 
 @query_db_app.command(
@@ -696,15 +697,15 @@ def query_database_from_database(
         subject_db_path: Annotated[str, typer.Option(
             help='Path to the subject FAISS database to search against.'
         )],
+        output_file: Annotated[str, typer.Option(
+            help=_OUTPUT_FILE_HELP
+        )],
         top_k: Annotated[int, typer.Option(
             help='Number of top results to return per query chain.'
         )] = 100,
         threshold: Annotated[Optional[float], typer.Option(
             help='Similarity score threshold to filter results (only return matches with score >= threshold).'
         )] = 0.8,
-        output_csv: Annotated[Optional[str], typer.Option(
-            help='Path to save results as CSV file (optional).'
-        )] = None,
         use_gpu_index: Annotated[bool, typer.Option(
             help='Use GPU for FAISS search (requires faiss-gpu).'
         )] = False,
@@ -819,15 +820,13 @@ def query_database_from_database(
             gap_open=gap_open,
             gap_extend=gap_extend,
             num_workers=align_workers,
-            output_csv=output_csv,
+            output_file=output_file,
             significance_mode=significance_mode,
             significance_sample_size=significance_sample_size,
             format_output=format_output,
         )
-    elif output_csv:
-        embedding_db.export_results(results, output_csv)
     else:
-        embedding_db.print_results(results)
+        write_embedding_results(results, output_file)
 
 
 @app.command(
@@ -879,9 +878,10 @@ def cluster_database(
         resolution: Annotated[float, typer.Option(
             help='Leiden resolution parameter (higher = more clusters).'
         )] = 1.0,
-        output: Annotated[str, typer.Option(
-            help='Path to save cluster assignments (CSV or JSON).'
-        )] = "clusters.csv",
+        output_file: Annotated[str, typer.Option(
+            help='Path to save cluster assignments, as tab-separated rows with '
+                 f'no header: {", ".join(CLUSTER_OUTPUT_FIELDS)}.'
+        )] = "clusters.tsv",
         max_neighbors: Annotated[int, typer.Option(
             help='Maximum number of neighbors to consider per chain'
         )] = 1000,
@@ -928,17 +928,9 @@ def cluster_database(
     # Display statistics
     clusterer.print_statistics()
 
-    # Determine output format from file extension
-    output_path = Path(output)
-    if output_path.suffix == '.json':
-        output_format = 'json'
-    else:
-        output_format = 'csv'
-
     # Export results
     clusterer.export_clusters(
-        output_file=output,
-        format=output_format,
+        output_file=output_file,
         min_cluster_size=min_cluster_size
     )
 
@@ -954,7 +946,7 @@ def similarity_graph(
         threshold: Annotated[float, typer.Option(
             help='Similarity threshold for edge creation (0-1, where 1.0 = identical).'
         )] = 0.8,
-        output: Annotated[str, typer.Option(
+        output_file: Annotated[str, typer.Option(
             help='Path to save the similarity graph (GraphML format).'
         )] = "similarity_graph.graphml",
         max_neighbors: Annotated[int, typer.Option(
@@ -986,7 +978,7 @@ def similarity_graph(
         max_neighbors=max_neighbors
     )
 
-    output_path = Path(output)
+    output_path = Path(output_file)
     graph.write_graphml(str(output_path))
     logging.info(f"Similarity graph saved to {output_path}")
 
@@ -1064,7 +1056,7 @@ def _stage2_align_and_report(
         gap_open: int,
         gap_extend: int,
         num_workers: Optional[int],
-        output_csv: Optional[str],
+        output_file: str,
         significance_mode: SignificanceMode = SignificanceMode.default,
         significance_sample_size: int = 500,
         format_output: str = DEFAULT_FORMAT_OUTPUT,
@@ -1110,8 +1102,7 @@ def _stage2_align_and_report(
         output_fields=output_fields,
     )
 
-    # See query_database_from_structure for the rationale: file xor stdout.
-    alignment.write_aligned_results(aligned, output_fields, output_csv)
+    alignment.write_aligned_results(aligned, output_fields, output_file)
 
 
 def _is_rank_zero():

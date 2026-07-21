@@ -9,6 +9,7 @@ from tqdm import tqdm
 
 from foldmatch.search import FaissEmbeddingDatabase
 from foldmatch.search.embedding_database import _parse_db_path
+from foldmatch.search.output import DELIMITER, write_rows
 
 logger = logging.getLogger(__name__)
 
@@ -174,15 +175,17 @@ class EmbeddingClusterer:
     def export_clusters(
             self,
             output_file: str,
-            format: str = 'csv',
             min_cluster_size: Optional[int] = None
     ):
         """
-        Export cluster assignments to file.
+        Export cluster assignments as tab-separated rows with no header.
+
+        Columns are :data:`~foldmatch.search.output.CLUSTER_OUTPUT_FIELDS`
+        (``chain_id, cluster_id, cluster_size``), matching the file convention
+        used by the search commands.
 
         Args:
             output_file: Path to output file
-            format: Output format ('csv' or 'json')
             min_cluster_size: Only include clusters with at least this many members
         """
         if self.clusters is None:
@@ -196,38 +199,17 @@ class EmbeddingClusterer:
         for cluster_id in self.clusters:
             cluster_sizes[cluster_id] = cluster_sizes.get(cluster_id, 0) + 1
 
-        # Prepare data
-        data = []
-        for chain_id, cluster_id in zip(self.chain_ids, self.clusters):
-            size = cluster_sizes[cluster_id]
-            if min_cluster_size is None or size >= min_cluster_size:
-                data.append({
-                    'chain_id': chain_id,
-                    'cluster_id': cluster_id,
-                    'cluster_size': size
-                })
-
-        if format == 'csv':
-            import csv
-            with open(output_path, 'w', newline='') as f:
-                writer = csv.DictWriter(f, fieldnames=['chain_id', 'cluster_id', 'cluster_size'])
-                writer.writeheader()
-                writer.writerows(data)
-            logging.info(f"\nCluster assignments exported to {output_file}")
-
-        elif format == 'json':
-            import json
-            with open(output_path, 'w') as f:
-                json.dump(data, f, indent=2)
-            logging.info(f"\nCluster assignments exported to {output_file}")
-
-        else:
-            raise ValueError(f"Unsupported format: {format}. Use 'csv' or 'json'.")
+        rows = [
+            DELIMITER.join((str(chain_id), str(cluster_id), str(cluster_sizes[cluster_id])))
+            for chain_id, cluster_id in zip(self.chain_ids, self.clusters)
+            if min_cluster_size is None or cluster_sizes[cluster_id] >= min_cluster_size
+        ]
+        exported = write_rows(rows, str(output_path))
+        logging.info(f"Cluster assignments exported to {output_file}")
 
         if min_cluster_size:
-            filtered_count = len(data)
             total_count = len(self.clusters)
-            logging.info(f"Exported {filtered_count}/{total_count} chains (min_cluster_size={min_cluster_size})")
+            logging.info(f"Exported {exported}/{total_count} chains (min_cluster_size={min_cluster_size})")
 
     def print_statistics(self):
         """Print clustering statistics to console."""

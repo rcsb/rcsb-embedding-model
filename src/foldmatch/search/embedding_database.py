@@ -161,46 +161,6 @@ class EmbeddingDatabase:
         logging.info(f"Completed {len(results)} queries")
         return results
 
-    def print_results(self, results: Dict[str, Tuple[List[str], List[float]]]):
-        """
-        Pretty print search results.
-
-        Args:
-            results: Dictionary from search_by_structure
-        """
-        for query_chain, (matching_ids, scores) in results.items():
-            logging.info(f"Query: {query_chain}")
-            if not matching_ids:
-                logging.info("No results found matching the criteria")
-            else:
-                logging.info(f"{'Rank':<6} {'Match':<40} {'Score':<10}")
-                for rank, (chain_id, score) in enumerate(zip(matching_ids, scores), 1):
-                    logging.info(f"{rank:<6} {chain_id:<40} {score:<10.6f}")
-
-    def export_results(
-            self,
-            results: Dict[str, Tuple[List[str], List[float]]],
-            output_file: str
-    ):
-        """
-        Export search results to a CSV file.
-
-        Args:
-            results: Dictionary from search_by_structure
-            output_file: Path to output CSV file
-        """
-        import csv
-
-        with open(output_file, 'w', newline='') as f:
-            writer = csv.writer(f)
-            writer.writerow(['Query', 'Rank', 'Match', 'Score'])
-
-            for query_chain, (matching_ids, scores) in results.items():
-                for rank, (chain_id, score) in enumerate(zip(matching_ids, scores), 1):
-                    writer.writerow([query_chain, rank, chain_id, score])
-
-        logging.info(f"Results exported to {output_file}")
-
     def get_db_statistics(self) -> Dict:
         """Get database statistics."""
         return self.db.get_statistics()

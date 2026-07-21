@@ -5,6 +5,8 @@ import unittest
 import tempfile
 from pathlib import Path
 
+from foldmatch.search.alignment import DEFAULT_OUTPUT_FIELDS
+from foldmatch.search.output import CLUSTER_OUTPUT_FIELDS
 from foldmatch.types.api_types import StructureFormat, Accelerator, Granularity
 
 
@@ -57,7 +59,7 @@ class TestCliSearch(unittest.TestCase):
 
         # Use one of the test structures as the query
         query_structure = Path(f"{self.__test_path}/resources/pdb/1acb.cif")
-        output_csv = os.path.join(self.__temp_dir, "search_results.csv")
+        output_file = os.path.join(self.__temp_dir, "search_results.csv")
 
         query_database_from_structure(
             db_path=self.__db_path,
@@ -66,7 +68,7 @@ class TestCliSearch(unittest.TestCase):
             chain_id=None,
             top_k=5,
             threshold=None,
-            output_csv=output_csv,
+            output_file=output_file,
             min_res=10,
             max_res=None,
             accelerator=Accelerator.cpu,
@@ -74,20 +76,23 @@ class TestCliSearch(unittest.TestCase):
         )
 
         # Verify CSV was created
-        self.assertTrue(os.path.exists(output_csv))
+        self.assertTrue(os.path.exists(output_file))
 
-        # Verify CSV contains results
-        with open(output_csv, 'r') as f:
-            lines = f.readlines()
-            # Should have header + at least some results
-            self.assertGreater(len(lines), 1)
+        # Embedding-only search: TSV, no header, query/target/embscore.
+        with open(output_file, 'r') as f:
+            lines = [ln.rstrip("\n") for ln in f if ln.strip()]
+        self.assertGreater(len(lines), 0)
+        for ln in lines:
+            cols = ln.split("\t")
+            self.assertEqual(len(cols), 3)
+            float(cols[2])  # embedding score parses as a number
 
     def test_03_query_with_threshold(self):
         """Test querying with a similarity score threshold."""
         from foldmatch.cli.search import query_database_from_structure
 
         query_structure = Path(f"{self.__test_path}/resources/pdb/1acb.cif")
-        output_csv = os.path.join(self.__temp_dir, "search_results_threshold.csv")
+        output_file = os.path.join(self.__temp_dir, "search_results_threshold.csv")
 
         query_database_from_structure(
             db_path=self.__db_path,
@@ -96,7 +101,7 @@ class TestCliSearch(unittest.TestCase):
             chain_id=None,
             top_k=10,
             threshold=0.5,  # Apply threshold
-            output_csv=output_csv,
+            output_file=output_file,
             min_res=10,
             max_res=None,
             accelerator=Accelerator.cpu,
@@ -104,14 +109,14 @@ class TestCliSearch(unittest.TestCase):
         )
 
         # Verify CSV was created
-        self.assertTrue(os.path.exists(output_csv))
+        self.assertTrue(os.path.exists(output_file))
 
     def test_04_query_specific_chain(self):
         """Test querying with a specific chain ID."""
         from foldmatch.cli.search import query_database_from_structure
 
         query_structure = Path(f"{self.__test_path}/resources/pdb/1acb.cif")
-        output_csv = os.path.join(self.__temp_dir, "search_results_chain.csv")
+        output_file = os.path.join(self.__temp_dir, "search_results_chain.csv")
 
         query_database_from_structure(
             db_path=self.__db_path,
@@ -120,7 +125,7 @@ class TestCliSearch(unittest.TestCase):
             chain_id="A",  # Query specific chain
             top_k=5,
             threshold=None,
-            output_csv=output_csv,
+            output_file=output_file,
             min_res=10,
             max_res=None,
             accelerator=Accelerator.cpu,
@@ -128,7 +133,7 @@ class TestCliSearch(unittest.TestCase):
         )
 
         # Verify CSV was created
-        self.assertTrue(os.path.exists(output_csv))
+        self.assertTrue(os.path.exists(output_file))
 
     def test_05_stats(self):
         """Test getting database statistics."""
@@ -240,22 +245,23 @@ class TestCliSearch(unittest.TestCase):
         """Test querying one database against another."""
         from foldmatch.cli.search import query_database_from_database
 
-        output_csv = os.path.join(self.__temp_dir, "database_to_database_results.csv")
+        output_file = os.path.join(self.__temp_dir, "database_to_database_results.csv")
 
         query_database_from_database(
             query_db_path=self.__db_path,
             subject_db_path=self.__db_path,
             top_k=3,
             threshold=None,
-            output_csv=output_csv,
+            output_file=output_file,
             use_gpu_index=False
         )
 
-        self.assertTrue(os.path.exists(output_csv))
+        self.assertTrue(os.path.exists(output_file))
 
-        with open(output_csv, 'r') as f:
-            lines = f.readlines()
-            self.assertGreater(len(lines), 1)
+        with open(output_file, 'r') as f:
+            lines = [ln for ln in f if ln.strip()]
+        self.assertGreater(len(lines), 0)
+        self.assertEqual(len(lines[0].rstrip("\n").split("\t")), 3)
 
     def test_12_embedding_search_search_by_database(self):
         """Test EmbeddingSearch database-to-database search API."""
@@ -309,7 +315,7 @@ class TestCliSearch(unittest.TestCase):
         # Use the assembly database built in test_13
         assembly_db_path = os.path.join(self.__temp_dir, "test_faiss_assembly")
         query_structure = Path(f"{self.__test_path}/resources/pdb/1acb.cif")
-        output_csv = os.path.join(self.__temp_dir, "search_results_assembly.csv")
+        output_file = os.path.join(self.__temp_dir, "search_results_assembly.csv")
 
         query_database_from_structure(
             db_path=assembly_db_path,
@@ -317,7 +323,7 @@ class TestCliSearch(unittest.TestCase):
             structure_format=StructureFormat.mmcif,
             top_k=5,
             threshold=None,
-            output_csv=output_csv,
+            output_file=output_file,
             min_res=10,
             max_res=None,
             accelerator=Accelerator.cpu,
@@ -327,13 +333,13 @@ class TestCliSearch(unittest.TestCase):
         )
 
         # Verify CSV was created
-        self.assertTrue(os.path.exists(output_csv))
+        self.assertTrue(os.path.exists(output_file))
 
-        # Verify CSV contains results
-        with open(output_csv, 'r') as f:
-            lines = f.readlines()
-            # Should have header + at least some results
-            self.assertGreater(len(lines), 1)
+        # Embedding-only search: TSV, no header.
+        with open(output_file, 'r') as f:
+            lines = [ln for ln in f if ln.strip()]
+        self.assertGreater(len(lines), 0)
+        self.assertEqual(len(lines[0].rstrip("\n").split("\t")), 3)
 
 
     def test_17_build_database_from_embeddings(self):
@@ -400,7 +406,7 @@ class TestCliSearch(unittest.TestCase):
 
         # Use one of the pre-computed .pt chain embedding files as the query
         embedding_folder = Path(f"{self.__test_path}/resources/embeddings")
-        output_csv = os.path.join(self.__temp_dir, "query_from_embedding_results.csv")
+        output_file = os.path.join(self.__temp_dir, "query_from_embedding_results.csv")
 
         query_database_from_embedding(
             db_path=subject_db,
@@ -408,17 +414,17 @@ class TestCliSearch(unittest.TestCase):
             file_extension=".pt",
             top_k=5,
             threshold=None,
-            output_csv=output_csv,
+            output_file=output_file,
             use_gpu_index=False
         )
 
-        self.assertTrue(os.path.exists(output_csv))
-        with open(output_csv, 'r') as f:
-            lines = f.readlines()
-            # Header + at least one result
-            self.assertGreater(len(lines), 1)
-            # Query ID should be the filename stem
-            self.assertIn("1acb.A", lines[1])
+        self.assertTrue(os.path.exists(output_file))
+        with open(output_file, 'r') as f:
+            lines = [ln.rstrip("\n") for ln in f if ln.strip()]
+        # No header: every row is a result, query id in the first column.
+        self.assertGreater(len(lines), 0)
+        query_ids = {ln.split("\t")[0] for ln in lines}
+        self.assertIn("1acb.A", query_ids)
 
     def test_22_query_database_from_fasta(self):
         """Test querying the database with sequences from a FASTA file."""
@@ -434,7 +440,7 @@ class TestCliSearch(unittest.TestCase):
         )
 
         fasta_file = Path(f"{self.__test_path}/resources/fasta/test_sequences.fasta")
-        output_csv = os.path.join(self.__temp_dir, "query_from_fasta_results.csv")
+        output_file = os.path.join(self.__temp_dir, "query_from_fasta_results.csv")
 
         query_database_from_fasta(
             db_path=subject_db,
@@ -442,60 +448,59 @@ class TestCliSearch(unittest.TestCase):
             tmp_embedding_folder=self.__temp_dir,
             top_k=5,
             threshold=None,
-            output_csv=output_csv,
+            output_file=output_file,
             accelerator=Accelerator.cpu,
             use_gpu_index=False
         )
 
-        self.assertTrue(os.path.exists(output_csv))
-        with open(output_csv, 'r') as f:
-            lines = f.readlines()
-            # Header + results for 2 queries (1acb_E, 2uzi_A)
-            self.assertGreater(len(lines), 2)
-            query_ids = {line.split(',')[0] for line in lines[1:]}
-            self.assertIn("1acb_E", query_ids)
-            self.assertIn("2uzi_A", query_ids)
+        self.assertTrue(os.path.exists(output_file))
+        with open(output_file, 'r') as f:
+            lines = [ln.rstrip("\n") for ln in f if ln.strip()]
+        # Subject DB was built from embeddings, so it has no sequence store:
+        # Stage 2 is skipped and this is the embedding-only 3-column output.
+        self.assertGreater(len(lines), 1)
+        query_ids = {ln.split("\t")[0] for ln in lines}
+        self.assertIn("1acb_E", query_ids)
+        self.assertIn("2uzi_A", query_ids)
+        for ln in lines:
+            self.assertEqual(len(ln.split("\t")), 3)
 
     def test_23_cluster_database(self):
         """Test cluster_database CLI command on the test fixture FAISS database."""
         from foldmatch.cli.search import cluster_database
 
-        output_csv = os.path.join(self.__temp_dir, "clusters.csv")
+        output_file = os.path.join(self.__temp_dir, "clusters.tsv")
         cluster_database(
             db_path=self.__db_path,
             threshold=0.0,
             resolution=1.0,
-            output=output_csv,
+            output_file=output_file,
             max_neighbors=10,
             min_cluster_size=None,
             use_gpu_index=False,
             seed=42,
         )
 
-        self.assertTrue(os.path.exists(output_csv))
-        with open(output_csv, 'r') as f:
-            lines = f.readlines()
-        # Header + at least one cluster assignment row per chain in the fixture DB
-        self.assertGreater(len(lines), 1)
+        self.assertTrue(os.path.exists(output_file))
+        with open(output_file, 'r') as f:
+            lines = [ln.rstrip("\n") for ln in f if ln.strip()]
 
-        # Same export driven through the JSON output path (different file format branch).
-        output_json = os.path.join(self.__temp_dir, "clusters.json")
-        cluster_database(
-            db_path=self.__db_path,
-            threshold=0.0,
-            resolution=1.0,
-            output=output_json,
-            max_neighbors=10,
-            min_cluster_size=None,
-            use_gpu_index=False,
-            seed=42,
-        )
-        self.assertTrue(os.path.exists(output_json))
-        import json
-        with open(output_json) as f:
-            payload = json.load(f)
-        # Some JSON document was produced; structure is whatever the clusterer emits.
-        self.assertTrue(payload)
+        # TSV, no header: every line is a real chain assignment.
+        self.assertGreater(len(lines), 0)
+        for ln in lines:
+            cols = ln.split("\t")
+            self.assertEqual(len(cols), len(CLUSTER_OUTPUT_FIELDS))
+            int(cols[1])                      # cluster_id
+            self.assertGreater(int(cols[2]), 0)  # cluster_size
+        # First column is a chain id from the fixture database, not a header.
+        self.assertNotEqual(lines[0].split("\t")[0], "chain_id")
+
+        # cluster_size must agree with the number of rows sharing a cluster_id.
+        from collections import Counter
+        counts = Counter(ln.split("\t")[1] for ln in lines)
+        for ln in lines:
+            _chain, cluster_id, size = ln.split("\t")
+            self.assertEqual(int(size), counts[cluster_id])
 
     def test_24_similarity_graph(self):
         """Test similarity_graph CLI command exports a non-empty GraphML file."""
@@ -505,7 +510,7 @@ class TestCliSearch(unittest.TestCase):
         similarity_graph(
             db_path=self.__db_path,
             threshold=0.0,
-            output=output_graphml,
+            output_file=output_graphml,
             max_neighbors=10,
             use_gpu_index=False,
         )
@@ -545,47 +550,54 @@ class TestCliSearch(unittest.TestCase):
             use_gpu_index=False,
         )
 
-        # Default format: the 12 mmseqs default columns, TSV, no header.
-        default_csv = os.path.join(self.__temp_dir, "stage2_default.tsv")
+        # Default format: query,target,embscore + the mmseqs defaults.
+        default_tsv = os.path.join(self.__temp_dir, "stage2_default.tsv")
         query_database_from_fasta(
             db_path=subject_db,
             fasta_file=fasta_file,
             tmp_embedding_folder=self.__temp_dir,
             top_k=5,
             threshold=None,
-            output_csv=default_csv,
+            output_file=default_tsv,
             accelerator=Accelerator.cpu,
             use_gpu_index=False,
         )
-        with open(default_csv) as f:
+        with open(default_tsv) as f:
             lines = [ln.rstrip("\n") for ln in f if ln.strip()]
         self.assertGreater(len(lines), 0)
+        n_default = len(DEFAULT_OUTPUT_FIELDS)
         for ln in lines:
             cols = ln.split("\t")
-            self.assertEqual(len(cols), 12)      # default field count
+            self.assertEqual(len(cols), n_default)
             self.assertNotIn(",", ln)            # tab-separated, not CSV
         # No header row: first token of every line is a real query id.
         query_ids = {ln.split("\t")[0] for ln in lines}
         self.assertTrue(query_ids <= {"1acb_E", "2uzi_A"})
-        # Each query self-matches at full identity (fident is column 3).
-        self_hits = [ln for ln in lines if ln.split("\t")[0] == ln.split("\t")[1]]
+        # Column order is exactly DEFAULT_OUTPUT_FIELDS, so look fields up by
+        # name rather than hardcoding indices.
+        idx = {name: i for i, name in enumerate(DEFAULT_OUTPUT_FIELDS)}
+        self.assertEqual(DEFAULT_OUTPUT_FIELDS[:3], ("query", "target", "embscore"))
+        # Each query self-matches at full identity, with an embedding score.
+        self_hits = [ln.split("\t") for ln in lines
+                     if ln.split("\t")[0] == ln.split("\t")[1]]
         self.assertTrue(self_hits)
-        self.assertEqual(self_hits[0].split("\t")[2], "1.000")
+        self.assertEqual(self_hits[0][idx["fident"]], "1.000")
+        float(self_hits[0][idx["embscore"]])
 
         # Custom format: a heavy column (cigar) plus qseq/qlen must be honored.
-        custom_csv = os.path.join(self.__temp_dir, "stage2_custom.tsv")
+        custom_tsv = os.path.join(self.__temp_dir, "stage2_custom.tsv")
         query_database_from_fasta(
             db_path=subject_db,
             fasta_file=fasta_file,
             tmp_embedding_folder=self.__temp_dir,
             top_k=5,
             threshold=None,
-            output_csv=custom_csv,
+            output_file=custom_tsv,
             accelerator=Accelerator.cpu,
             use_gpu_index=False,
             format_output="query,target,pident,alnlen,cigar,qseq,qlen",
         )
-        with open(custom_csv) as f:
+        with open(custom_tsv) as f:
             rows = [ln.rstrip("\n").split("\t") for ln in f if ln.strip()]
         self.assertTrue(rows)
         for cols in rows:
@@ -620,7 +632,7 @@ class TestCliSearch(unittest.TestCase):
                 tmp_embedding_folder=self.__temp_dir,
                 top_k=5,
                 threshold=None,
-                output_csv=os.path.join(self.__temp_dir, "unused.tsv"),
+                output_file=os.path.join(self.__temp_dir, "unused.tsv"),
                 accelerator=Accelerator.cpu,
                 use_gpu_index=False,
                 format_output="query,target,not_a_field",

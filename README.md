@@ -20,7 +20,7 @@ If you are interested in training a new model with a new structure dataset, visi
 - **Sequence-based embeddings** from FASTA files without requiring 3D structures
 - **Structure-level embeddings** aggregated via a transformer-based aggregator network 
 - **Fast and efficient** FAISS-based similarity search
-- **Two-stage sequence search** — an embedding prefilter followed by exact pairwise Smith-Waterman alignment, reporting sequence identity, coverage, and approximate significance
+- **Two-stage sequence search** — an embedding prefilter followed by exact pairwise Smith-Waterman alignment, reporting sequence identity, coverage, and calibrated E-values over selectable output columns
 - **Structural clustering** using the Leiden algorithm for biological assembly identification
 - **Command-line interface** implemented with Typer for high-throughput inference workflows  
 - **Python API** for interactive embedding computation and integration into analysis pipelines  
@@ -104,36 +104,58 @@ fm-search build structures  --structure-folder data/pdb --output-db dbs/my_db --
 fm-search build sequences   --fasta-file seqs.fasta     --output-db dbs/my_db --tmp-embedding-folder tmp
 fm-search build embeddings  --embedding-folder out      --output-db dbs/my_db
 
-# Query the database
-fm-search query structure   --db-path dbs/my_db --query-structure q.cif
-fm-search query sequences   --db-path dbs/my_db --fasta-file q.fasta --tmp-embedding-folder tmp
-fm-search query embedding   --db-path dbs/my_db --embedding-file q.pt
-fm-search query db          --query-db-path dbs/queries --subject-db-path dbs/my_db
+# Query the database (--output-file is required)
+fm-search query structure   --db-path dbs/my_db --query-structure q.cif --output-file hits.tsv
+fm-search query sequences   --db-path dbs/my_db --fasta-file q.fasta --tmp-embedding-folder tmp --output-file hits.tsv
+fm-search query embedding   --db-path dbs/my_db --embedding-folder out --output-file hits.tsv
+fm-search query db          --query-db-path dbs/queries --subject-db-path dbs/my_db --output-file hits.tsv
 
 # Inspect, cluster, export
 fm-search stats             --db-path dbs/my_db
-fm-search cluster           --db-path dbs/my_db --output clusters.csv
-fm-search similarity-graph  --db-path dbs/my_db --output graph.graphml
+fm-search cluster           --db-path dbs/my_db --output-file clusters.tsv
+fm-search similarity-graph  --db-path dbs/my_db --output-file graph.graphml
 ```
 
 All `build` commands accept `--index-type [auto|flat|hnsw|ivf_pq]` and IVF-PQ tuning flags (`--ivf-nlist`, `--ivf-nprobe`). See `fm-search <subcommand> --help` for the full surface.
+
+#### Output format
+
+Every command writes **tab-separated rows with no header** to `--output-file` — one record per line. `query` results are ordered best-first per query, so rank is simply the row order.
+
+An **embedding-only** search — `query structure`, `query embedding`, or any query whose database has no sequence store — emits three columns:
+
+```
+query   target   embscore
+```
+
+A **sequence-identity** search (Stage 2, below) emits the columns chosen with `--format-output`, which default to those same three followed by the alignment statistics.
+
+`cluster` uses the same convention with its own columns:
+
+```
+chain_id   cluster_id   cluster_size
+```
+
+(`similarity-graph` is the one exception: GraphML is a graph format, not tabular.)
 
 #### Two-stage sequence search (exact identity)
 
 `build sequences` also writes a sidecar `{db}.sequences` store next to the FAISS index. This lets sequence-built databases report **exact** sequence identity, not just embedding similarity: when you run `query sequences` (or `query db`) against such a database, a second stage pairwise-aligns each embedding hit (local Smith-Waterman, BLOSUM62) and re-ranks the surviving hits by identity.
 
-Stage-2 hits are written as **tab-separated rows with no header**. Pick the columns with `--format-output`:
+Stage-2 hits use the same **tab-separated, no-header** format as every other query output. Pick the columns with `--format-output`:
 
 ```bash
 # Stage 2 turns on automatically when the database has a sequence store
-fm-search query sequences --db-path dbs/my_db --fasta-file q.fasta --tmp-embedding-folder tmp
+fm-search query sequences --db-path dbs/my_db --fasta-file q.fasta \
+    --tmp-embedding-folder tmp --output-file hits.tsv
 
 # Choose the output columns
-fm-search query sequences --db-path dbs/my_db --fasta-file q.fasta --tmp-embedding-folder tmp \
-    --format-output "query,target,fident,alnlen,evalue,bits,qaln,taln"
+fm-search query sequences --db-path dbs/my_db --fasta-file q.fasta \
+    --tmp-embedding-folder tmp --output-file hits.tsv \
+    --format-output "query,target,evalue,qaln,taln"
 ```
 
-Default columns: `query,target,fident,alnlen,mismatch,gapopen,qstart,qend,tstart,tend,evalue,bits`.
+Default columns: `query,target,embscore,fident,alnlen,mismatch,gapopen,qstart,qend,tstart,tend,evalue,bits`.
 
 Supported `--format-output` fields:
 
@@ -141,13 +163,14 @@ Supported `--format-output` fields:
 |-------|---------|-------|---------|
 | `query` | Query sequence identifier | `tlen` | Target sequence length |
 | `target` | Target sequence identifier | `alnlen` | Alignment length (aligned columns) |
-| `evalue` | E-value | `raw` | Raw alignment score |
-| `gapopen` | Number of gap **open events** (not gap chars) | `bits` | Bit score (integer) |
-| `pident` | Percentage of identical matches | `cigar` | CIGAR string (`M` match, `D` gap in query, `I` gap in target) |
-| `fident` | Fraction of identical matches | `qseq` / `tseq` | Query / target sequence |
-| `nident` | Number of identical matches | `qaln` / `taln` | Aligned query / target sequence with gaps |
-| `qstart` / `qend` | 1-indexed alignment bounds in query | `mismatch` | Number of mismatches |
-| `qlen` | Query sequence length | `qcov` / `tcov` | Fraction of query / target covered |
+| `embscore` | Stage-1 embedding similarity score | `raw` | Raw alignment score |
+| `evalue` | E-value | `bits` | Bit score (integer) |
+| `gapopen` | Number of gap **open events** (not gap chars) | `cigar` | CIGAR string (`M` match, `D` gap in query, `I` gap in target) |
+| `pident` | Percentage of identical matches | `qseq` / `tseq` | Query / target sequence |
+| `fident` | Fraction of identical matches | `qaln` / `taln` | Aligned query / target sequence with gaps |
+| `nident` | Number of identical matches | `mismatch` | Number of mismatches |
+| `qstart` / `qend` | 1-indexed alignment bounds in query | `qcov` / `tcov` | Fraction of query / target covered |
+| `qlen` | Query sequence length | | |
 | `tstart` / `tend` | 1-indexed alignment bounds in target | | |
 
 - **Auto by default**: Stage 2 runs when the database(s) carry a sequence store and falls back to embedding-only otherwise. Force it with `--seq-identity` (errors if no store is present) or disable with `--no-seq-identity`. `query db` requires **both** databases to have sequence stores.

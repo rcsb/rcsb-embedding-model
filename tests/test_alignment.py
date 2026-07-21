@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from foldmatch.search import alignment
+from foldmatch.search import alignment, output
 from foldmatch.search.alignment import (
     DEFAULT_OUTPUT_FIELDS,
     SUPPORTED_OUTPUT_FIELDS,
@@ -329,6 +329,68 @@ class TestWriteAlignedResults(unittest.TestCase):
         # First hit is the identical self-match: fident 1.000, cigar full-length M.
         self.assertEqual(lines[0].split("\t")[2], "1.000")
         self.assertRegex(lines[0].split("\t")[4], r"^\d+M$")
+
+    def test_embedding_score_column_carries_prefilter_score(self):
+        """The embscore column reports the Stage-1 score for that hit."""
+        fields = ["query", "target", "embscore"]
+        res = alignment.align_candidates(
+            query_sequences={"q1": _STORE["s1"]},
+            prefilter_results={"q1": (["s1", "s2"], [0.9, 0.75])},
+            fetch_subject_sequences=_fetch,
+            min_seq_identity=0.0,
+            num_workers=1,
+            compute_significance=False,
+            output_fields=fields,
+        )
+        with tempfile.TemporaryDirectory() as d:
+            out = Path(d) / "hits.tsv"
+            alignment.write_aligned_results(res, fields, str(out))
+            rows = [ln.split("\t") for ln in out.read_text().splitlines()]
+
+        by_target = {r[1]: r[2] for r in rows}
+        # Formatted identically to the embedding-only output writer.
+        self.assertEqual(by_target["s1"], output.format_embedding_score(0.9))
+        self.assertEqual(by_target["s2"], output.format_embedding_score(0.75))
+        self.assertEqual(by_target["s1"], "0.900000")
+
+    def test_default_format_leads_with_ids_then_embedding_score(self):
+        self.assertEqual(
+            alignment.DEFAULT_OUTPUT_FIELDS[:3],
+            ("query", "target", "embscore"),
+        )
+
+
+class TestWriteEmbeddingResults(unittest.TestCase):
+    """The embedding-only (Stage-1) output shares the Stage-2 file convention."""
+
+    def test_tsv_no_header_three_columns(self):
+        results = {
+            "q1": (["s1", "s2"], [0.91, 0.4]),
+            "q2": (["s3"], [0.55]),
+        }
+        with tempfile.TemporaryDirectory() as d:
+            out = Path(d) / "emb.tsv"
+            output.write_embedding_results(results, str(out))
+            lines = out.read_text().splitlines()
+
+        self.assertEqual(len(lines), 3)  # three hits, no header row
+        self.assertEqual(lines[0].split("\t"), ["q1", "s1", "0.910000"])
+        self.assertEqual(lines[1].split("\t"), ["q1", "s2", "0.400000"])
+        self.assertEqual(lines[2].split("\t"), ["q2", "s3", "0.550000"])
+        for line in lines:
+            self.assertEqual(len(line.split("\t")), len(output.EMBEDDING_OUTPUT_FIELDS))
+
+    def test_query_with_no_hits_emits_no_rows(self):
+        with tempfile.TemporaryDirectory() as d:
+            out = Path(d) / "emb.tsv"
+            output.write_embedding_results({"q1": ([], [])}, str(out))
+            self.assertEqual(out.read_text(), "")
+
+    def test_columns_match_stage2_field_names(self):
+        # Every embedding-only column name is also a Stage-2 field, so the two
+        # files can be parsed with one schema.
+        for name in output.EMBEDDING_OUTPUT_FIELDS:
+            self.assertIn(name, SUPPORTED_OUTPUT_FIELDS)
 
 
 if __name__ == "__main__":
