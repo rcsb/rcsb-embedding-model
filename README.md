@@ -9,7 +9,7 @@ FoldMatch is a Python toolkit to encode macromolecular 3D structures into fixed-
 
 Reference: [Multi-scale structural similarity embedding search across entire proteomes](https://doi.org/10.1093/bioinformatics/btag058).
 
-A web-based implementation using this tool for structure similarity search is available at [rcsb-embedding-search](http://embedding-search.rcsb.org).
+A web-based implementation using this tool for structure similarity search is available at [RCSB.org](https://www.rcsb.org/search/advanced) under **3D Similarity**.
 
 If you are interested in training a new model with a new structure dataset, visit the [rcsb-embedding-search repository](https://github.com/bioinsilico/rcsb-embedding-search), which provides scripts and documentation for training.
 
