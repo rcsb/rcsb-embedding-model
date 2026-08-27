@@ -603,7 +603,13 @@ def query_database_from_fasta(
         min_coverage: Annotated[float, typer.Option(
             help='When --seq-identity is set, drop hits whose query AND subject '
                  'coverage are below this fraction (0-1).'
-        )] = 0.0,
+        )] = 0.8,
+        max_evalue: Annotated[float, typer.Option(
+            help='When --seq-identity is set, drop hits whose database E-value is '
+                 'above this. Forces the significance pass (and, in '
+                 "--significance-mode default, its 11/1 gap penalties); pass "
+                 "'inf' to disable E-value filtering."
+        )] = 1e-3,
         gap_open: Annotated[int, typer.Option(
             help='Gap-open penalty (positive) for Stage-2 alignment.'
         )] = 11,
@@ -690,6 +696,7 @@ def query_database_from_fasta(
             query_sequences=query_sequences,
             min_seq_identity=min_seq_identity,
             min_coverage=min_coverage,
+            max_evalue=max_evalue,
             gap_open=gap_open,
             gap_extend=gap_extend,
             num_workers=align_workers,
@@ -747,7 +754,13 @@ def query_database_from_database(
         min_coverage: Annotated[float, typer.Option(
             help='When --seq-identity is set, drop hits whose query AND subject '
                  'coverage are below this fraction (0-1).'
-        )] = 0.0,
+        )] = 0.8,
+        max_evalue: Annotated[float, typer.Option(
+            help='When --seq-identity is set, drop hits whose database E-value is '
+                 'above this. Forces the significance pass (and, in '
+                 "--significance-mode default, its 11/1 gap penalties); pass "
+                 "'inf' to disable E-value filtering."
+        )] = 1e-3,
         gap_open: Annotated[int, typer.Option(
             help='Gap-open penalty (positive) for Stage-2 alignment.'
         )] = 11,
@@ -837,6 +850,7 @@ def query_database_from_database(
             query_sequences=query_sequences,
             min_seq_identity=min_seq_identity,
             min_coverage=min_coverage,
+            max_evalue=max_evalue,
             gap_open=gap_open,
             gap_extend=gap_extend,
             num_workers=align_workers,
@@ -1078,6 +1092,7 @@ def _stage2_align_and_report(
         query_sequences,
         min_seq_identity: float,
         min_coverage: float,
+        max_evalue: Optional[float],
         gap_open: int,
         gap_extend: int,
         num_workers: Optional[int],
@@ -1116,12 +1131,14 @@ def _stage2_align_and_report(
         fetch_subject_sequences=subject_store.fetch,
         min_seq_identity=min_seq_identity,
         min_coverage=min_coverage,
+        max_evalue=max_evalue,
         gap_open=gap_open,
         gap_extend=gap_extend,
         num_workers=num_workers,
         subject_db_size=subject_store.total_residues(),
         # Only pay for the significance pass when a significance column
-        # (evalue/bits) is actually requested.
+        # (evalue/bits) is actually requested — align_candidates turns it back
+        # on by itself when max_evalue asks for an E-value to filter on.
         compute_significance=output.needs_significance(output_fields),
         significance_mode=significance_mode,
         significance_sample_size=significance_sample_size,

@@ -517,7 +517,8 @@ def align_candidates(
         prefilter_results: Dict[str, Tuple[List[str], List[float]]],
         fetch_subject_sequences,
         min_seq_identity: float = 0.3,
-        min_coverage: float = 0.0,
+        min_coverage: float = 0.8,
+        max_evalue: Optional[float] = 1e-3,
         gap_open: int = 11,
         gap_extend: int = 1,
         num_workers: Optional[int] = None,
@@ -545,6 +546,13 @@ def align_candidates(
             subject sequences across queries.
         min_seq_identity: drop hits whose ``identity_aln`` is below this.
         min_coverage: drop hits whose query *and* subject coverage are below this.
+        max_evalue: drop hits whose database E-value is above this. ``None``
+            or a non-finite value disables the filter. Because the E-value is a
+            significance quantity, setting it forces ``compute_significance=True``
+            and requires ``subject_db_size`` — so a caller with no search space
+            (or one deliberately skipping the significance pass) must pass
+            ``max_evalue=None``. These three thresholds default to the same
+            values as the ``fm-search query`` options that expose them.
         gap_open / gap_extend: positive BLOSUM62 gap penalties (negated internally).
         num_workers: process-pool size. ``None`` (default) uses **all** CPUs:
             it first widens the process CPU-affinity mask (undoing any scheduler
@@ -587,6 +595,19 @@ def align_candidates(
         ``[]``.
     """
     start_time = time.perf_counter()
+    # An E-value threshold only means something once the significance pass has
+    # run against a known search space, so turn it on rather than silently
+    # dropping every hit (evalue stays None when it is off). A non-finite
+    # threshold ('inf') is the documented way to switch the filter off.
+    if max_evalue is not None and not math.isfinite(max_evalue):
+        max_evalue = None
+    if max_evalue is not None:
+        if subject_db_size is None:
+            raise ValueError(
+                "max_evalue filtering requires subject_db_size (the database "
+                "search space); pass it or set max_evalue=None."
+            )
+        compute_significance = True
     # Resolve the requested output columns to the set of heavy strings the
     # workers must build (default format needs none of them).
     output_fields = list(output_fields) if output_fields else list(DEFAULT_OUTPUT_FIELDS)
@@ -630,7 +651,18 @@ def align_candidates(
     lam = k = alp_params = None
     if compute_significance and tasks:
         if significance_mode is SignificanceMode.default:
-            alp_params = karlin_altschul.params_for(gap_open, gap_extend)
+            try:
+                alp_params = karlin_altschul.params_for(gap_open, gap_extend)
+            except ValueError as exc:
+                # Without an E-value threshold, these gap penalties would have
+                # been fine whenever no significance column was requested — say
+                # how to get that behaviour back.
+                if max_evalue is None:
+                    raise
+                raise ValueError(
+                    f"{exc} E-value filtering (max_evalue={max_evalue:g}) requires "
+                    f"significance; disable it to use these gap penalties."
+                ) from None
             logger.info(
                 f"Using calibrated significance (BLOSUM62 {gap_open}/{gap_extend}: "
                 f"lambda={alp_params.lam:.8f}, K={alp_params.k:.9f})"
@@ -701,6 +733,9 @@ def align_candidates(
             if hit.metrics.aln_len > 0
             and hit.metrics.identity_aln >= min_seq_identity
             and min(hit.metrics.query_coverage, hit.metrics.subject_coverage) >= min_coverage
+            # evalue is guaranteed non-None here: a max_evalue forces the
+            # significance pass and a subject_db_size above.
+            and (max_evalue is None or hit.metrics.evalue <= max_evalue)
         ]
         # Rank by bit score (desc), embedding score breaking ties. When
         # significance is disabled there is no bit score, so fall back to the raw

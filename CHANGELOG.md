@@ -6,6 +6,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 While the major version is `0`, breaking changes are released in a minor bump.
 
+## [Unreleased]
+
+### Added
+
+- **`--max-evalue`** on `fm-search query sequences` and `fm-search query db`:
+  drops Stage-2 hits whose database E-value is above the threshold. Defaults to
+  `1e-3`, so a default search now reports only statistically significant
+  alignments; pass `--max-evalue inf` to keep every hit. Because the E-value is
+  a significance quantity, the option turns the significance pass on even when
+  neither `evalue` nor `bits` is in `--format-output` (and so, under
+  `--significance-mode default`, requires the 11/1 gap penalties).
+
+### Changed
+
+- **`--min-coverage` now defaults to `0.8`** (was `0.0`) on `fm-search query
+  sequences` and `fm-search query db`, matching the coverage cut-off other
+  alignment tools apply by default. Pass `--min-coverage 0` for the previous
+  behaviour.
+- **`align_candidates` thresholds now default to the CLI's values**
+  (`min_seq_identity=0.3`, `min_coverage=0.8`, `max_evalue=1e-3`), so the Python
+  entry point filters like the equivalent `fm-search query` run instead of
+  returning every alignment. Callers that want the old permissive behaviour pass
+  `min_coverage=0.0, max_evalue=None`; `max_evalue=None` is also required when
+  no `subject_db_size` is available, since an E-value threshold needs a search
+  space.
+
 ## [0.8.0] - 2026-07-21
 
 This release reworks how `fm-search` reports results and makes its alignment

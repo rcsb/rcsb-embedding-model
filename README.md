@@ -1,6 +1,6 @@
 # FoldMatch
 
-**Version** 0.8.0
+**Version** 0.9.0
 
 
 ## Overview
@@ -191,7 +191,7 @@ Supported `--format-output` fields:
 | `tstart` / `tend` | 1-indexed alignment bounds in target | | |
 
 - **Auto by default**: Stage 2 runs when the database(s) carry a sequence store and falls back to embedding-only otherwise. Force it with `--seq-identity` (errors if no store is present) or disable with `--no-seq-identity`. `query db` requires **both** databases to have sequence stores.
-- Hits below `--min-seq-identity` (default `0.3`) or `--min-coverage` are dropped.
+- Hits below `--min-seq-identity` (default `0.3`) or `--min-coverage` (default `0.8`) are dropped, as are hits above `--max-evalue` (default `1e-3`; pass `inf` to keep every hit). `--max-evalue` turns the significance pass on even when neither `evalue` nor `bits` is in `--format-output`.
 - Tuning: `--gap-open`, `--gap-extend`, and `--align-workers` (defaults to all CPUs on the node).
 - `evalue`/`bits` use calibrated Karlin–Altschul statistics by default (`--significance-mode default`). `--significance-mode sampled` estimates λ/K by sampling for other gap penalties, but its absolute magnitudes are relative-only. The significance pass is skipped automatically when neither `evalue` nor `bits` is in `--format-output`.
 

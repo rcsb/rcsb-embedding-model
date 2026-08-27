@@ -89,6 +89,7 @@ class TestAlignCandidatesParallelism(unittest.TestCase):
             fetch_subject_sequences=_fetch,
             min_seq_identity=0.0,   # keep every hit so completeness is checkable
             min_coverage=0.0,
+            max_evalue=None,
             num_workers=num_workers,
             compute_significance=False,  # skip the slow lambda/K sampling pass
         )
@@ -184,6 +185,7 @@ class TestParseFormatOutput(unittest.TestCase):
                     fetch_subject_sequences=_fetch,
                     min_seq_identity=0.0,
                     min_coverage=0.0,
+                    max_evalue=None,
                     num_workers=1,
                     subject_db_size=sum(len(v) for v in _STORE.values()),
                     compute_significance=True,
@@ -225,6 +227,7 @@ class TestOutputFieldComputation(unittest.TestCase):
             fetch_subject_sequences=_fetch,
             min_seq_identity=0.0,
             min_coverage=0.0,
+            max_evalue=None,
             num_workers=num_workers,
             subject_db_size=sum(len(v) for v in _STORE.values()),
             compute_significance=False,
@@ -302,6 +305,8 @@ class TestDefaultFormatGating(unittest.TestCase):
             prefilter_results={"q1": (["s1", "s2"], [0.9, 0.8])},
             fetch_subject_sequences=_fetch,
             min_seq_identity=0.0,
+            min_coverage=0.0,
+            max_evalue=None,
             num_workers=1,
             subject_db_size=sum(len(v) for v in _STORE.values()),
             compute_significance=False,
@@ -328,11 +333,90 @@ class TestNoAlignmentCandidateDropped(unittest.TestCase):
             fetch_subject_sequences=lambda ids: {i: store[i] for i in ids if i in store},
             min_seq_identity=0.0,
             min_coverage=0.0,
+            max_evalue=None,
             num_workers=1,
             subject_db_size=10,
             output_fields=list(SUPPORTED_OUTPUT_FIELDS),
         )
         self.assertEqual(res["q"], [])
+
+
+class TestMaxEvalueFilter(unittest.TestCase):
+    """The E-value threshold drops weak hits and self-enables significance."""
+
+    def _run(self, max_evalue, **kwargs):
+        return alignment.align_candidates(
+            query_sequences={"q1": _STORE["s1"]},
+            # s1/s2/s3 are near-identical to the query; s4 is unrelated noise.
+            prefilter_results={"q1": (["s1", "s2", "s3", "s4"], [0.9, 0.8, 0.7, 0.6])},
+            fetch_subject_sequences=_fetch,
+            min_seq_identity=0.0,
+            min_coverage=0.0,
+            max_evalue=max_evalue,
+            num_workers=1,
+            subject_db_size=sum(len(v) for v in _STORE.values()),
+            **kwargs,
+        )
+
+    def test_threshold_drops_insignificant_hits(self):
+        unfiltered = self._run(None, compute_significance=True)["q1"]
+        filtered = self._run(1e-3)["q1"]
+        self.assertGreater(len(unfiltered), len(filtered))
+        # Only hits at or below the threshold survive, and the strong ones do.
+        self.assertTrue(all(h.metrics.evalue <= 1e-3 for h in filtered))
+        self.assertIn("s1", [h.subject_id for h in filtered])
+
+    def test_significance_is_forced_on_for_the_filter(self):
+        # compute_significance=False would leave every evalue None; the filter
+        # must turn the pass back on rather than drop the whole result set.
+        hits = self._run(1e-3, compute_significance=False)["q1"]
+        self.assertTrue(hits)
+        self.assertTrue(all(h.metrics.evalue is not None for h in hits))
+
+    def test_none_and_inf_disable_the_filter(self):
+        baseline = self._run(None, compute_significance=True)["q1"]
+        self.assertEqual(len(self._run(float("inf"))["q1"]), len(baseline))
+
+    def test_requires_a_search_space(self):
+        with self.assertRaises(ValueError):
+            alignment.align_candidates(
+                query_sequences={"q1": _STORE["s1"]},
+                prefilter_results={"q1": (["s1"], [0.9])},
+                fetch_subject_sequences=_fetch,
+                min_seq_identity=0.0,
+                max_evalue=1e-3,
+                num_workers=1,
+                subject_db_size=None,
+            )
+
+
+class TestThresholdDefaultsMatchTheCli(unittest.TestCase):
+    """The library's Stage-2 thresholds are the CLI's documented defaults.
+
+    ``align_candidates`` is the public Python entry point for the same search
+    the ``fm-search query`` commands run, so a user calling it directly must get
+    the filtering the CLI's help text and README promise. The two live in
+    different modules, so nothing but this test keeps them in step.
+    """
+
+    THRESHOLDS = ("min_seq_identity", "min_coverage", "max_evalue")
+
+    def test_defaults_are_in_step(self):
+        import inspect
+
+        from foldmatch.cli import search as cli
+
+        lib = inspect.signature(alignment.align_candidates).parameters
+        for command in (cli.query_database_from_fasta, cli.query_database_from_database):
+            cmd = inspect.signature(command).parameters
+            for name in self.THRESHOLDS:
+                with self.subTest(command=command.__name__, threshold=name):
+                    self.assertEqual(
+                        lib[name].default, cmd[name].default,
+                        f"align_candidates {name}={lib[name].default!r} but "
+                        f"--{name.replace('_', '-')} defaults to "
+                        f"{cmd[name].default!r}; update both (and the README).",
+                    )
 
 
 class TestWriteAlignedResults(unittest.TestCase):
@@ -343,6 +427,8 @@ class TestWriteAlignedResults(unittest.TestCase):
             prefilter_results={"q1": (["s1", "s2"], [0.9, 0.8])},
             fetch_subject_sequences=_fetch,
             min_seq_identity=0.0,
+            min_coverage=0.0,
+            max_evalue=None,
             num_workers=1,
             subject_db_size=sum(len(v) for v in _STORE.values()),
             compute_significance=False,
@@ -370,6 +456,8 @@ class TestWriteAlignedResults(unittest.TestCase):
             prefilter_results={"q1": (["s1", "s2"], [0.9, 0.75])},
             fetch_subject_sequences=_fetch,
             min_seq_identity=0.0,
+            min_coverage=0.0,
+            max_evalue=None,
             num_workers=1,
             compute_significance=False,
             output_fields=fields,
@@ -401,6 +489,8 @@ class TestFormatMode(unittest.TestCase):
             prefilter_results={"q1": (["s1", "s2"], [0.9, 0.8])},
             fetch_subject_sequences=_fetch,
             min_seq_identity=0.0,
+            min_coverage=0.0,
+            max_evalue=None,
             num_workers=1,
             compute_significance=False,
             output_fields=fields,
